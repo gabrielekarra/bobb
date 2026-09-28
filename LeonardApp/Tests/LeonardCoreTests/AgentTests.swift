@@ -510,3 +510,26 @@ private let spotify = ScreenObservation(app: "Spotify", bundleId: "com.spotify.c
         #expect(state.commitments[2].isOverdue(now: now))
     }
 }
+
+// MARK: - Showing Leonard how
+
+@Suite struct DemonstrationTests {
+    @Test func whatTheUserDoesBecomesSteps() throws {
+        var recorder = DemonstrationRecorder(goal: "archivia le fatture")
+        recorder.record(.openedApp("Finder"))
+        recorder.record(.openedApp("Finder"))
+        recorder.record(.pressed(label: "Download", role: "row", app: "Finder"))
+        recorder.record(.pressed(label: "Download", role: "row", app: "Finder"))
+        recorder.record(.typed(label: "Search", text: "fat", app: "Finder"))
+        recorder.record(.typed(label: "Search", text: "fattura", app: "Finder"))
+        recorder.record(.pressed(label: "", role: "button", app: "Finder"))
+        #expect(recorder.steps.map(\.operation) == [.openApp, .click, .type])
+        #expect(recorder.steps.last?.text == "fattura")
+        #expect(recorder.steps.allSatisfy { $0.outcome == .user })
+        let data = try OutgoingFrame.procedureRecord(recorder.frame).encoded()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["t"] as? String == "procedure.record")
+        let steps = json["steps"] as! [[String: Any]]
+        #expect(steps.map { $0["operation"] as? String } == ["OPEN_APP", "CLICK", "TYPE"])
+    }
+}

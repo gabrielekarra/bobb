@@ -9,6 +9,8 @@ struct TaskActions {
     var allow: (PermissionAnswer) -> Void
     var undo: () -> Void
     var close: () -> Void
+    var showMe: () -> Void = {}
+    var finishShowing: (Bool) -> Void = { _ in }
 }
 
 /// The task panel: a small card at the top of the screen while Leonard
@@ -25,6 +27,11 @@ struct TaskView: View {
                 header(task)
                 if case .waitingForPermission(let request) = task.phase {
                     permission(request)
+                } else if case .watching = task.phase {
+                    watching
+                } else if case .learned = task.phase {
+                    Label(L10n.t(.taskLearned), systemImage: "graduationcap")
+                        .font(.system(size: 12))
                 } else if case .finished(let status, let detail) = task.phase {
                     finished(task, status: status, detail: detail)
                 } else {
@@ -171,7 +178,28 @@ struct TaskView: View {
                 Button(L10n.t(.taskUndo), action: actions.undo)
                     .buttonStyle(QuietButtonStyle())
             }
+            if status == .blocked || status == .failed {
+                Button(L10n.t(.taskShowMe), action: actions.showMe)
+                    .buttonStyle(PrimaryButtonStyle())
+            }
         }
+    }
+
+    private var watching: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L10n.t(.taskWatching), systemImage: "eye")
+                .font(.system(size: 12))
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button(L10n.t(.genericCancel)) { actions.finishShowing(false) }
+                    .buttonStyle(QuietButtonStyle())
+                Spacer()
+                Button(L10n.t(.taskWatchDone)) { actions.finishShowing(true) }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+        }
+        .padding(10)
+        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.corner))
     }
 
     static func outcome(status: TaskStatus, detail: String) -> String {
@@ -250,6 +278,7 @@ struct TaskView: View {
         case .waitingForPermission: .look(CGVector(dx: 0, dy: 1))
         case .acting: .look(CGVector(dx: 0.8, dy: 0.2))
         case .finished(let status, _): status == .done ? .up : .closed
+        case .watching: .look(CGVector(dx: -0.7, dy: 0.5))
         default: .up
         }
     }
@@ -309,7 +338,49 @@ final class TaskController {
     }
 
     func stop() {
+        if watcher != nil {
+            finishShowing(keep: false)
+            return
+        }
         loop?.stop()
+    }
+
+    // MARK: Show me
+
+    private var watcher: DemonstrationWatcher?
+
+    /// The user does it themselves; Leonard watches and learns the way.
+    private func startShowing() {
+        guard let task = state.task, running == nil else { return }
+        hideTask?.cancel()
+        let watcher = DemonstrationWatcher(goal: task.goal, protectedApps: state.settings.extraProtectedApps)
+        watcher.onChange = { [weak self] recorder in
+            self?.state.task?.steps = recorder.steps
+        }
+        self.watcher = watcher
+        state.task?.steps = []
+        state.task?.canUndo = false
+        state.task?.phase = .watching
+        watcher.start()
+        installEscape()
+    }
+
+    private func finishShowing(keep: Bool) {
+        guard let watcher else { return }
+        self.watcher = nil
+        removeEscape()
+        let recorder = watcher.stop()
+        if keep && !recorder.steps.isEmpty {
+            coordinator.recordProcedure(recorder.frame)
+            state.task?.phase = .learned
+            hideTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !Task.isCancelled else { return }
+                self?.close()
+            }
+        } else {
+            close()
+        }
     }
 
     private func finished(_ status: TaskStatus) {
@@ -327,7 +398,7 @@ final class TaskController {
     }
 
     func close() {
-        guard running == nil else { return }
+        guard running == nil, watcher == nil else { return }
         panel?.orderOut(nil)
         state.task = nil
     }
@@ -341,7 +412,9 @@ final class TaskController {
                     guard let loop = self?.loop else { return }
                     Task { await loop.undoLast() }
                 },
-                close: { [weak self] in self?.close() }
+                close: { [weak self] in self?.close() },
+                showMe: { [weak self] in self?.startShowing() },
+                finishShowing: { [weak self] keep in self?.finishShowing(keep: keep) }
             ))
             let hosting = NSHostingView(rootView: view.background(.regularMaterial))
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 120),

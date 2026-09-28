@@ -42,6 +42,7 @@ from . import __version__
 from . import agent as agent_mod
 from . import audit as audit_mod
 from . import commitments as commitments_mod
+from . import procedures as procedures_mod
 from . import compose
 from . import settings as settings_mod
 from . import specialist as specialist_mod
@@ -179,6 +180,7 @@ class LeonardServer:
         self._reload_hook = None
         self._task_sessions: dict[str, agent_mod.TaskSession] = {}
         commitments_mod.ensure_schema(conn)
+        procedures_mod.ensure_schema(conn)
         self.specialist_path = specialist_path
         self.specialist = specialist_mod.Specialist.load(specialist_path) if specialist_path else None
         self._training = False
@@ -315,6 +317,9 @@ class LeonardServer:
             "reload": self._on_reload,
             "history.delete": self._on_history_delete,
             "commitments.list": self._on_commitments_list,
+            "procedure.record": self._on_procedure_record,
+            "procedures.list": self._on_procedures_list,
+            "procedure.delete": self._on_procedure_delete,
             "commitment.update": self._on_commitment_update,
             "task.start": self._on_task_start,
             "task.step": self._on_task_step,
@@ -693,6 +698,7 @@ class LeonardServer:
     async def _on_history_delete(self, frame: dict, client: _Client) -> None:
         count = audit_mod.delete_all(self.conn)
         commitments_mod.delete_all(self.conn)
+        procedures_mod.delete(self.conn)
         self.personalizer.refresh()
         await client.send({"t": "history.deleted", "ts": _now(), "request_id": frame.get("id"), "count": count})
 
@@ -858,16 +864,26 @@ class LeonardServer:
             return
         apps = [str(a) for a in (frame.get("apps") or []) if isinstance(a, str)][:60]
         app = str(frame.get("app") or "")
-        plan = await self._run_model(agent_mod.plan_task, self.attention.engine, goal, app, apps)
+        guide: list[str] = []
+        match = procedures_mod.best_match(self.conn, goal)
+        if match is not None:
+            procedure, score = match
+            guide = procedure.lines(self.settings.locale)
+            procedures_mod.used(self.conn, procedure.id)
+        if match is not None and match[1] >= procedures_mod.PLAN_MATCH:
+            # Done this way before: that is the plan, no generation needed.
+            plan = guide
+        else:
+            plan = await self._run_model(agent_mod.plan_task, self.attention.engine, goal, app, apps)
         task_id = str(frame.get("task_id") or agent_mod.new_task_id())
-        session = agent_mod.TaskSession(id=task_id, goal=goal, plan=plan, app=app)
+        session = agent_mod.TaskSession(id=task_id, goal=goal, plan=plan, app=app, guide=guide)
         while len(self._task_sessions) >= MAX_OPEN_TASKS:
             oldest = min(self._task_sessions.values(), key=lambda t: t.started)
             self._task_sessions.pop(oldest.id, None)
         self._task_sessions[task_id] = session
         audit_mod.record_task(self.conn, task_id, goal, plan, app=app)
         await client.send({"t": "task.plan", "ts": _now(), "request_id": request_id, "task_id": task_id, "goal": goal,
-                           "steps": plan})
+                           "steps": plan, "learned": match is not None})
 
     async def _task_observe(self, frame: dict, client: _Client) -> None:
         observation_id = str(frame.get("id") or "")
@@ -915,6 +931,25 @@ class LeonardServer:
         audit_mod.end_task(self.conn, task_id, status, detail=str(frame.get("detail") or ""))
         if session is not None:
             session.status = status
+            # A task that worked is a way of doing it, learned by watching Leonard.
+            if status == "done":
+                procedures_mod.record(self.conn, session.goal, procedures_mod.from_task(self.conn, task_id), source="task")
+
+    async def _on_procedure_record(self, frame: dict, client: _Client) -> None:
+        """The user showed Leonard how ("Show me"), step by step."""
+        steps = [s for s in (frame.get("steps") or []) if isinstance(s, dict)]
+        procedure = procedures_mod.record(self.conn, str(frame.get("goal") or ""), steps, source="demonstration")
+        await client.send({"t": "procedure.recorded", "ts": _now(), "request_id": frame.get("id"),
+                           "procedure": procedure.to_frame() if procedure else None})
+
+    async def _on_procedures_list(self, frame: dict, client: _Client) -> None:
+        await client.send({"t": "procedures", "ts": _now(), "request_id": frame.get("id"),
+                           "items": [p.to_frame() for p in procedures_mod.all_procedures(self.conn)]})
+
+    async def _on_procedure_delete(self, frame: dict, client: _Client) -> None:
+        procedure_id = frame.get("procedure_id")
+        procedures_mod.delete(self.conn, str(procedure_id) if procedure_id else None)
+        await self._on_procedures_list(frame, client)
 
     async def _on_tasks_recent(self, frame: dict, client: _Client) -> None:
         limit = frame.get("limit") if isinstance(frame.get("limit"), int) else 30

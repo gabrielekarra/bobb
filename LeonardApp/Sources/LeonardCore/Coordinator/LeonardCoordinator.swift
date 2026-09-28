@@ -302,6 +302,11 @@ public final class LeonardCoordinator {
 
     // MARK: Tasks
 
+    /// Keeps what the user showed Leonard as a procedure.
+    public func recordProcedure(_ frame: ProcedureRecordFrame) {
+        Task { await client.send(.procedureRecord(frame)) }
+    }
+
     public func refreshTasks() async {
         let frame = TasksRecentFrame(limit: 40)
         _ = await request(.tasksRecent(frame), id: frame.id)

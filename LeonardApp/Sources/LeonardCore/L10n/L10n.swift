@@ -116,6 +116,8 @@ public enum L10n {
              settingsTalkHotkey
         // ocr
         case settingsReadImages, settingsReadImagesHint
+        // showme
+        case taskShowMe, taskWatching, taskWatchDone, taskLearned
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -447,6 +449,11 @@ public enum L10n {
 
         .settingsReadImages: ("Also read text in images", "Leggi anche il testo nelle immagini"),
         .settingsReadImagesHint: ("For windows that show text as pixels — a scanned PDF, a remote desktop — Leonard can recognize the words on this Mac. Only the text is kept, never the image. Needs the Screen Recording permission.", "Per le finestre che mostrano il testo come immagine — un PDF scansionato, un desktop remoto — Leonard può riconoscere le parole su questo Mac. Conserva solo il testo, mai l'immagine. Richiede il permesso Registrazione schermo."),
+
+        .taskShowMe: ("Show me how", "Mostrami come"),
+        .taskWatching: ("Do it yourself: Leonard is watching and will remember how. Press Done when you've finished.", "Fallo tu: Leonard guarda e si ricorderà come si fa. Premi Fatto quando hai finito."),
+        .taskWatchDone: ("Done", "Fatto"),
+        .taskLearned: ("Learned. Next time Leonard will do it this way.", "Imparato. La prossima volta Leonard farà così."),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

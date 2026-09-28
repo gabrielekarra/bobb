@@ -364,6 +364,10 @@ public enum TaskPhase: Sendable, Equatable {
     case acting
     case waitingForPermission(PermissionRequest)
     case finished(TaskStatus, detail: String)
+    /// "Show me": the user is doing it and Leonard is watching.
+    case watching
+    /// The demonstration was kept as a procedure.
+    case learned
 }
 
 public struct TaskRunState: Sendable, Equatable {
@@ -382,8 +386,10 @@ public struct TaskRunState: Sendable, Equatable {
     }
 
     public var isFinished: Bool {
-        if case .finished = phase { return true }
-        return false
+        switch phase {
+        case .finished, .learned: return true
+        default: return false
+        }
     }
 
     public var status: TaskStatus {
