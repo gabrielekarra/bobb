@@ -22,8 +22,6 @@ enum Theme {
     }
 }
 
-/// The small round mark used across the app: Leonard's ring, the same glyph
-/// as the menu bar icon.
 struct Pill: View {
     let text: String
     var color: Color = .secondary

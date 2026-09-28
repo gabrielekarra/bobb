@@ -8,7 +8,7 @@ import LeonardCore
 @Observable
 final class SettingsUIModel {
     enum Tab: String, CaseIterable {
-        case general, attention, privacy, model, license, about
+        case general, attention, acting, privacy, model, license, about
     }
 
     var tab: Tab = .general
@@ -19,7 +19,7 @@ final class SettingsUIModel {
     var confirmDeleteHistory = false
 }
 
-/// Everything the user can change, in six tabs. Every control writes
+/// Everything the user can change, in seven tabs. Every control writes
 /// through `LeonardCoordinator.updateSettings`, which persists the change
 /// and sends the daemon the part it enforces.
 struct SettingsView: View {
@@ -35,6 +35,7 @@ struct SettingsView: View {
         TabView(selection: $ui.tab) {
             general.tabItem { Label(L10n.t(.settingsGeneral), systemImage: "gearshape") }.tag(SettingsUIModel.Tab.general)
             attention.tabItem { Label(L10n.t(.settingsAttention), systemImage: "bell.badge") }.tag(SettingsUIModel.Tab.attention)
+            acting.tabItem { Label(L10n.t(.settingsActing), systemImage: "cursorarrow.rays") }.tag(SettingsUIModel.Tab.acting)
             privacy.tabItem { Label(L10n.t(.settingsPrivacy), systemImage: "lock.shield") }.tag(SettingsUIModel.Tab.privacy)
             modelTab.tabItem { Label(L10n.t(.settingsModel), systemImage: "cpu") }.tag(SettingsUIModel.Tab.model)
             licenseTab.tabItem { Label(L10n.t(.settingsLicense), systemImage: "key") }.tag(SettingsUIModel.Tab.license)
@@ -133,6 +134,45 @@ struct SettingsView: View {
                 }
                 Picker(L10n.t(.settingsOverlaySeconds), selection: binding(\.overlaySeconds)) {
                     ForEach([8, 14, 20, 30, 60], id: \.self) { Text("\($0) s").tag($0) }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    // MARK: Using apps
+
+    private var acting: some View {
+        Form {
+            Section {
+                Toggle(L10n.t(.settingsActingEnabled), isOn: binding(\.actingEnabled))
+                hint(L10n.t(.settingsActingHint))
+            }
+            if state.settings.actingEnabled {
+                Section {
+                    Picker(L10n.t(.settingsActingApproval), selection: binding(\.actingApproval)) {
+                        Text(L10n.t(.settingsApprovalImportant)).tag(ActingApproval.important)
+                        Text(L10n.t(.settingsApprovalEvery)).tag(ActingApproval.everyStep)
+                    }
+                    .pickerStyle(.radioGroup)
+                }
+                Section(L10n.t(.settingsAllowRules)) {
+                    if state.settings.actionAllowRules.isEmpty {
+                        hint(L10n.t(.settingsAllowRulesEmpty))
+                    }
+                    ForEach(state.settings.actionAllowRules, id: \.self) { rule in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("“\(rule.label)”").font(.system(size: 12))
+                                Text(rule.app).font(.system(size: 10.5)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(L10n.t(.settingsRemove)) {
+                                coordinator.updateSettings { $0.actionAllowRules.removeAll { $0 == rule } }
+                            }
+                            .controlSize(.small)
+                        }
+                    }
                 }
             }
         }

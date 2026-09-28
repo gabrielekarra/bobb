@@ -18,7 +18,10 @@ struct MindView: View {
         }
         .frame(minWidth: 760, minHeight: 460)
         .tint(Theme.accent)
-        .task { await coordinator.refreshStats() }
+        .task {
+            await coordinator.refreshStats()
+            await coordinator.refreshTasks()
+        }
     }
 
     // MARK: Sidebar
@@ -31,6 +34,7 @@ struct MindView: View {
                 ConfidenceFloorChart(entries: state.entries, floor: state.floor)
                 floorSection
                 learnedSection
+                tasksSection
                 filterSection
             }
             .padding(16)
@@ -117,6 +121,47 @@ struct MindView: View {
                         .font(.system(size: 10.5))
                 }
             }
+        }
+    }
+
+    /// What Leonard did in your apps: every task, how it ended, how many
+    /// steps it took. The audit of acting, next to the audit of speaking.
+    private var tasksSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle(L10n.t(.mindTasks))
+            if state.recentTasks.isEmpty {
+                Text(L10n.t(.mindTasksEmpty))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(state.recentTasks.prefix(12)) { task in
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: Self.taskIcon(task.status))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(task.status == "done" ? Color.green : Theme.attention)
+                        .frame(width: 12)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(task.goal)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .lineLimit(2)
+                        Text(L10n.t(.mindTaskSteps, ["count": "\(task.steps.count)"]) + " · " + L10n.relative(task.ts))
+                            .font(.system(size: 9.5))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .help(task.steps.map { "\($0.step). \($0.operation) \($0.target ?? "") — \($0.outcome)" }.joined(separator: "\n"))
+            }
+        }
+    }
+
+    static func taskIcon(_ status: String) -> String {
+        switch status {
+        case "done": "checkmark.circle"
+        case "stopped": "stop.circle"
+        case "running": "circle.dotted"
+        default: "exclamationmark.circle"
         }
     }
 

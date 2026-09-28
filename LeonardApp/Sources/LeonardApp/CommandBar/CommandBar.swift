@@ -12,10 +12,13 @@ final class CommandBarModel {
     var mode: AskMode = .ask
     var selection: Selection?
     var notice: String?
+    /// Whether Leonard may operate apps (Settings); offers the Do mode.
+    var canAct = true
     @ObservationIgnored weak var field: NSTextField?
 
     var modes: [AskMode] {
-        selection == nil ? [.ask, .write] : [.rewrite, .translate, .summarize, .reply, .explain, .ask]
+        if selection != nil { return [.rewrite, .translate, .summarize, .reply, .explain, .ask] }
+        return canAct ? [.ask, .act, .write] : [.ask, .write]
     }
 
     func reset(with selection: Selection?) {
@@ -46,6 +49,7 @@ extension AskMode {
         case .summarize: L10n.t(.askModeSummarize)
         case .explain: L10n.t(.askModeExplain)
         case .compute: "="
+        case .act: L10n.t(.askModeDo)
         }
     }
 
@@ -59,6 +63,7 @@ extension AskMode {
         case .summarize: "text.alignleft"
         case .explain: "lightbulb"
         case .compute: "function"
+        case .act: "cursorarrow.rays"
         }
     }
 
@@ -167,7 +172,8 @@ struct CommandBarView: View {
             LeonardMark(size: 26)
             CommandInput(
                 model: model,
-                placeholder: model.selection == nil ? L10n.t(.askPlaceholder) : L10n.t(.askPlaceholderSelection),
+                placeholder: model.selection != nil ? L10n.t(.askPlaceholderSelection)
+                    : model.mode == .act ? L10n.t(.askPlaceholderDo) : L10n.t(.askPlaceholder),
                 onSubmit: submit,
                 onTab: { model.cycleMode() },
                 onEscape: close
@@ -326,10 +332,39 @@ final class CommandBarController {
     private var panel: CommandPanel?
     private var hosting: NSHostingView<CommandBarView>?
     private var sizeObservation: NSKeyValueObservation?
+    /// Starts a task; returns why it cannot, in the user's words, or nil.
+    var startTask: ((String) -> String?)?
 
     init(state: AppState, coordinator: LeonardCoordinator) {
         self.state = state
         self.coordinator = coordinator
+        observeRouting()
+    }
+
+    /// A request the daemon judged to be something to do becomes a task.
+    private func observeRouting() {
+        withObservationTracking {
+            _ = state.ask.taskGoal
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let goal = self.state.ask.taskGoal {
+                    self.state.ask.taskGoal = nil
+                    self.beginTask(goal)
+                }
+                self.observeRouting()
+            }
+        }
+    }
+
+    private func beginTask(_ goal: String) {
+        if let problem = startTask?(goal) {
+            state.ask = AskSession()
+            state.ask.error = problem
+            return
+        }
+        state.ask = AskSession()
+        close()
     }
 
     func toggle() {
@@ -345,6 +380,7 @@ final class CommandBarController {
 
     func show(selection: Selection?) {
         model.reset(with: selection)
+        model.canAct = state.settings.actingEnabled
         if !state.ask.streaming { state.ask = AskSession() }
         if panel == nil {
             let view = CommandBarView(
@@ -409,9 +445,16 @@ final class CommandBarController {
             state.ask.error = L10n.t(.askNotReady)
             return
         }
+        if model.mode == .act {
+            beginTask(prompt)
+            return
+        }
+        // With nothing selected, the daemon decides whether this is to
+        // answer or to do ("put on my Focus playlist").
+        let route = model.canAct && selection == nil && model.mode == .ask
         coordinator.ask(
             prompt: prompt, mode: model.mode, selection: selection?.text ?? "",
-            app: selection?.app ?? "", window: selection?.window ?? ""
+            app: selection?.app ?? "", window: selection?.window ?? "", route: route
         )
     }
 

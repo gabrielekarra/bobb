@@ -39,6 +39,7 @@ from typing import Any
 import numpy as np
 
 from . import __version__
+from . import agent as agent_mod
 from . import audit as audit_mod
 from . import compose
 from . import settings as settings_mod
@@ -66,7 +67,9 @@ FEATURES = (
     "settings",
     "act",
     "status",
+    "tasks",
 )
+MAX_OPEN_TASKS = 8
 
 logger = logging.getLogger("leonardd")
 
@@ -169,6 +172,7 @@ class LeonardServer:
         self._cancels: dict[str, threading.Event] = {}
         self._tasks: set[asyncio.Task] = set()
         self._reload_hook = None
+        self._task_sessions: dict[str, agent_mod.TaskSession] = {}
 
     # ------------------------------------------------------------ lifecycle
 
@@ -298,6 +302,10 @@ class LeonardServer:
             "learning.mute": self._on_learning_mute,
             "reload": self._on_reload,
             "history.delete": self._on_history_delete,
+            "task.start": self._on_task_start,
+            "task.step": self._on_task_step,
+            "task.end": self._on_task_end,
+            "tasks.recent": self._on_tasks_recent,
         }.get(kind)
         if handler is None:
             return
@@ -526,6 +534,16 @@ class LeonardServer:
         if not request.prompt.strip() and not request.selection.strip():
             await client.send(_error_frame("ask needs a prompt or a selection", request_id=request_id))
             return
+        if frame.get("route") and request.mode == "ask" and not request.selection.strip() and self.attention is not None:
+            route, p = await self._run_model(agent_mod.route_request, self.attention.engine, request.prompt)
+            if route == "do":
+                # Doing, not answering: the app starts a task with this goal.
+                await client.send(
+                    {"t": "answer", "ts": _now(), "request_id": request_id, "ok": True, "text": request.prompt,
+                     "mode": "do", "result_kind": "task", "sources": [], "unsupported": [],
+                     "confidence": round(p, 4), "latency_ms": 0.0}
+                )
+                return
         self._spawn(self._answer(request_id, request, client))
 
     async def _answer(self, request_id: str, request: compose.Request, client: _Client) -> None:
@@ -666,6 +684,7 @@ class LeonardServer:
                 "decisions": audit_mod.summary(self.conn, since=_now() - days * 86400),
                 "learning": self.personalizer.snapshot(self.settings.floor),
                 "memory": self.memory.stats() if self.memory is not None else None,
+                "tasks": audit_mod.task_summary(self.conn, since=_now() - days * 86400),
                 "state": self.state,
                 "model": self.model_name,
             }
@@ -710,11 +729,96 @@ class LeonardServer:
         if self.attention is None:
             await client.send(_error_frame(f"model {self.state}", request_id=observation_id))
             return
+        if frame.get("task_id"):
+            await self._task_observe(frame, client)
+            return
         candidates = frame.get("candidates") or []
         if len(candidates) > MAX_CANDIDATES:
             raise ValueError(f"too many candidates ({len(candidates)} > {MAX_CANDIDATES})")
         result = await self._run_model(score_action, self.attention.engine, frame, floor=self.settings.floor)
         await client.send(act_frame(observation_id, result))
+
+    # ------------------------------------------------------------ tasks
+
+    def _session(self, frame: dict) -> agent_mod.TaskSession:
+        task_id = str(frame.get("task_id") or "")
+        session = self._task_sessions.get(task_id)
+        if session is None:
+            raise ValueError(f"unknown task_id {task_id!r}")
+        return session
+
+    async def _on_task_start(self, frame: dict, client: _Client) -> None:
+        request_id = frame.get("id")
+        goal = str(frame.get("goal") or "").strip()
+        if not goal:
+            raise ValueError("task.start needs a goal")
+        if self.attention is None:
+            await client.send(_error_frame(f"model {self.state}", request_id=request_id))
+            return
+        apps = [str(a) for a in (frame.get("apps") or []) if isinstance(a, str)][:60]
+        app = str(frame.get("app") or "")
+        plan = await self._run_model(agent_mod.plan_task, self.attention.engine, goal, app, apps)
+        task_id = str(frame.get("task_id") or agent_mod.new_task_id())
+        session = agent_mod.TaskSession(id=task_id, goal=goal, plan=plan, app=app)
+        while len(self._task_sessions) >= MAX_OPEN_TASKS:
+            oldest = min(self._task_sessions.values(), key=lambda t: t.started)
+            self._task_sessions.pop(oldest.id, None)
+        self._task_sessions[task_id] = session
+        audit_mod.record_task(self.conn, task_id, goal, plan, app=app)
+        await client.send({"t": "task.plan", "ts": _now(), "request_id": request_id, "task_id": task_id, "goal": goal,
+                           "steps": plan})
+
+    async def _task_observe(self, frame: dict, client: _Client) -> None:
+        observation_id = str(frame.get("id") or "")
+        session = self._session(frame)
+        memory_hits: list[str] = []
+        if self.memory is not None:
+            hits, terms = compose.related_memory(self.memory, session.goal, exclude_window=str(frame.get("window") or ""))
+            memory_hits = [h.excerpt(terms) for h in hits[:3]]
+        verdict = await self._run_model(
+            agent_mod.score_step,
+            self.attention.engine,
+            session,
+            frame,
+            floor=agent_mod.DEFAULT_FLOOR,
+            memory=memory_hits,
+        )
+        await client.send(agent_mod.act_frame(observation_id, session.id, verdict))
+
+    async def _on_task_step(self, frame: dict, client: _Client) -> None:
+        session = self._task_sessions.get(str(frame.get("task_id") or ""))
+        step = {
+            "step": int(frame.get("step") or 0),
+            "ts": frame.get("ts"),
+            "app": frame.get("app"),
+            "window": frame.get("window"),
+            "operation": str(frame.get("operation") or ""),
+            "target": str(frame.get("target") or ""),
+            "target_role": frame.get("target_role"),
+            "confidence": frame.get("confidence"),
+            "permission": frame.get("permission"),
+            "outcome": str(frame.get("outcome") or ""),
+            "latency_ms": frame.get("latency_ms"),
+        }
+        audit_mod.record_task_step(self.conn, str(frame.get("task_id") or ""), step)
+        if session is not None:
+            session.record(
+                agent_mod.StepRecord(step=step["step"], operation=step["operation"], target=step["target"],
+                                     outcome=step["outcome"], digest=str(frame.get("digest") or ""))
+            )
+
+    async def _on_task_end(self, frame: dict, client: _Client) -> None:
+        task_id = str(frame.get("task_id") or "")
+        session = self._task_sessions.pop(task_id, None)
+        status = str(frame.get("status") or "stopped")
+        audit_mod.end_task(self.conn, task_id, status, detail=str(frame.get("detail") or ""))
+        if session is not None:
+            session.status = status
+
+    async def _on_tasks_recent(self, frame: dict, client: _Client) -> None:
+        limit = frame.get("limit") if isinstance(frame.get("limit"), int) else 30
+        await client.send({"t": "tasks.results", "ts": _now(), "request_id": frame.get("id"),
+                           "tasks": audit_mod.recent_tasks(self.conn, limit=max(1, min(limit, 200)))})
 
 
 # ---------------------------------------------------------------- serve

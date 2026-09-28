@@ -50,6 +50,9 @@ public struct AskSession: Sendable, Equatable {
     public var unsupported: [String] = []
     public var error: String?
     public var resultKind: String?
+    /// Set when the daemon decided the request is something to do, not to
+    /// answer: the command bar hands this goal to a task.
+    public var taskGoal: String?
 
     public init() {}
 
@@ -97,6 +100,10 @@ public final class AppState {
 
     public var draft: DraftSession?
     public var ask = AskSession()
+    /// The task Leonard is carrying out, or the last one, until dismissed.
+    public var task: TaskRunState?
+    /// Past tasks, for Mind; loaded on demand.
+    public var recentTasks: [TaskRecord] = []
     public var stats: StatsFrame?
 
     public var activityState: ActivityState {
@@ -252,6 +259,10 @@ public final class AppState {
         guard ask.requestId == answer.requestId else { return }
         ask.streaming = false
         ask.resultKind = answer.resultKind
+        if answer.resultKind == "task" {
+            ask.taskGoal = answer.text
+            return
+        }
         ask.sources = answer.sources
         ask.unsupported = answer.unsupported
         if answer.ok {

@@ -400,20 +400,23 @@ public struct StatsFrame: Codable, Sendable, Equatable {
     public var decisions: DecisionSummary
     public var learning: LearningSnapshot
     public var memory: MemoryStatsFrame?
+    public var tasks: TaskSummary?
     public var state: String?
     public var model: String?
 
     enum CodingKeys: String, CodingKey {
-        case ts, decisions, learning, memory, state, model
+        case ts, decisions, learning, memory, tasks, state, model
         case requestId = "request_id"
     }
 
-    public init(ts: Double, requestId: String? = nil, decisions: DecisionSummary, learning: LearningSnapshot, memory: MemoryStatsFrame? = nil, state: String? = nil, model: String? = nil) {
+    public init(ts: Double, requestId: String? = nil, decisions: DecisionSummary, learning: LearningSnapshot, memory: MemoryStatsFrame? = nil,
+                tasks: TaskSummary? = nil, state: String? = nil, model: String? = nil) {
         self.ts = ts
         self.requestId = requestId
         self.decisions = decisions
         self.learning = learning
         self.memory = memory
+        self.tasks = tasks
         self.state = state
         self.model = model
     }
@@ -490,14 +493,19 @@ public struct AskFrame: Codable, Sendable, Equatable {
     public var selection: String
     public var app: String
     public var window: String
+    /// Let the daemon decide whether this is to answer or to do; a confident
+    /// "do" comes back as an `answer` with `result_kind: "task"`.
+    public var route: Bool
 
-    public init(id: String = AskFrame.newID(), prompt: String, mode: AskMode = .ask, selection: String = "", app: String = "", window: String = "") {
+    public init(id: String = AskFrame.newID(), prompt: String, mode: AskMode = .ask, selection: String = "", app: String = "",
+                window: String = "", route: Bool = false) {
         self.id = id
         self.prompt = prompt
-        self.mode = mode.rawValue
+        self.mode = mode == .act ? AskMode.ask.rawValue : mode.rawValue
         self.selection = selection
         self.app = app
         self.window = window
+        self.route = route
     }
 
     public static func newID() -> String {
@@ -507,12 +515,14 @@ public struct AskFrame: Codable, Sendable, Equatable {
 
 public enum AskMode: String, Codable, Sendable, CaseIterable {
     case ask, write, reply, rewrite, translate, summarize, explain, compute
+    /// Do it: operate the Mac's applications to carry out the request.
+    case act = "do"
 
     /// Modes that operate on a selection, and so offer to replace it.
     public var needsSelection: Bool {
         switch self {
         case .reply, .rewrite, .translate, .summarize, .explain, .compute: true
-        case .ask, .write: false
+        case .ask, .write, .act: false
         }
     }
 }
@@ -676,6 +686,9 @@ extension IncomingFrame {
         case .historyDeleted(let f): f.requestId
         case .stats(let f): f.requestId
         case .error(let f): f.requestId
+        case .act(let f): f.observationId
+        case .taskPlan(let f): f.requestId
+        case .tasksResults(let f): f.requestId
         default: nil
         }
     }

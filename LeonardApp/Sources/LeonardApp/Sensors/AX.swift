@@ -16,6 +16,21 @@ enum AX {
         return element
     }
 
+    /// Chromium and Electron apps (Slack, Spotify, VS Code, Teams, every
+    /// Chrome window) build their accessibility tree only when an assistive
+    /// app asks for it. Asking is what VoiceOver does; it costs the app a
+    /// little memory and changes nothing it shows.
+    nonisolated(unsafe) private static var enabledPids: Set<pid_t> = []
+    private static let enabledLock = NSLock()
+
+    static func enableFullTree(_ app: AXUIElement, pid: pid_t) {
+        enabledLock.lock()
+        let fresh = enabledPids.insert(pid).inserted
+        enabledLock.unlock()
+        guard fresh else { return }
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    }
+
     static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success else { return nil }
@@ -101,6 +116,7 @@ enum WindowReader {
     /// Runs off the main thread; AX calls are thread-safe C calls.
     static func read(pid: pid_t, appName: String, bundleId: String?, windowTitle: String) -> WindowText? {
         let app = AX.application(pid)
+        AX.enableFullTree(app, pid: pid)
         guard let window = AX.element(app, "AXFocusedWindow") else { return nil }
         let title = AX.string(window, "AXTitle") ?? windowTitle
         let started = Date()

@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlayController: OverlayController!
     private var draftPanel: DraftPanelController!
     private var commandBar: CommandBarController!
+    private var tasks: TaskController!
     private var mindWindowController: MindWindowController!
     private var auditWindowController: AuditWindowController!
     private var settingsWindow: NSWindow?
@@ -79,6 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlayController = OverlayController(state: state, coordinator: coordinator)
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
         commandBar = CommandBarController(state: state, coordinator: coordinator)
+        tasks = TaskController(state: state, coordinator: coordinator)
+        commandBar.startTask = { [weak self] goal in self?.tasks.start(goal: goal) }
         mindWindowController = MindWindowController(state: state, coordinator: coordinator)
         auditWindowController = AuditWindowController(auditPath: AppPaths.auditDatabase)
         statusItemController = StatusItemController(state: state) { [weak self] controller in

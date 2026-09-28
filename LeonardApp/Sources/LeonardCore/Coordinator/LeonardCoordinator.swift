@@ -118,7 +118,9 @@ public final class LeonardCoordinator {
             state.stats = stats
         case .error(let error):
             state.applyError(error)
-        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .unknown:
+        case .tasksResults(let results):
+            state.recentTasks = results.tasks
+        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .unknown:
             break
         }
     }
@@ -187,12 +189,14 @@ public final class LeonardCoordinator {
 
     // MARK: Command bar
 
-    public func ask(prompt: String, mode: AskMode, selection: String = "", app: String = "", window: String = "") {
+    /// `route` lets the daemon decide between answering and doing: a
+    /// confident "do" arrives as an answer with `resultKind == "task"`.
+    public func ask(prompt: String, mode: AskMode, selection: String = "", app: String = "", window: String = "", route: Bool = false) {
         guard state.entitlement.allowsAssistance else { return }
         if let previous = state.ask.requestId, state.ask.streaming {
             Task { await client.send(.cancel(CancelFrame(requestId: previous))) }
         }
-        let frame = AskFrame(prompt: prompt, mode: mode, selection: selection, app: app, window: window)
+        let frame = AskFrame(prompt: prompt, mode: mode, selection: selection, app: app, window: window, route: route)
         state.beginAsk(frame, mode: mode)
         let ipc = client
         Task { [weak self] in
@@ -267,6 +271,13 @@ public final class LeonardCoordinator {
         Task { await client.send(.reload(RequestFrame())) }
     }
 
+    // MARK: Tasks
+
+    public func refreshTasks() async {
+        let frame = TasksRecentFrame(limit: 40)
+        _ = await request(.tasksRecent(frame), id: frame.id)
+    }
+
     // MARK: Request plumbing
 
     func request(_ frame: OutgoingFrame, id: String, timeout: Double = 8) async -> IncomingFrame? {
@@ -283,5 +294,27 @@ public final class LeonardCoordinator {
 
     private func timeOut(_ id: String) {
         waiting.removeValue(forKey: id)?.resume(returning: nil)
+    }
+}
+
+extension LeonardCoordinator: TaskBrain {
+    // Planning and typing generate text on the resident model, which takes
+    // seconds, not milliseconds; the deadlines are generous on purpose.
+    public func plan(_ frame: TaskStartFrame) async -> TaskPlanFrame? {
+        if case .taskPlan(let plan)? = await request(.taskStart(frame), id: frame.id, timeout: 90) { return plan }
+        return nil
+    }
+
+    public func decide(_ frame: TaskObserveFrame) async -> ActFrame? {
+        if case .act(let act)? = await request(.taskObserve(frame), id: frame.id, timeout: 120) { return act }
+        return nil
+    }
+
+    public func report(_ frame: TaskStepFrame) async {
+        await client.send(.taskStep(frame))
+    }
+
+    public func end(_ frame: TaskEndFrame) async {
+        await client.send(.taskEnd(frame))
     }
 }

@@ -52,9 +52,12 @@ public struct ObserveFrame: Codable, Sendable, Equatable {
 
 /// The eight things an `act` frame can tell the app to do. `DONE` and
 /// `BLOCKED` end the loop rather than touch anything.
-public enum Operation: String, Codable, Sendable, Equatable {
+public enum ActOperation: String, Codable, Sendable, Equatable {
     case click = "CLICK"
+    /// Tasks type with `TYPE`; `TYPE_TEXT` is the v0.1 single-step form.
+    case type = "TYPE"
     case typeText = "TYPE_TEXT"
+    case openApp = "OPEN_APP"
     case select = "SELECT"
     case scrollUp = "SCROLL_UP"
     case scrollDown = "SCROLL_DOWN"
@@ -77,7 +80,7 @@ public enum Operation: String, Codable, Sendable, Equatable {
 public struct ActFrame: Sendable, Equatable {
     public var ts: Double
     public var observationId: String
-    public var operation: Operation
+    public var operation: ActOperation
     public var candidateId: String
     public var confidence: Double
     public var schemaMass: Double
@@ -87,12 +90,17 @@ public struct ActFrame: Sendable, Equatable {
     public var latencyMs: Double
     public var abstained: Bool
     public var why: String
+    /// Set on steps of a task.
+    public var taskId: String?
+    public var targetLabel: String?
+    /// Press Return after typing.
+    public var submit: Bool
 
     public init(
-        ts: Double, observationId: String, operation: Operation, candidateId: String,
+        ts: Double, observationId: String, operation: ActOperation, candidateId: String,
         confidence: Double, schemaMass: Double, operationProbabilities: [String: Double] = [:],
         probabilities: [String: Double] = [:], text: String? = nil, latencyMs: Double,
-        abstained: Bool = false, why: String = ""
+        abstained: Bool = false, why: String = "", taskId: String? = nil, targetLabel: String? = nil, submit: Bool = false
     ) {
         self.ts = ts
         self.observationId = observationId
@@ -106,13 +114,18 @@ public struct ActFrame: Sendable, Equatable {
         self.latencyMs = latencyMs
         self.abstained = abstained
         self.why = why
+        self.taskId = taskId
+        self.targetLabel = targetLabel
+        self.submit = submit
     }
 }
 
 extension ActFrame: Codable {
     enum CodingKeys: String, CodingKey {
-        case ts, operation, confidence, probabilities, text, abstained, why
+        case ts, operation, confidence, probabilities, text, abstained, why, submit
         case observationId = "observation_id"
+        case taskId = "task_id"
+        case targetLabel = "target_label"
         case candidateId = "candidate_id"
         case schemaMass = "schema_mass"
         case operationProbabilities = "operation_probabilities"
@@ -123,7 +136,7 @@ extension ActFrame: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         ts = try container.decode(Double.self, forKey: .ts)
         observationId = try container.decodeIfPresent(String.self, forKey: .observationId) ?? ""
-        operation = try container.decode(Operation.self, forKey: .operation)
+        operation = try container.decode(ActOperation.self, forKey: .operation)
         candidateId = try container.decode(String.self, forKey: .candidateId)
         confidence = try container.decode(Double.self, forKey: .confidence)
         schemaMass = try container.decode(Double.self, forKey: .schemaMass)
@@ -133,6 +146,9 @@ extension ActFrame: Codable {
         latencyMs = try container.decode(Double.self, forKey: .latencyMs)
         abstained = try container.decodeIfPresent(Bool.self, forKey: .abstained) ?? false
         why = try container.decodeIfPresent(String.self, forKey: .why) ?? ""
+        taskId = try container.decodeIfPresent(String.self, forKey: .taskId)
+        targetLabel = try container.decodeIfPresent(String.self, forKey: .targetLabel)
+        submit = try container.decodeIfPresent(Bool.self, forKey: .submit) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -150,5 +166,10 @@ extension ActFrame: Codable {
             try container.encode(abstained, forKey: .abstained)
         }
         try container.encode(why, forKey: .why)
+        try container.encodeIfPresent(taskId, forKey: .taskId)
+        try container.encodeIfPresent(targetLabel, forKey: .targetLabel)
+        if submit {
+            try container.encode(submit, forKey: .submit)
+        }
     }
 }

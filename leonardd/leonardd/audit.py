@@ -54,6 +54,32 @@ CREATE TABLE IF NOT EXISTS learned_overrides (
     verdict  TEXT NOT NULL,
     ts       REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id   TEXT PRIMARY KEY,
+    ts        REAL NOT NULL,
+    goal      TEXT NOT NULL,
+    app       TEXT,
+    plan      TEXT NOT NULL,
+    status    TEXT NOT NULL DEFAULT 'running',
+    ended_ts  REAL,
+    detail    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_ts ON tasks(ts);
+CREATE TABLE IF NOT EXISTS task_steps (
+    task_id     TEXT NOT NULL,
+    step        INTEGER NOT NULL,
+    ts          REAL NOT NULL,
+    app         TEXT,
+    window      TEXT,
+    operation   TEXT NOT NULL,
+    target      TEXT,
+    target_role TEXT,
+    confidence  REAL,
+    permission  TEXT,
+    outcome     TEXT NOT NULL,
+    latency_ms  REAL,
+    PRIMARY KEY (task_id, step)
+);
 """
 
 # Columns added after v0.1. `open_db` adds any that an older database lacks,
@@ -166,17 +192,140 @@ def record_response(
 
 
 def sweep(conn: sqlite3.Connection, retention_days: int, *, now: float | None = None) -> int:
-    """Forget decisions older than `retention_days`. They carry message
-    bodies, so they are subject to retention exactly like screen memory."""
+    """Forget decisions and tasks older than `retention_days`. Decisions
+    carry message bodies and tasks carry what the user asked for, so both are
+    subject to retention exactly like screen memory."""
     now = now if now is not None else time.time()
-    cursor = conn.execute("DELETE FROM decisions WHERE ts < ?", (now - retention_days * 86400,))
+    cutoff = now - retention_days * 86400
+    cursor = conn.execute("DELETE FROM decisions WHERE ts < ?", (cutoff,))
+    conn.execute("DELETE FROM task_steps WHERE task_id IN (SELECT task_id FROM tasks WHERE ts < ?)", (cutoff,))
+    conn.execute("DELETE FROM tasks WHERE ts < ?", (cutoff,))
     conn.commit()
     return cursor.rowcount
+
+
+# ---------------------------------------------------------------- tasks
+
+TASK_STATUSES = ("running", "done", "stopped", "blocked", "failed")
+STEP_OUTCOMES = ("ok", "failed", "denied", "undone", "user")
+
+
+def record_task(conn: sqlite3.Connection, task_id: str, goal: str, plan: list[str], *, app: str = "",
+                ts: float | None = None) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO tasks (task_id, ts, goal, app, plan, status) VALUES (?, ?, ?, ?, ?, 'running')",
+        (task_id, ts if ts is not None else time.time(), goal, app, json.dumps(plan)),
+    )
+    conn.commit()
+
+
+def record_task_step(conn: sqlite3.Connection, task_id: str, step: dict) -> None:
+    outcome = step.get("outcome")
+    if outcome not in STEP_OUTCOMES:
+        raise ValueError(f"outcome must be one of {STEP_OUTCOMES}, got {outcome!r}")
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO task_steps (
+            task_id, step, ts, app, window, operation, target, target_role, confidence, permission, outcome, latency_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            task_id,
+            int(step.get("step", 0)),
+            float(step.get("ts") or time.time()),
+            step.get("app"),
+            step.get("window"),
+            str(step.get("operation") or ""),
+            step.get("target"),
+            step.get("target_role"),
+            step.get("confidence"),
+            step.get("permission"),
+            outcome,
+            step.get("latency_ms"),
+        ),
+    )
+    conn.commit()
+
+
+def end_task(conn: sqlite3.Connection, task_id: str, status: str, *, detail: str = "", ts: float | None = None) -> bool:
+    if status not in TASK_STATUSES or status == "running":
+        raise ValueError(f"status must be one of {TASK_STATUSES[1:]}, got {status!r}")
+    cursor = conn.execute(
+        "UPDATE tasks SET status = ?, ended_ts = ?, detail = ? WHERE task_id = ?",
+        (status, ts if ts is not None else time.time(), detail, task_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def recent_tasks(conn: sqlite3.Connection, *, limit: int = 30) -> list[dict]:
+    tasks = conn.execute(
+        "SELECT task_id, ts, goal, app, plan, status, ended_ts, detail FROM tasks ORDER BY ts DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    out = []
+    for task_id, ts, goal, app, plan, status, ended_ts, detail in tasks:
+        steps = conn.execute(
+            "SELECT step, ts, app, window, operation, target, confidence, permission, outcome, latency_ms "
+            "FROM task_steps WHERE task_id = ? ORDER BY step",
+            (task_id,),
+        ).fetchall()
+        out.append(
+            {
+                "id": task_id,
+                "ts": ts,
+                "goal": goal,
+                "app": app,
+                "plan": json.loads(plan or "[]"),
+                "status": status,
+                "ended_ts": ended_ts,
+                "detail": detail or "",
+                "steps": [
+                    {
+                        "step": s[0], "ts": s[1], "app": s[2], "window": s[3], "operation": s[4], "target": s[5],
+                        "confidence": s[6], "permission": s[7], "outcome": s[8], "latency_ms": s[9],
+                    }
+                    for s in steps
+                ],
+            }
+        )
+    return out
+
+
+def task_summary(conn: sqlite3.Connection, *, since: float = 0.0) -> dict:
+    row = conn.execute(
+        """
+        SELECT COUNT(*), SUM(status = 'done'), SUM(status = 'stopped'), SUM(status IN ('blocked', 'failed'))
+        FROM tasks WHERE ts >= ?
+        """,
+        (since,),
+    ).fetchone()
+    steps = conn.execute(
+        """
+        SELECT COUNT(*), SUM(outcome = 'ok'), SUM(permission = 'asked'), SUM(outcome = 'undone'),
+               AVG(latency_ms)
+        FROM task_steps WHERE ts >= ?
+        """,
+        (since,),
+    ).fetchone()
+    return {
+        "tasks": int(row[0] or 0),
+        "done": int(row[1] or 0),
+        "stopped": int(row[2] or 0),
+        "blocked": int(row[3] or 0),
+        "steps": int(steps[0] or 0),
+        "steps_ok": int(steps[1] or 0),
+        "asked": int(steps[2] or 0),
+        "undone": int(steps[3] or 0),
+        "mean_step_ms": round(float(steps[4]), 1) if steps[4] is not None else None,
+    }
 
 
 def delete_all(conn: sqlite3.Connection) -> int:
     count = conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
     conn.execute("DELETE FROM decisions")
+    conn.execute("DELETE FROM task_steps")
+    conn.execute("DELETE FROM tasks")
     conn.execute("DELETE FROM learned_overrides")
     conn.commit()
     conn.execute("VACUUM")
@@ -234,6 +383,13 @@ def fetch_decision(conn: sqlite3.Connection, decision_id: str) -> dict | None:
 
 __all__ = [
     "DEFAULT_PATH",
+    "STEP_OUTCOMES",
+    "TASK_STATUSES",
+    "end_task",
+    "record_task",
+    "record_task_step",
+    "recent_tasks",
+    "task_summary",
     "RESPONSES",
     "RESPONSE_REASONS",
     "open_db",

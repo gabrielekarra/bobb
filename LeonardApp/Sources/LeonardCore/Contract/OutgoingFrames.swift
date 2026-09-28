@@ -96,6 +96,11 @@ public enum OutgoingFrame: Sendable, Equatable {
     case reload(RequestFrame)
     case learningForget(LearningForgetFrame)
     case learningMute(LearningMuteFrame)
+    case taskStart(TaskStartFrame)
+    case taskObserve(TaskObserveFrame)
+    case taskStep(TaskStepFrame)
+    case taskEnd(TaskEndFrame)
+    case tasksRecent(TasksRecentFrame)
 
     public func encoded() throws -> Data {
         switch self {
@@ -120,6 +125,11 @@ public enum OutgoingFrame: Sendable, Equatable {
         case .reload(let frame): try FrameCodec.data(type: "reload", payload: frame)
         case .learningForget(let frame): try FrameCodec.data(type: "learning.forget", payload: frame)
         case .learningMute(let frame): try FrameCodec.data(type: "learning.mute", payload: frame)
+        case .taskStart(let frame): try FrameCodec.data(type: "task.start", payload: frame)
+        case .taskObserve(let frame): try FrameCodec.data(type: "observe", payload: frame)
+        case .taskStep(let frame): try FrameCodec.data(type: "task.step", payload: frame)
+        case .taskEnd(let frame): try FrameCodec.data(type: "task.end", payload: frame)
+        case .tasksRecent(let frame): try FrameCodec.data(type: "tasks.recent", payload: frame)
         }
     }
 }

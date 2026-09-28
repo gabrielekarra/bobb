@@ -401,9 +401,10 @@ public enum IncomingFrame: Sendable, Equatable {
     case historyDeleted(CountFrame)
     case stats(StatsFrame)
     case error(ErrorFrame)
-    /// The daemon's verdict for one `observe`. Not consumed by anything in
-    /// this target yet — see `OutgoingFrame.observe`.
+    /// The daemon's verdict for one `observe`: the next step of a task.
     case act(ActFrame)
+    case taskPlan(TaskPlanFrame)
+    case tasksResults(TasksResultsFrame)
     case unknown(type: String)
 
     public static func decode(from data: Data) throws -> IncomingFrame {
@@ -424,6 +425,8 @@ public enum IncomingFrame: Sendable, Equatable {
         case "prepared": return .prepared(try FrameCodec.payload(PreparedFrame.self, from: data))
         case "error": return .error(try FrameCodec.payload(ErrorFrame.self, from: data))
         case "act": return .act(try FrameCodec.payload(ActFrame.self, from: data))
+        case "task.plan": return .taskPlan(try FrameCodec.payload(TaskPlanFrame.self, from: data))
+        case "tasks.results": return .tasksResults(try FrameCodec.payload(TasksResultsFrame.self, from: data))
         default: return .unknown(type: type)
         }
     }

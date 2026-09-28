@@ -24,6 +24,10 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     public var launchAtLogin: Bool = true
     public var onboardingCompleted: Bool = false
     public var watching: Bool = true
+    /// Whether Leonard may operate applications to carry out requests.
+    public var actingEnabled: Bool = true
+    public var actingApproval: ActingApproval = .important
+    public var actionAllowRules: [ActionAllowRule] = []
 
     public init() {}
 
@@ -58,7 +62,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case language, floor, adaptive, mailProactive, toneCheck, quietHoursEnabled, quietFrom, quietTo,
              overlaySeconds, memoryEnabled, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
-             hotkey, launchAtLogin, onboardingCompleted, watching
+             hotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules
     }
 
     public init(from decoder: Decoder) throws {
@@ -84,6 +88,9 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
         if let v = read(.launchAtLogin, Bool.self) { s.launchAtLogin = v }
         if let v = read(.onboardingCompleted, Bool.self) { s.onboardingCompleted = v }
         if let v = read(.watching, Bool.self) { s.watching = v }
+        if let v = read(.actingEnabled, Bool.self) { s.actingEnabled = v }
+        if let v = read(.actingApproval, ActingApproval.self) { s.actingApproval = v }
+        if let v = read(.actionAllowRules, [ActionAllowRule].self) { s.actionAllowRules = v }
         self = s
     }
 }

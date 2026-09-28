@@ -57,6 +57,14 @@ func renderDocsScreenshots() {
             render(MindView(state: state, coordinator: coordinator, uiState: MindUIState(expandedIDs: ["evt_2"])),
                    size: NSSize(width: 1040, height: 860), appearance: appearance, to: output.appendingPathComponent("mind-\(suffix).png"))
 
+            let noActions = TaskActions(stop: {}, allow: { _ in }, undo: {}, close: {})
+            for (name, task) in fixtures.tasks {
+                state.task = task
+                render(TaskView(state: state, actions: noActions).background(.regularMaterial),
+                       size: nil, appearance: appearance, to: output.appendingPathComponent("task-\(name)-\(suffix).png"))
+            }
+            state.task = nil
+
             let memory = MemoryBrowserModel()
             memory.results = fixtures.memoryHits
             memory.stats = MemoryStatsFrame(rows: 1284, bytes: 9_400_000, apps: [
@@ -178,6 +186,36 @@ private struct Fixtures {
             MemoryHit(id: 12, ts: now - 86400 * 3, lastSeen: now - 86400 * 3, app: "Safari", window: it ? "Contratto quadro — Google Docs" : "Master agreement — Google Docs",
                       snippet: it ? "Clausola 7: vesting di 4 anni con cliff di 12 mesi per i fondatori." : "Clause 7: four-year vesting with a twelve-month cliff for founders."),
         ]
+    }
+
+    var tasks: [(String, TaskRunState)] {
+        let goal = it ? "Metti la mia playlist Focus su Spotify e manda a Giulia su Slack che arrivo tra dieci minuti"
+                      : "Put on my Focus playlist on Spotify and tell Giulia on Slack I'll be ten minutes late"
+        var running = TaskRunState(id: "task_1", goal: goal)
+        running.plan = it ? ["Apri Spotify", "Cerca “Focus”", "Avvia la playlist", "Apri Slack", "Scrivi a Giulia"]
+                          : ["Open Spotify", "Search for “Focus”", "Play the playlist", "Open Slack", "Message Giulia"]
+        running.steps = [
+            TaskStepLine(id: 1, operation: .openApp, target: "Spotify", app: "Finder", outcome: .ok),
+            TaskStepLine(id: 2, operation: .type, target: it ? "Cosa vuoi ascoltare?" : "What do you want to play?", text: "Focus", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 3, operation: .click, target: "Focus Flow", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 4, operation: .openApp, target: "Slack", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 5, operation: .click, target: "Giulia Bianchi", app: "Slack"),
+        ]
+        running.phase = .acting
+
+        var asking = running
+        asking.steps[4].outcome = .ok
+        asking.phase = .waitingForPermission(PermissionRequest(
+            operation: .type, label: it ? "Messaggio a Giulia Bianchi" : "Message Giulia Bianchi", role: "text area", app: "Slack",
+            reason: "sendsMessage", text: it ? "Ciao Giulia, arrivo tra dieci minuti." : "Hi Giulia, I'll be there in ten minutes."
+        ))
+
+        var done = asking
+        done.steps.append(TaskStepLine(id: 6, operation: .type, target: it ? "Messaggio a Giulia Bianchi" : "Message Giulia Bianchi",
+                                       app: "Slack", outcome: .ok))
+        done.phase = .finished(.done, detail: "")
+        done.canUndo = true
+        return [("acting", running), ("asking", asking), ("done", done)]
     }
 
     func decision(id: String, event: String, action: DecisionAction, confidence: Double, suggestion: Suggestion? = nil,
