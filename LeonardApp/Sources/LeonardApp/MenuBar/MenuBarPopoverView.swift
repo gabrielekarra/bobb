@@ -58,7 +58,8 @@ struct MenuBarPopoverView: View {
         case .starting: L10n.t(.statusStarting)
         case .setupNeeded: L10n.t(.statusModelMissing)
         case .paused: state.entitlement.allowsAssistance ? L10n.t(.statusPaused) : L10n.t(.statusTrialExpired)
-        case .watching, .waitingForYou: L10n.t(.statusWatching)
+        case .watching: L10n.t(.statusWatching)
+        case .waitingForYou: L10n.t(.statusWaitingForYou)
         case .thinking: L10n.t(.statusThinking)
         case .suggesting: L10n.t(.statusSuggesting)
         }

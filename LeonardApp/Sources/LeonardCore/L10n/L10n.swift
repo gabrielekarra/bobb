@@ -123,6 +123,8 @@ public enum L10n {
              onbTryVoice
         // procedures
         case settingsProcedures, settingsProceduresEmpty, settingsProcedureShown, settingsProcedureDone
+        // status
+        case statusWaitingForYou
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -472,6 +474,8 @@ public enum L10n {
         .settingsProceduresEmpty: ("Nothing yet. Tasks that work, and the ones you show it, are kept here.", "Ancora niente. I compiti riusciti, e quelli che gli mostri, restano qui."),
         .settingsProcedureShown: ("You showed it · {count} steps", "Gliel'hai mostrato tu · {count} passi"),
         .settingsProcedureDone: ("Learned from a task · {count} steps", "Imparato da un compito · {count} passi"),
+
+        .statusWaitingForYou: ("Something for you", "Qualcosa per te"),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),
