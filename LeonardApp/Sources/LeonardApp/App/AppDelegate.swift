@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var downloader: ModelDownloader!
     private var permissions: Permissions!
     private var screenSensor: ScreenMemorySensor!
+    private var conversations = ConversationTracker()
     private var hotkey: GlobalHotkey!
 
     private var statusItemController: StatusItemController!
@@ -76,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         screenSensor = ScreenMemorySensor(policy: ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps))
         screenSensor.onFrame = { [weak coordinator] frame in coordinator?.observe(frame) }
+        screenSensor.onWindowText = { [weak self] text in self?.windowRead(text) }
 
         overlayController = OverlayController(state: state, coordinator: coordinator)
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
@@ -93,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor.start()
         coordinator.start()
-        if settings.memoryEnabled && settings.watching { screenSensor.start() }
+        if Self.needsScreenSensor(settings) { screenSensor.start() }
         syncLoginItem(settings.launchAtLogin)
 
         housekeeping = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
@@ -119,12 +121,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? settingsStore.save(settings)
         hotkey.register(settings.hotkey)
         screenSensor.updateProtectedApps(settings.extraProtectedApps)
-        if settings.memoryEnabled && settings.watching {
+        if Self.needsScreenSensor(settings) {
             screenSensor.start()
         } else {
             screenSensor.stop()
         }
         syncLoginItem(settings.launchAtLogin)
+    }
+
+    /// The screen sensor's reads feed both screen memory and the
+    /// conversation radar; it runs when either is wanted.
+    private static func needsScreenSensor(_ settings: LeonardSettings) -> Bool {
+        settings.watching && (settings.memoryEnabled || settings.chatProactive)
+    }
+
+    private func windowRead(_ text: WindowText) {
+        guard state.settings.chatProactive else { return }
+        let typing = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < 2
+        if let event = conversations.observe(app: text.app, bundleId: text.bundleId, window: text.window, text: text.text,
+                                             typing: typing) {
+            coordinator.submit(event)
+        }
     }
 
     private func syncLoginItem(_ enabled: Bool) {

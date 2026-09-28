@@ -13,6 +13,9 @@ import LeonardCore
 @MainActor
 final class ScreenMemorySensor {
     var onFrame: ((MemoryObserveFrame) -> Void)?
+    /// Every read, before memory's own filtering: the conversation radar
+    /// looks at the same text.
+    var onWindowText: ((WindowText) -> Void)?
     var policy: ScreenMemoryPolicy
     var interval: TimeInterval = 6
     var idleAfter: TimeInterval = 60
@@ -73,6 +76,7 @@ final class ScreenMemorySensor {
             guard let self else { return }
             self.reading = false
             guard let text else { return }
+            self.onWindowText?(text)
             if let frame = self.policy.frame(app: text.app, bundleId: text.bundleId, window: text.window, text: text.text, url: text.url) {
                 self.onFrame?(frame)
             }

@@ -11,6 +11,8 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     public var floor: Double = 0.60
     public var adaptive: Bool = true
     public var mailProactive: Bool = true
+    /// Conversations in chat apps (Slack, WhatsApp, Messages, Teams…).
+    public var chatProactive: Bool = true
     public var toneCheck: Bool = true
     public var quietHoursEnabled: Bool = false
     public var quietFrom: Int = 20
@@ -41,6 +43,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     public var proactiveKinds: [String] {
         var kinds: [String] = []
         if mailProactive { kinds.append(EventKind.mailOpened.rawValue) }
+        if chatProactive { kinds.append(EventKind.messageOpened.rawValue) }
         if toneCheck { kinds.append(EventKind.mailComposing.rawValue) }
         return kinds
     }
@@ -60,7 +63,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case language, floor, adaptive, mailProactive, toneCheck, quietHoursEnabled, quietFrom, quietTo,
+        case language, floor, adaptive, mailProactive, chatProactive, toneCheck, quietHoursEnabled, quietFrom, quietTo,
              overlaySeconds, memoryEnabled, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
              hotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules
     }
@@ -75,6 +78,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
         if let v = read(.floor, Double.self), (0...1).contains(v) { s.floor = v }
         if let v = read(.adaptive, Bool.self) { s.adaptive = v }
         if let v = read(.mailProactive, Bool.self) { s.mailProactive = v }
+        if let v = read(.chatProactive, Bool.self) { s.chatProactive = v }
         if let v = read(.toneCheck, Bool.self) { s.toneCheck = v }
         if let v = read(.quietHoursEnabled, Bool.self) { s.quietHoursEnabled = v }
         if let v = read(.quietFrom, Int.self), (0...23).contains(v) { s.quietFrom = v }

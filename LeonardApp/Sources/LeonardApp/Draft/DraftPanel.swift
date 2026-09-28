@@ -293,8 +293,29 @@ final class DraftPanelController {
         }
     }
 
+    /// The chat app a reply belongs in, when the draft answers a
+    /// conversation rather than an email.
+    private var chatApp: String? {
+        guard let id = state.draft?.decision.eventId,
+              let entry = state.entries.first(where: { $0.event.id == id }), entry.event.kind == .messageOpened,
+              case .string(let bundle)? = entry.event.payload.fields["bundle_id"], !bundle.isEmpty else { return nil }
+        return bundle
+    }
+
     private func insert(_ text: String) {
         panel?.orderOut(nil)
+        if let bundle = chatApp {
+            Task {
+                if await ChatInserter.insert(text, bundleId: bundle) {
+                    coordinator.closeDraft()
+                } else {
+                    Clipboard.copy(text)
+                    editor.notice = L10n.t(.draftPasteHint)
+                    panel?.orderFrontRegardless()
+                }
+            }
+            return
+        }
         Task {
             let outcome = await TextInserter.insert(text, into: nil)
             if case .copiedOnly = outcome {

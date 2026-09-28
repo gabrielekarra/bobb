@@ -108,6 +108,8 @@ struct SettingsView: View {
             Section {
                 Toggle(L10n.t(.settingsMailProactive), isOn: binding(\.mailProactive))
                 hint(L10n.t(.settingsMailProactiveHint))
+                Toggle(L10n.t(.settingsChatProactive), isOn: binding(\.chatProactive))
+                hint(L10n.t(.settingsChatProactiveHint))
                 Toggle(L10n.t(.settingsToneCheck), isOn: binding(\.toneCheck))
                 hint(L10n.t(.settingsToneCheckHint))
             }

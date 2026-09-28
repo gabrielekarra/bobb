@@ -88,6 +88,15 @@ public final class LeonardCoordinator {
         Task { await client.stop() }
     }
 
+    /// An event produced outside the event source (the conversation
+    /// tracker rides on the screen sensor's reads).
+    public func submit(_ event: EventFrame) {
+        guard state.watching, state.entitlement.allowsAssistance else { return }
+        state.recordEvent(event)
+        let ipc = client
+        Task { await ipc.send(event: event) }
+    }
+
     // MARK: Incoming
 
     func handle(_ frame: IncomingFrame) {

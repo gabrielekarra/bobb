@@ -20,7 +20,7 @@ struct SettingsAndPolicyTests {
         settings.quietFrom = 21
         settings.quietTo = 7
         let frame = settings.daemonFrame()
-        #expect(frame.proactiveKinds == ["mail.opened"])
+        #expect(frame.proactiveKinds == ["mail.opened", "message.opened"])
         #expect(frame.quietHours == [21, 7])
         settings.quietTo = 21
         #expect(settings.daemonFrame().quietHours == nil)

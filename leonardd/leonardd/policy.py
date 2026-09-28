@@ -169,6 +169,9 @@ def _relevance_action(readouts: dict[str, Decision], user_state: str, event: dic
 
 _POLICIES = {
     "mail.opened": _mail_opened_action,
+    # A chat message is judged on the same facts as an email: who wrote it,
+    # whether it asks for something, how soon.
+    "message.opened": _mail_opened_action,
     "mail.composing": _mail_composing_action,
     "text.selected": _text_selected_action,
     "app.activated": _relevance_action,

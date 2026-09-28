@@ -105,6 +105,8 @@ public enum L10n {
         // specialist
         case mindSpecialist, mindSpecialistLearning, mindSpecialistChecking, mindSpecialistActive,
              mindSpecialistAgreement, mindSpecialistAlone, mindSpecialistBadge
+        // chats
+        case settingsChatProactive, settingsChatProactiveHint
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -407,6 +409,9 @@ public enum L10n {
         .mindSpecialistAgreement: ("Agrees with you {specialist} of the time (the general model: {general}).", "È d'accordo con te il {specialist} delle volte (il modello generale: {general})."),
         .mindSpecialistAlone: ("Decided alone {count} times in {ms}, instead of {general}.", "Ha deciso da solo {count} volte in {ms}, invece di {general}."),
         .mindSpecialistBadge: ("Your specialist", "Il tuo specialista"),
+
+        .settingsChatProactive: ("Conversations in chat apps", "Conversazioni nelle app di chat"),
+        .settingsChatProactiveHint: ("Slack, WhatsApp, Messages, Teams, Telegram and others: when someone asks you something, Leonard offers a reply and puts it in the message box. It never sends.", "Slack, WhatsApp, Messaggi, Teams, Telegram e altre: quando qualcuno ti chiede qualcosa, Leonard propone una risposta e la mette nella casella del messaggio. Non invia mai."),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

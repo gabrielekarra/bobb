@@ -222,6 +222,37 @@ def _mail_opened_explanation(event: dict, readouts: dict[str, Decision], locale:
     return i18n.t(f"explain.{kind}", locale, name=i18n.display_name(p.get("sender"), locale), urgency=urgency)
 
 
+# ---------- message.opened (any chat app) ----------
+
+
+def _message_opened_context(event: dict, user_state: str) -> str:
+    p = _payload(event)
+    return (
+        f"A conversation is open in {event.get('app') or 'a chat app'}.\n"
+        f"Conversation: {p.get('sender') or 'unknown'}\n"
+        f"Unread or new messages: {p.get('new', False)}.\n\n"
+        f"The latest messages, oldest first (the user's own messages may be among them):\n{_clip_body(p.get('body', ''), 2500)}"
+    )
+
+
+def _message_opened_hypotheses(event: dict, readouts: dict[str, Decision]) -> list[Hypothesis]:
+    return [Hypothesis("reply_to_message", readouts["message_type"].probabilities["personal_request"])]
+
+
+def _message_opened_suggestion(event: dict, readouts: dict[str, Decision], hypotheses: list[Hypothesis], locale: str) -> dict | None:
+    p = _payload(event)
+    if readouts["message_type"].value in ("broadcast", "transactional"):
+        return None
+    name = i18n.display_name(p.get("sender"), locale)
+    urgency = int(readouts["urgency"].value)
+    return {
+        "title": i18n.t("reply.title", locale, name=name),
+        "action_id": "draft_reply",
+        "detail": f"{event.get('app') or ''} · {i18n.t(f'urgency.{urgency}', locale)}",
+        "cta": i18n.t("reply.cta", locale),
+    }
+
+
 # ---------- mail.composing ----------
 
 _TONE = Choice(
@@ -408,6 +439,14 @@ INTENTS: dict[str, EventIntent] = {
         context=_mail_opened_context,
         hypotheses=_mail_opened_hypotheses,
         suggestion=_mail_opened_suggestion,
+        explain=_mail_opened_explanation,
+    ),
+    "message.opened": EventIntent(
+        kind="message.opened",
+        questions=(_MESSAGE_TYPE, _URGENCY),
+        context=_message_opened_context,
+        hypotheses=_message_opened_hypotheses,
+        suggestion=_message_opened_suggestion,
         explain=_mail_opened_explanation,
     ),
     "mail.composing": EventIntent(

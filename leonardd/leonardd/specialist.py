@@ -50,7 +50,7 @@ import numpy as np
 
 VERSION = 1
 DIM = 1 << 18
-COVERED_KINDS = ("mail.opened",)
+COVERED_KINDS = ("mail.opened", "message.opened")
 QUIET_P = 0.08
 SHADOW_RATE = 0.05
 MIN_USER_LABELS = 30

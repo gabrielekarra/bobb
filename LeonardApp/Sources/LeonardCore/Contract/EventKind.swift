@@ -15,6 +15,8 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
     case mailArchived = "mail.archived"
     case mailDeleted = "mail.deleted"
     case textSelected = "text.selected"
+    /// A conversation opened, or new lines in it, in any chat app.
+    case messageOpened = "message.opened"
     case idleEntered = "idle.entered"
     case idleLeft = "idle.left"
 
@@ -28,7 +30,7 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
     public var isLearningSignal: Bool {
         switch self {
         case .mailArrived, .mailClosed, .mailArchived, .mailDeleted: true
-        case .appActivated, .windowChanged, .mailOpened, .mailComposing, .textSelected, .idleEntered, .idleLeft: false
+        case .appActivated, .windowChanged, .mailOpened, .mailComposing, .textSelected, .messageOpened, .idleEntered, .idleLeft: false
         }
     }
 }

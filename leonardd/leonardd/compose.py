@@ -224,6 +224,8 @@ REPLY_VARIANTS = {
 
 
 def draft_reply(event: dict, memory: MemoryStore | None, locale: str, instruction: str = "") -> Task:
+    if event.get("kind") == "message.opened":
+        return chat_reply(event, memory, locale, instruction)
     p = _payload(event)
     sender = str(p.get("sender") or "")
     subject = str(p.get("subject") or "")
@@ -271,6 +273,45 @@ def draft_reply(event: dict, memory: MemoryStore | None, locale: str, instructio
         result_kind="reply",
         prefix=salutation(sender, body),
         grounding="\n".join((sender, subject, body, block, instruction)),
+    )
+
+
+def chat_reply(event: dict, memory: MemoryStore | None, locale: str, instruction: str = "") -> Task:
+    """A reply in a chat app: shorter than an email, no greeting line or
+    signature unless the conversation uses them, same language."""
+    p = _payload(event)
+    conversation = str(p.get("sender") or "")
+    body = str(p.get("body") or "")
+    app = str(event.get("app") or "the chat app")
+    name = display_name(conversation)
+    hits, terms = related_memory(memory, f"{name} {body[-300:]}", exclude_window=str(p.get("window") or ""))
+    block, sources = _memory_block(hits, terms, locale)
+    instruction = REPLY_VARIANTS.get(instruction.strip(), instruction.strip())
+    system = (
+        f"You write the user's next message in a {app} conversation with {name}. You write as the user, never as "
+        f"{name}.\n"
+        "Rules:\n"
+        f"- {_language_rule(body)} Match the conversation's register.\n"
+        "- Answer the latest message addressed to the user. One to three short sentences.\n"
+        "- No greeting line or signature unless the conversation uses them. No emoji unless they do.\n"
+        "- Invent nothing: no date, time, amount, name or fact that is not in the conversation, the notes or the "
+        "user's instructions. Never say the user already did something.\n"
+        "- Output only the message.\n" + _UNTRUSTED
+    )
+    user = f"The conversation, oldest first (lines may include the user's own messages):\n<conversation>\n{body[-2500:]}\n</conversation>"
+    if block:
+        user += f"\n\nEarlier things the user saw on screen that may help (do not mention them):\n{block}"
+    if instruction:
+        user += f"\n\nThe user's instructions for this message: {instruction}"
+    user += f"\n\nWrite the user's next message to {name}."
+    return Task(
+        "draft_reply",
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=160,
+        sources=sources,
+        temperature=0.3,
+        result_kind="reply",
+        grounding="\n".join((conversation, body, block, instruction)),
     )
 
 

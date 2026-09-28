@@ -404,3 +404,54 @@ private let spotify = ScreenObservation(app: "Spotify", bundleId: "com.spotify.c
         #expect(frame.route)
     }
 }
+
+// MARK: - Conversations
+
+@Suite struct ConversationTests {
+    let start = Date(timeIntervalSince1970: 1_790_000_000)
+
+    @Test func openingAConversationIsAnEventWithItsLatestLines() {
+        var tracker = ConversationTracker()
+        let event = tracker.observe(app: "Slack", bundleId: "com.tinyspeck.slackmacgap",
+                                    window: "Giulia Bianchi (DM) - Studio Rossi - Slack",
+                                    text: "Giulia Bianchi 10:41\nHai visto il preventivo?\nGiulia Bianchi 10:42\nMi confermi entro stasera?",
+                                    now: start)
+        #expect(event?.kind == .messageOpened)
+        #expect(event?.payload.fields["sender"] == .string("Giulia Bianchi (DM)"))
+        #expect(event?.payload.fields["subject"] == .string("Slack: Giulia Bianchi (DM)"))
+        #expect(event?.payload.fields["new"] == .bool(false))
+    }
+
+    @Test func onlyNewLinesCountAndNotTooOften() {
+        var tracker = ConversationTracker()
+        let chat = "com.tinyspeck.slackmacgap"
+        _ = tracker.observe(app: "Slack", bundleId: chat, window: "Giulia", text: "Ciao\nCome va?", now: start)
+        #expect(tracker.observe(app: "Slack", bundleId: chat, window: "Giulia", text: "Ciao\nCome va?", now: start + 30) == nil)
+        let fresh = tracker.observe(app: "Slack", bundleId: chat, window: "Giulia", text: "Ciao\nCome va?\nMi mandi il file?", now: start + 40)
+        #expect(fresh?.payload.fields["body"] == .string("Mi mandi il file?"))
+        #expect(fresh?.payload.fields["new"] == .bool(true))
+        // Within the gap: held, not lost.
+        #expect(tracker.observe(app: "Slack", bundleId: chat, window: "Giulia", text: "Ciao\nCome va?\nMi mandi il file?\nGrazie", now: start + 45) == nil)
+        let later = tracker.observe(app: "Slack", bundleId: chat, window: "Giulia", text: "Ciao\nCome va?\nMi mandi il file?\nGrazie", now: start + 70)
+        #expect(later?.payload.fields["body"] == .string("Grazie"))
+    }
+
+    @Test func notWhileTypingNotOutsideChatAppsAndNotAgainSoon() {
+        var tracker = ConversationTracker()
+        #expect(tracker.observe(app: "Safari", bundleId: "com.apple.Safari", window: "Docs", text: "Hello there", now: start) == nil)
+        let chat = "net.whatsapp.WhatsApp"
+        #expect(tracker.observe(app: "WhatsApp", bundleId: chat, window: "WhatsApp", text: "Marco\nci vediamo alle 5?", now: start) != nil)
+        #expect(tracker.observe(app: "WhatsApp", bundleId: chat, window: "WhatsApp", text: "Marco\nci vediamo alle 5?\nok", typing: true, now: start + 60) == nil)
+        _ = tracker.observe(app: "Slack", bundleId: "com.tinyspeck.slackmacgap", window: "general", text: "news of the day", now: start + 70)
+        // Back to WhatsApp within ten minutes: nothing new, no event.
+        #expect(tracker.observe(app: "WhatsApp", bundleId: chat, window: "WhatsApp", text: "Marco\nci vediamo alle 5?", now: start + 80) == nil)
+        #expect(ConversationTracker.conversationName(window: "WhatsApp", app: "WhatsApp") == "")
+    }
+
+    @Test func chatIsAProactiveKindByDefault() {
+        #expect(LeonardSettings().proactiveKinds.contains("message.opened"))
+        var settings = LeonardSettings()
+        settings.chatProactive = false
+        #expect(!settings.proactiveKinds.contains("message.opened"))
+    }
+}
