@@ -75,6 +75,10 @@ class Task:
     # which pins down who is writing to whom: without it a 3B model drifts
     # into the sender's voice and restates their request as its own.
     prefix: str = ""
+    # Everything the output is allowed to take facts from: the email, the
+    # selection, the memory excerpts, the user's instruction. `unsupported`
+    # checks the output against it.
+    grounding: str = ""
 
 
 # ---------------------------------------------------------------- helpers
@@ -241,7 +245,8 @@ def draft_reply(event: dict, memory: MemoryStore | None, locale: str, instructio
         "- Invent nothing. No date, time, amount, name or fact that is not in the email, in the notes, or "
         "in the user's instructions. Never say the user has already done something.\n"
         "- If the email asks for something only the user can provide (a time slot, a document, a figure), "
-        "say the user will provide it or ask them to propose one; do not make it up.\n"
+        "say the user will provide it or ask them to propose one; do not make it up. Asked to send "
+        "documents, say they will be sent, never that they were.\n"
         "- Two to five sentences. No subject line, no placeholders in brackets, no notes about the reply.\n"
         "- End with a short closing in the same register"
         + (f", then {user_name}." if user_name else ".")
@@ -265,6 +270,7 @@ def draft_reply(event: dict, memory: MemoryStore | None, locale: str, instructio
         temperature=0.2,
         result_kind="reply",
         prefix=salutation(sender, body),
+        grounding="\n".join((sender, subject, body, block, instruction)),
     )
 
 
@@ -275,11 +281,13 @@ def summarize_notice(event: dict, locale: str) -> Task:
         "three short bullet points: what happened, what the user must do (if anything), and by when. "
         f"Write in {language}. Do not add advice the notice does not support. " + _UNTRUSTED
     )
+    p = _payload(event)
     return Task(
         "summarize_notice",
-        [{"role": "system", "content": system}, {"role": "user", "content": _email_block(_payload(event))}],
+        [{"role": "system", "content": system}, {"role": "user", "content": _email_block(p)}],
         max_tokens=160,
         temperature=0.2,
+        grounding="\n".join(str(p.get(k, "")) for k in ("sender", "subject", "body")),
     )
 
 
@@ -315,6 +323,7 @@ def review_tone(event: dict, locale: str) -> Task:
         max_tokens=max(80, min(400, len(draft) // 2 + 60)),
         result_kind="replacement",
         prefix=_opening(draft),
+        grounding=draft,
     )
 
 
@@ -336,6 +345,7 @@ def continue_draft(event: dict, memory: MemoryStore | None, locale: str) -> Task
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
         max_tokens=240,
         sources=sources,
+        grounding="\n".join((draft, str(p.get("subject", "")), block)),
     )
 
 
@@ -463,7 +473,8 @@ def for_request(request: Request, memory: MemoryStore | None, locale: str) -> Ta
             user += f"\n\nPossibly relevant things the user saw earlier:\n{block}"
         if instruction:
             user += f"\n\nThe user's instructions: {instruction}"
-        return Task("reply", _msgs(system, user), max_tokens=360, sources=sources, result_kind="reply")
+        return Task("reply", _msgs(system, user), max_tokens=360, sources=sources, result_kind="reply",
+                    grounding="\n".join((selection, block, instruction)))
 
     query = " ".join(part for part in (instruction, selection[:300]) if part)
     hits, terms = related_memory(memory, query)
@@ -481,7 +492,8 @@ def for_request(request: Request, memory: MemoryStore | None, locale: str) -> Ta
             user += f"\n\nText the user has selected:\n{_fence(selection, 4000)}"
         if block:
             user += f"\n\nMEMORY:\n{block}"
-        return Task("write", _msgs(system, user), max_tokens=500, sources=sources)
+        return Task("write", _msgs(system, user), max_tokens=500, sources=sources,
+                    grounding="\n".join((instruction, selection, block)))
 
     system = (
         "You are Leonard, a private assistant that runs entirely on the user's Mac. MEMORY holds excerpts "
@@ -493,7 +505,70 @@ def for_request(request: Request, memory: MemoryStore | None, locale: str) -> Ta
     if selection and instruction:
         user += f"\n\nText the user has selected:\n{_fence(selection, 3000)}"
     user += f"\n\nMEMORY:\n{block}" if block else "\n\nMEMORY: (nothing relevant found)"
-    return Task("ask", _msgs(system, user), max_tokens=320, sources=sources, temperature=0.1, result_kind="answer")
+    return Task("ask", _msgs(system, user), max_tokens=320, sources=sources, temperature=0.1, result_kind="answer",
+                grounding="\n".join((instruction, selection, block)))
+
+
+_MONTHS = (
+    "gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre "
+    "january february march april may june july august september october november december "
+    "gen feb mar apr mag giu lug ago set ott nov dic jan jun jul aug sep oct dec"
+).split()
+_WEEKDAYS = (
+    "lunedì martedì mercoledì giovedì venerdì sabato domenica lunedi martedi mercoledi giovedi venerdi "
+    "monday tuesday wednesday thursday friday saturday sunday"
+).split()
+_NUMBER = re.compile(r"(?<![\w])[€$£]?\d[\d.,:/'’]*(?:\s?(?:%|€|eur|euro|usd|am|pm|h))?", re.IGNORECASE)
+_DAY_MONTH = re.compile(r"\b(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\b", re.IGNORECASE)
+_WEEKDAY = re.compile(r"\b(" + "|".join(_WEEKDAYS) + r")\b", re.IGNORECASE)
+
+
+def _digits(text: str) -> str:
+    return re.sub(r"\D", "", text)
+
+
+def unsupported(output: str, grounding: str, *, prefix: str = "") -> list[str]:
+    """Dates, days, times and figures in `output` that appear nowhere in
+    `grounding`: the facts a small model is most likely to have invented.
+
+    Deterministic and deliberately narrow. It cannot tell whether a
+    sentence is true; it can tell that "27 settembre" was not in anything
+    the model was shown, and that is the invention that costs the most when
+    it goes out under the user's name. Found facts are shown to the user
+    next to the draft, never silently removed.
+    """
+    body = output[len(prefix):] if prefix and output.startswith(prefix) else output
+    source = grounding.lower()
+    source_digits = {_digits(m.group(0)) for m in _NUMBER.finditer(grounding)}
+    source_digits.discard("")
+    flagged: list[str] = []
+
+    def flag(text: str) -> None:
+        text = text.strip(" .,;:")
+        if text and text not in flagged:
+            flagged.append(text)
+
+    covered: list[tuple[int, int]] = []
+    for match in _DAY_MONTH.finditer(body):
+        day, month = match.group(1), match.group(2).lower()
+        pattern = rf"\b0?{int(day)}\s+{month[:3]}"
+        if not re.search(pattern, source) and not re.search(rf"\b0?{int(day)}[/.-]", source):
+            flag(match.group(0))
+        covered.append(match.span())
+    for match in _NUMBER.finditer(body):
+        if any(start <= match.start() < end for start, end in covered):
+            continue
+        digits = _digits(match.group(0))
+        if len(digits) < 2 and not re.search(r"[€$£%]|eur|usd|am|pm", match.group(0), re.IGNORECASE):
+            continue
+        if digits in source_digits or any(digits and digits in d for d in source_digits):
+            continue
+        flag(match.group(0))
+    for match in _WEEKDAY.finditer(body):
+        day = match.group(1).lower()
+        if day[:5] not in source:
+            flag(match.group(0))
+    return flagged
 
 
 def _msgs(system: str, user: str) -> list[dict]:
@@ -527,5 +602,6 @@ __all__ = [
     "salutation",
     "REPLY_VARIANTS",
     "cited",
+    "unsupported",
     "relative_day",
 ]

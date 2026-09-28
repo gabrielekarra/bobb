@@ -440,6 +440,7 @@ class LeonardServer:
             "kind": task.result_kind,
             "body": result.text,
             "sources": [s.to_frame() for s in compose.cited(result.text, task.sources)],
+            "unsupported": compose.unsupported(result.text, task.grounding, prefix=task.prefix),
         }
         if task.result_kind == "reply":
             body["to"] = payload.get("sender", "")
@@ -559,6 +560,7 @@ class LeonardServer:
                 "mode": task.kind,
                 "result_kind": task.result_kind,
                 "sources": [s.to_frame() for s in compose.cited(result.text, task.sources)],
+                "unsupported": compose.unsupported(result.text, task.grounding, prefix=task.prefix),
                 "latency_ms": (time.perf_counter() - started) * 1000,
                 "first_token_ms": result.first_token_ms,
                 "cancelled": result.cancelled,

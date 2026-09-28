@@ -2,7 +2,8 @@ import AppKit
 import LeonardCore
 
 /// A quiet, hand-drawn 18×18 glyph: a ring that fills to different degrees
-/// and colors for `disconnected` / `watching` / `thinking` / `suggesting`.
+/// and colors for each `ActivityState`. `waitingForYou` adds a small amber
+/// dot, like an unread badge that does not shout.
 /// No template image, no badge, no bounce — the icon should read as calm
 /// even in `suggesting`, because a colleague getting your attention taps
 /// your shoulder once, it does not flash.
@@ -70,8 +71,12 @@ final class StatusIconView: NSView {
 
         let color = tintColor()
         switch activityState {
-        case .disconnected:
+        case .disconnected, .starting, .setupNeeded:
             color.withAlphaComponent(0.55).setStroke()
+            ring.lineWidth = 1.2
+            ring.stroke()
+        case .paused:
+            color.withAlphaComponent(0.35).setStroke()
             ring.lineWidth = 1.2
             ring.stroke()
         case .watching:
@@ -84,14 +89,21 @@ final class StatusIconView: NSView {
         case .suggesting:
             color.setFill()
             ring.fill()
+        case .waitingForYou:
+            NSColor.labelColor.withAlphaComponent(0.9).setFill()
+            ring.fill()
+            let dot = NSBezierPath(ovalIn: NSRect(x: rect.maxX - 2, y: rect.maxY - 3, width: 5, height: 5))
+            NSColor.systemOrange.setFill()
+            dot.fill()
         }
     }
 
     private func tintColor() -> NSColor {
         switch activityState {
-        case .disconnected: .secondaryLabelColor
-        case .watching: .labelColor
-        case .thinking: .systemBlue
+        case .disconnected, .paused: .secondaryLabelColor
+        case .starting, .setupNeeded: .systemOrange
+        case .watching, .waitingForYou: .labelColor
+        case .thinking: .systemIndigo
         case .suggesting: .systemOrange
         }
     }

@@ -33,14 +33,14 @@ struct ConfidenceFloorChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("Confidenza vs soglia")
+                Text(L10n.t(.chartTitle))
                     .font(.system(size: 11, weight: .semibold))
                 Spacer()
                 legend
             }
 
             if points.isEmpty {
-                Text("Nessuna decisione ancora")
+                Text(L10n.t(.mindEmpty))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
@@ -81,9 +81,9 @@ struct ConfidenceFloorChart: View {
 
     private var legend: some View {
         HStack(spacing: 10) {
-            legendItem(color: .accentColor, label: "emergerebbe")
-            legendItem(color: .secondary.opacity(0.45), label: "silenzio")
-            legendItem(color: .red, label: "quasi emerso (abstain)")
+            legendItem(color: .accentColor, label: L10n.t(.chartWouldSurface))
+            legendItem(color: .secondary.opacity(0.45), label: L10n.t(.chartSilent))
+            legendItem(color: .red, label: L10n.t(.chartNearMiss))
         }
         .font(.system(size: 9))
         .foregroundStyle(.secondary)

@@ -42,7 +42,7 @@ struct MindEntryRow: View {
                 Text("\(entry.event.kind.rawValue) · \(entry.event.app)")
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                Text(decision?.why ?? "in attesa della decisione…")
+                Text(decision.map { $0.explanation ?? $0.why } ?? L10n.t(.mindWaiting))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -106,7 +106,7 @@ struct MindEntryRow: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                         .font(.system(size: 11))
-                    Text("Ha quasi parlato: confidenza \(String(format: "%.2f", decision.confidence)) sotto la soglia attuale (\(String(format: "%.2f", floor))). È rimasto in silenzio.")
+                    Text(L10n.t(.mindNearMiss, ["confidence": L10n.percent(decision.confidence), "floor": L10n.percent(decision.floor ?? floor)]))
                         .font(.system(size: 10.5))
                         .foregroundStyle(.primary)
                 }
@@ -115,7 +115,7 @@ struct MindEntryRow: View {
             }
 
             if !payloadFields.isEmpty {
-                sectionLabel("Evento")
+                sectionLabel(L10n.t(.mindEvent))
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(payloadFields, id: \.0) { key, value in
                         HStack(spacing: 4) {
@@ -128,7 +128,7 @@ struct MindEntryRow: View {
             }
 
             if !entry.traces.isEmpty {
-                sectionLabel("Tracciato")
+                sectionLabel("Trace")
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(Array(entry.traces.enumerated()), id: \.offset) { _, trace in
                         HStack {
@@ -148,7 +148,7 @@ struct MindEntryRow: View {
             }
 
             if let decision, !decision.hypotheses.isEmpty {
-                sectionLabel("Ipotesi di intento")
+                sectionLabel(L10n.t(.mindHypotheses))
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(decision.hypotheses, id: \.intent) { hypothesis in
                         HStack(spacing: 6) {
@@ -171,7 +171,7 @@ struct MindEntryRow: View {
             }
 
             if let decision, !decision.readouts.isEmpty {
-                sectionLabel("Readout")
+                sectionLabel(L10n.t(.mindReadouts))
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(decision.readouts, id: \.q) { readout in
                         ReadoutBarView(readout: readout)
@@ -180,12 +180,20 @@ struct MindEntryRow: View {
             }
 
             if let decision, let suggestion = decision.suggestion {
-                sectionLabel("Suggerimento")
+                sectionLabel(L10n.t(.menuForYou))
                 Text(suggestion.title)
                     .font(.system(size: 10.5, weight: .medium))
                 Text(suggestion.detail)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
+            }
+
+            if let decision, !decision.why.isEmpty {
+                sectionLabel(L10n.t(.mindTechnical))
+                Text(decision.why)
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
             }
         }
     }

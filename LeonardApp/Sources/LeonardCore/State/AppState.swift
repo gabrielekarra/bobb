@@ -47,6 +47,7 @@ public struct AskSession: Sendable, Equatable {
     public var text: String = ""
     public var streaming: Bool = false
     public var sources: [SourceRef] = []
+    public var unsupported: [String] = []
     public var error: String?
     public var resultKind: String?
 
@@ -236,6 +237,7 @@ public final class AppState {
         ask.mode = mode
         ask.text = ""
         ask.sources = []
+        ask.unsupported = []
         ask.error = nil
         ask.resultKind = nil
         ask.streaming = true
@@ -251,6 +253,7 @@ public final class AppState {
         ask.streaming = false
         ask.resultKind = answer.resultKind
         ask.sources = answer.sources
+        ask.unsupported = answer.unsupported
         if answer.ok {
             ask.text = answer.text
         } else {

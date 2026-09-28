@@ -17,6 +17,8 @@ struct MindView: View {
                 .frame(minWidth: 420)
         }
         .frame(minWidth: 760, minHeight: 460)
+        .tint(Theme.accent)
+        .task { await coordinator.refreshStats() }
     }
 
     // MARK: Sidebar
@@ -28,6 +30,7 @@ struct MindView: View {
                 tallySection
                 ConfidenceFloorChart(entries: state.entries, floor: state.floor)
                 floorSection
+                learnedSection
                 filterSection
             }
             .padding(16)
@@ -42,7 +45,7 @@ struct MindView: View {
                 Text(connectionText)
                     .font(.system(size: 11.5, weight: .medium))
             }
-            Toggle("Osserva", isOn: $state.watching)
+            Toggle(L10n.t(.mindWatch), isOn: Binding(get: { state.watching }, set: { coordinator.setWatching($0) }))
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .font(.system(size: 11))
@@ -51,11 +54,9 @@ struct MindView: View {
 
     private var connectionText: String {
         switch state.connection {
-        case .disconnected: "Disconnesso"
-        case .connecting: "Connessione…"
-        case .connected: "Handshake…"
-        case .ready(let ready): "Connesso · \(ready.model)"
-        case .reconnecting(let attempt, _): "Riconnessione (tentativo \(attempt))"
+        case .ready(let ready): L10n.t(.mindConnected, ["model": ready.model.components(separatedBy: "/").last ?? ready.model])
+        case .connected, .connecting, .reconnecting: L10n.t(.statusStarting)
+        case .disconnected: L10n.t(.statusDisconnected)
         }
     }
 
@@ -64,24 +65,57 @@ struct MindView: View {
     }
 
     private var tallySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionTitle("Bilancio")
+        let summary = state.stats?.decisions ?? DecisionSummary(
+            decisions: state.decisionsMade, suggested: state.decisionsMade - state.staySilentCount,
+            silent: state.staySilentCount
+        )
+        return VStack(alignment: .leading, spacing: 8) {
+            sectionTitle(L10n.t(.mindToday))
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                statTile("Eventi", "\(state.eventsSeen)")
-                statTile("Decisioni", "\(state.decisionsMade)")
-                statTile("Silenzi", "\(state.staySilentCount)")
-                statTile("Latenza mediana", String(format: "%.0f ms", state.medianDecisionLatencyMs))
+                statTile(L10n.t(.mindDecisions), "\(summary.decisions)")
+                statTile(L10n.t(.mindSilences), "\(summary.silent)")
+                statTile(L10n.t(.mindAccepted), summary.acceptance.map { L10n.percent($0) } ?? "—")
+                statTile(L10n.t(.mindLatency), state.medianDecisionLatencyMs > 0 ? String(format: "%.0f ms", state.medianDecisionLatencyMs) : "—")
             }
-            if state.decisionsMade > 0 {
-                let percentSilent = Double(state.staySilentCount) / Double(state.decisionsMade) * 100
-                Text(String(format: "%.0f%% delle decisioni sono rimaste in silenzio", percentSilent))
+            if summary.decisions > 0 {
+                Text(L10n.t(.mindSilentShare, ["percent": L10n.percent(Double(summary.silent) / Double(summary.decisions))]))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
-            if state.learningSignalCount > 0 {
-                Text("\(state.learningSignalCount) eventi di apprendimento (mail arrivata/chiusa/archiviata/eliminata) nel conteggio, esclusi dall'elenco qui accanto")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var learnedSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionTitle(L10n.t(.mindLearned))
+            let learning = state.stats?.learning
+            let kinds = (learning?.kinds ?? []).filter { $0.learning }
+            let muted = learning?.mutedSenders ?? []
+            if kinds.isEmpty && muted.isEmpty {
+                Text(L10n.t(.mindLearnedEmpty))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(kinds) { kind in
+                Text(L10n.t(.mindPersonalFloor, [
+                    "kind": kind.kind, "floor": L10n.percent(kind.floor),
+                    "approved": "\(kind.approved)", "dismissed": "\(kind.dismissed)",
+                ]))
+                .font(.system(size: 10.5))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(muted) { rule in
+                HStack(spacing: 6) {
+                    Image(systemName: "bell.slash").font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(L10n.t(.mindMutedSender, ["sender": rule.sender]))
+                        .font(.system(size: 10.5))
+                        .lineLimit(1)
+                    Spacer()
+                    Button(L10n.t(.mindForget)) { coordinator.forget(ruleId: rule.ruleId) }
+                        .buttonStyle(.link)
+                        .font(.system(size: 10.5))
+                }
             }
         }
     }
@@ -103,7 +137,7 @@ struct MindView: View {
     private var floorSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                sectionTitle("Soglia di interruzione")
+                sectionTitle(L10n.t(.mindFloor))
                 Spacer()
                 Text(String(format: "%.2f", state.floor))
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -116,14 +150,14 @@ struct MindView: View {
                 }
             )
             .controlSize(.small)
-            Text("Muovi la soglia: il grafico sopra ridisegna subito cosa emergerebbe.")
+            Text(L10n.t(.mindFloorHint))
                 .font(.system(size: 9.5))
                 .foregroundStyle(.tertiary)
         }
     }
 
     private var filterSection: some View {
-        Toggle("Nascondi eventi di apprendimento", isOn: $state.hideLearningSignalsInMind)
+        Toggle(L10n.t(.mindHideSignals), isOn: $state.hideLearningSignalsInMind)
             .toggleStyle(.checkbox)
             .font(.system(size: 11))
     }
@@ -140,7 +174,7 @@ struct MindView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if state.visibleEntries.isEmpty {
-                    Text("Nessun evento ancora. Leonard sta osservando.")
+                    Text(L10n.t(.mindEmpty))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 200, alignment: .center)

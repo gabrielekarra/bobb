@@ -89,6 +89,9 @@ public enum L10n {
              onbAccessibilityWhy, onbAutomationWhy, onbGrant, onbGranted, onbModelTitle, onbModelBody,
              onbDownload, onbDownloading, onbVerifying, onbModelReady, onbModelFailed, onbRetry,
              onbModelOffline, onbReadyTitle, onbReadyBody, onbTryIt, onbHotkeyTip
+        // chart and audit
+        case chartTitle, chartWouldSurface, chartSilent, chartNearMiss, auditTitle, auditSearch, auditSelect, auditRawEvent,
+             auditOpen
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -311,6 +314,16 @@ public enum L10n {
         .onbReadyBody: ("Keep working as usual. Leonard stays quiet until something needs you — and everything it decides is visible in Mind.", "Continua a lavorare come sempre. Leonard resta in silenzio finché qualcosa non richiede te — e ogni sua decisione è visibile in Mind."),
         .onbTryIt: ("Try it: select any text and press {hotkey}.", "Provalo: seleziona un testo e premi {hotkey}."),
         .onbHotkeyTip: ("Ask Leonard from anywhere with {hotkey}.", "Chiedi a Leonard da ovunque con {hotkey}."),
+
+        .chartTitle: ("Confidence vs threshold", "Confidenza vs soglia"),
+        .chartWouldSurface: ("would reach you", "ti arriverebbe"),
+        .chartSilent: ("silent", "silenzio"),
+        .chartNearMiss: ("near miss", "quasi emerso"),
+        .auditTitle: ("Decision history", "Storico delle decisioni"),
+        .auditSearch: ("Search by app, outcome, reason…", "Cerca per app, esito, motivo…"),
+        .auditSelect: ("Select a decision", "Seleziona una decisione"),
+        .auditRawEvent: ("Raw event", "Evento grezzo"),
+        .auditOpen: ("Full history…", "Storico completo…"),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

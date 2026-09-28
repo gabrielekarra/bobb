@@ -9,9 +9,19 @@ var products: [Product] = [
     .library(name: "LeonardCore", targets: ["LeonardCore"]),
 ]
 
-var targets: [Target] = [
+var coreDependencies: [Target.Dependency] = []
+var extraTargets: [Target] = []
+#if os(Linux)
+// macOS ships an `SQLite3` module in its SDK; on Linux the same module name
+// is provided by a system-library shim over libsqlite3-dev.
+coreDependencies.append("SQLite3")
+extraTargets.append(.systemLibrary(name: "SQLite3", path: "Sources/SQLite3Shim", providers: [.apt(["libsqlite3-dev"])]))
+#endif
+
+var targets: [Target] = extraTargets + [
     .target(
         name: "LeonardCore",
+        dependencies: coreDependencies,
         path: "Sources/LeonardCore",
         linkerSettings: [.linkedLibrary("sqlite3")]
     ),

@@ -1,15 +1,15 @@
-{"version":"1.0","locale":"it","t":"hello","ts":1,"client":"LeonardApp"}
-{"memory_retention_days":30,"proactive_kinds":["mail.opened","mail.composing"],"adaptive":true,"locale":"en","extra_protected_apps":[],"memory_enabled":true,"t":"settings","quiet_hours":null,"history_retention_days":90,"floor":0.6}
-{"bundle_id":"com.apple.Safari","window":"Docs","app":"Safari","t":"memory.observe","text":"Installation guide for the product, step one","ts":1790000000,"source":"screen"}
-{"t":"event","id":"evt_app_fixture","kind":"mail.opened","ts":1790000000,"payload":{"subject":"Preventivo","body":"Ciao, mi confermi il preventivo?","sender":"Marco Rossi <marco@studiorossi.it>","thread_len":1,"unread":true,"typing":false,"idle":false},"app":"Mail"}
-{"prompt":"Cosa dice la guida?","id":"ask_app","window":"","mode":"ask","app":"","t":"ask","selection":""}
-{"t":"cancel","request_id":"ask_app"}
-{"id":"s1","limit":30,"t":"memory.search","query":"guide"}
+{"ts":1,"locale":"it","client":"LeonardApp","version":"1.0","t":"hello"}
+{"extra_protected_apps":[],"adaptive":true,"quiet_hours":null,"memory_enabled":true,"memory_retention_days":30,"history_retention_days":90,"floor":0.6,"proactive_kinds":["mail.opened","mail.composing"],"locale":"en","t":"settings"}
+{"t":"memory.observe","ts":1790000000,"source":"screen","app":"Safari","text":"Installation guide for the product, step one","window":"Docs","bundle_id":"com.apple.Safari"}
+{"app":"Mail","ts":1790000000,"id":"evt_app_fixture","kind":"mail.opened","t":"event","payload":{"body":"Ciao, mi confermi il preventivo?","typing":false,"idle":false,"thread_len":1,"subject":"Preventivo","unread":true,"sender":"Marco Rossi <marco@studiorossi.it>"}}
+{"mode":"ask","t":"ask","app":"","id":"ask_app","prompt":"Cosa dice la guida?","selection":"","window":""}
+{"request_id":"ask_app","t":"cancel"}
+{"limit":30,"id":"s1","query":"guide","t":"memory.search"}
 {"id":"r1","limit":60,"t":"memory.recent"}
 {"id":"ms1","t":"memory.stats"}
 {"id":"st1","t":"stats"}
-{"id":"lm1","sender":"news@example.com","t":"learning.mute"}
+{"sender":"news@example.com","id":"lm1","t":"learning.mute"}
 {"id":"lf1","rule_id":"sender:news@example.com","t":"learning.forget"}
-{"reason":"timeout","ts":1,"decision_id":"dec_unknown","t":"dismiss"}
-{"id":"d1","scope":"query","query":"guide","t":"memory.delete"}
+{"t":"dismiss","decision_id":"dec_unknown","ts":1,"reason":"timeout"}
+{"id":"d1","query":"guide","scope":"query","t":"memory.delete"}
 {"id":"rl1","t":"reload"}

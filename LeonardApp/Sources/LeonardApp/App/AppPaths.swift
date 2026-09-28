@@ -1,0 +1,94 @@
+import Foundation
+import LeonardCore
+
+/// Where everything lives. One directory, owner-only, under Application
+/// Support: settings, the audit trail, screen memory, the model, the
+/// daemon's socket and lock. Logs go to ~/Library/Logs/Leonard, which is
+/// where Console.app and a support request expect them.
+enum AppPaths {
+    static var dataDirectory: URL {
+        if let override = argument("--data-dir") ?? ProcessInfo.processInfo.environment["LEONARD_DATA_DIR"] {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Leonard", isDirectory: true)
+    }
+
+    static var modelsDirectory: URL {
+        if let override = ProcessInfo.processInfo.environment["LEONARD_MODELS_DIR"] {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        return dataDirectory.appendingPathComponent("Models", isDirectory: true)
+    }
+
+    static var logsDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/Leonard", isDirectory: true)
+    }
+
+    static var socketPath: String {
+        argument("--socket") ?? dataDirectory.appendingPathComponent("leonardd.sock").path
+    }
+
+    static var auditDatabase: String {
+        argument("--audit-db") ?? dataDirectory.appendingPathComponent("audit.db").path
+    }
+
+    static var settingsFile: URL { dataDirectory.appendingPathComponent("app-settings.json") }
+    static var licenseFile: URL { dataDirectory.appendingPathComponent("license.key") }
+
+    static func prepare() {
+        let fm = FileManager.default
+        for dir in [dataDirectory, modelsDirectory, logsDirectory] {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dataDirectory.path)
+    }
+
+    static func argument(_ name: String) -> String? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: name), index + 1 < args.count else { return nil }
+        return args[index + 1]
+    }
+
+    static func flag(_ name: String) -> Bool {
+        CommandLine.arguments.contains(name)
+    }
+}
+
+/// Facts about this build, stamped into Info.plist by `scripts/package.sh`.
+enum BuildInfo {
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    static var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    }
+
+    /// The day this build was made, which is what a license's
+    /// `updates_until` is compared with. Unstamped development builds count
+    /// as today.
+    static var buildDate: Date {
+        if let text = Bundle.main.object(forInfoDictionaryKey: "LeonardBuildDate") as? String,
+           let date = LicenseDates.parse(text) {
+            return date
+        }
+        return Date()
+    }
+
+    /// The Ed25519 public key licenses are verified against. Release builds
+    /// get the production key from `package.sh`; everything else carries the
+    /// development key, whose private half is in `tools/license/`.
+    static var licensePublicKey: String {
+        (Bundle.main.object(forInfoDictionaryKey: "LeonardLicensePublicKey") as? String) ?? developmentLicenseKey
+    }
+
+    static let developmentLicenseKey = "pKVQLNy-XRirFvGnkNLtDBOHwpeMoz81bSN3RwGKy08"
+
+    static var isDevelopmentBuild: Bool { licensePublicKey == developmentLicenseKey }
+
+    static let website = URL(string: "https://leonard.app")!
+    static let buyURL = URL(string: "https://leonard.app/buy")!
+    static let releasesURL = URL(string: "https://leonard.app/releases")!
+    static let supportEmail = "support@leonard.app"
+}

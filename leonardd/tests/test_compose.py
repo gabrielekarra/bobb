@@ -171,3 +171,36 @@ def test_output_language_is_named_explicitly():
     italian = "Marco, è la terza volta che i file arrivano in ritardo e non si può lavorare così."
     assert "Write in Italian." in compose.review_tone({"payload": {"draft": italian}}, "en").messages[0]["content"]
     assert "Write in Italian." in for_action("draft_reply", _email(), None, "en").messages[0]["content"]
+
+
+# ---------------------------------------------------------------- the fact check
+
+
+def test_invented_dates_and_figures_are_flagged():
+    from leonardd.compose import unsupported
+
+    email = "Gentile dott. Karra, ci invii entro il 5 ottobre il contratto firmato. Il totale è 4.800 euro."
+    draft = "Gentile Avv. Bianchi, ho inviato le copie il 27 settembre e le invierò entro il 5 ottobre. Totale 4.800 euro."
+    assert unsupported(draft, email) == ["27 settembre"]
+
+
+def test_supported_facts_and_small_numbers_pass():
+    from leonardd.compose import unsupported
+
+    email = "Hi, can we meet on Friday at 10:30? The invoice INV-2041 is EUR 312.40."
+    draft = "Hi Dana, Friday at 10:30 works. I'll pay INV-2041 (312.40) today, 2 things to check."
+    assert unsupported(draft, email) == []
+
+
+def test_invented_weekdays_times_and_amounts_are_flagged():
+    from leonardd.compose import unsupported
+
+    email = "Ciao, ci vediamo venerdì per il preventivo?"
+    draft = "Ciao Marco, venerdì va bene, facciamo giovedì alle 15:00 e il totale sarà 1.200 €."
+    assert unsupported(draft, email) == ["15:00", "1.200 €", "giovedì"]
+
+
+def test_the_prefilled_greeting_is_never_checked():
+    from leonardd.compose import unsupported
+
+    assert unsupported("Ciao Marco 2024, ok", "", prefix="Ciao Marco 2024,") == []

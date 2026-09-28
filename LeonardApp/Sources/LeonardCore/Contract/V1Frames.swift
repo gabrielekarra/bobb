@@ -116,12 +116,13 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
     public var mode: String?
     public var resultKind: String?
     public var sources: [SourceRef]
+    public var unsupported: [String]
     public var latencyMs: Double?
     public var firstTokenMs: Double?
     public var cancelled: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case ts, ok, text, error, mode, sources, cancelled
+        case ts, ok, text, error, mode, sources, cancelled, unsupported
         case requestId = "request_id"
         case resultKind = "result_kind"
         case latencyMs = "latency_ms"
@@ -130,7 +131,7 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
 
     public init(
         ts: Double, requestId: String, ok: Bool, text: String, error: String? = nil, mode: String? = nil,
-        resultKind: String? = nil, sources: [SourceRef] = [], latencyMs: Double? = nil,
+        resultKind: String? = nil, sources: [SourceRef] = [], unsupported: [String] = [], latencyMs: Double? = nil,
         firstTokenMs: Double? = nil, cancelled: Bool? = nil
     ) {
         self.ts = ts
@@ -141,6 +142,7 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
         self.mode = mode
         self.resultKind = resultKind
         self.sources = sources
+        self.unsupported = unsupported
         self.latencyMs = latencyMs
         self.firstTokenMs = firstTokenMs
         self.cancelled = cancelled
@@ -156,6 +158,7 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
         mode = try c.decodeIfPresent(String.self, forKey: .mode)
         resultKind = try c.decodeIfPresent(String.self, forKey: .resultKind)
         sources = try c.decodeIfPresent([SourceRef].self, forKey: .sources) ?? []
+        unsupported = try c.decodeIfPresent([String].self, forKey: .unsupported) ?? []
         latencyMs = try c.decodeIfPresent(Double.self, forKey: .latencyMs)
         firstTokenMs = try c.decodeIfPresent(Double.self, forKey: .firstTokenMs)
         cancelled = try c.decodeIfPresent(Bool.self, forKey: .cancelled)

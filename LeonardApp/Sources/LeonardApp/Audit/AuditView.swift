@@ -16,7 +16,7 @@ struct AuditView: View {
     var body: some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                TextField("Cerca per app, esito, motivo…", text: $viewModel.searchText)
+                TextField(L10n.t(.auditSearch), text: $viewModel.searchText)
                     .textFieldStyle(.roundedBorder)
                     .padding(10)
                 Divider()
@@ -38,7 +38,7 @@ struct AuditView: View {
             if let selectedRecord = viewModel.selectedRecord {
                 AuditDetailView(record: selectedRecord)
             } else {
-                Text("Seleziona una decisione")
+                Text(L10n.t(.auditSelect))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -106,7 +106,7 @@ private struct AuditDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if !record.hypotheses.isEmpty {
-                    section("Ipotesi di intento") {
+                    section(L10n.t(.mindHypotheses)) {
                         ForEach(record.hypotheses, id: \.intent) { hypothesis in
                             HStack {
                                 Text(hypothesis.intent).font(.system(size: 11.5))
@@ -119,19 +119,19 @@ private struct AuditDetailView: View {
                     }
                 }
                 if !record.readouts.isEmpty {
-                    section("Readout") {
+                    section(L10n.t(.mindReadouts)) {
                         ForEach(record.readouts, id: \.q) { readout in
                             ReadoutBarView(readout: readout)
                         }
                     }
                 }
                 if let suggestion = record.suggestion {
-                    section("Suggerimento") {
+                    section(L10n.t(.menuForYou)) {
                         Text(suggestion.title).font(.system(size: 12, weight: .medium))
                         Text(suggestion.detail).font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                 }
-                section("Evento grezzo") {
+                section(L10n.t(.auditRawEvent)) {
                     Text(payloadDescription)
                         .font(.system(size: 10.5, design: .monospaced))
                         .textSelection(.enabled)

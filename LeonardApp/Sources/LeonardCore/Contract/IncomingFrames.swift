@@ -356,6 +356,12 @@ public struct PreparedFrame: Codable, Sendable, Equatable {
         guard case .array(let items)? = result["sources"] else { return [] }
         return items.compactMap(SourceRef.init(json:))
     }
+    /// Dates, days and figures in the text that appear nowhere in what the
+    /// model was shown — shown to the user as things to check.
+    public var unsupported: [String] {
+        guard case .array(let items)? = result["unsupported"] else { return [] }
+        return items.compactMap(\.stringValue)
+    }
 }
 
 /// Daemon → app `error`: something failed. Never fatal to the connection.

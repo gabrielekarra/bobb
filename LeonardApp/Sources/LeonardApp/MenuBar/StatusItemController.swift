@@ -4,34 +4,21 @@ import Observation
 import LeonardCore
 
 /// Owns the `NSStatusItem`. This is Leonard's only always-visible surface —
-/// a click opens a popover that leads with status and, when there is one,
-/// the live suggestion, rather than a settings-style `NSMenu`. The icon
-/// itself is observed continuously (via `withObservationTracking`, since
-/// `NSView.draw` is not SwiftUI-reactive) so it never lags what `AppState`
-/// actually knows.
+/// a click opens a popover that leads with status, then anything waiting
+/// for the user, rather than a settings-style `NSMenu`. The icon itself is
+/// observed continuously (via `withObservationTracking`, since `NSView.draw`
+/// is not SwiftUI-reactive) so it never lags what `AppState` actually knows.
 @MainActor
 final class StatusItemController {
     private let statusItem: NSStatusItem
     private let iconView: StatusIconView
     private let state: AppState
-    private let coordinator: LeonardCoordinator
-    private let overlayController: OverlayController
     private let popover: NSPopover
-    private let openMind: () -> Void
-    private let openAudit: () -> Void
+    private let makeActions: (StatusItemController) -> MenuBarActions
 
-    init(
-        state: AppState,
-        coordinator: LeonardCoordinator,
-        overlayController: OverlayController,
-        openMind: @escaping () -> Void,
-        openAudit: @escaping () -> Void
-    ) {
+    init(state: AppState, makeActions: @escaping (StatusItemController) -> MenuBarActions) {
         self.state = state
-        self.coordinator = coordinator
-        self.overlayController = overlayController
-        self.openMind = openMind
-        self.openAudit = openAudit
+        self.makeActions = makeActions
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         iconView = StatusIconView(frame: NSRect(x: 0, y: 0, width: 22, height: 22))
@@ -45,6 +32,7 @@ final class StatusItemController {
             button.addSubview(iconView)
             button.target = self
             button.action = #selector(togglePopover)
+            button.setAccessibilityLabel("Leonard")
         }
 
         observeState()
@@ -57,34 +45,13 @@ final class StatusItemController {
             popover.performClose(nil)
             return
         }
-        popover.contentViewController = NSHostingController(rootView: makePopoverView())
+        popover.contentViewController = NSHostingController(rootView: MenuBarPopoverView(state: state, actions: makeActions(self)))
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
     }
 
-    private func makePopoverView() -> MenuBarPopoverView {
-        MenuBarPopoverView(
-            state: state,
-            onPrepare: { [weak self] in
-                self?.overlayController.approveCurrent()
-                self?.popover.performClose(nil)
-            },
-            onDismiss: { [weak self] in
-                self?.overlayController.dismissCurrent()
-                self?.popover.performClose(nil)
-            },
-            onFloorChanged: { [weak self] floor in
-                self?.coordinator.setFloor(floor)
-            },
-            openMind: { [weak self] in
-                self?.openMind()
-                self?.popover.performClose(nil)
-            },
-            openAudit: { [weak self] in
-                self?.openAudit()
-                self?.popover.performClose(nil)
-            },
-            quit: { NSApp.terminate(nil) }
-        )
+    func closePopover() {
+        popover.performClose(nil)
     }
 
     private func observeState() {
@@ -92,7 +59,7 @@ final class StatusItemController {
             _ = state.activityState
             _ = state.watching
         } onChange: { [weak self] in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.refreshIcon()
                 self?.observeState()
             }
@@ -102,5 +69,6 @@ final class StatusItemController {
     private func refreshIcon() {
         iconView.activityState = state.activityState
         iconView.watching = state.watching
+        statusItem.button?.toolTip = "Leonard"
     }
 }
