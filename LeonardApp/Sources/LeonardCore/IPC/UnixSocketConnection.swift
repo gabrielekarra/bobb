@@ -20,7 +20,7 @@ enum POSIX {
     @discardableResult
     static func close(_ fd: Int32) -> Int32 {
         #if canImport(Darwin)
-        return POSIX.close(fd)
+        return Darwin.close(fd)
         #else
         return Glibc.close(fd)
         #endif
@@ -28,7 +28,7 @@ enum POSIX {
 
     static func read(_ fd: Int32, _ buffer: UnsafeMutableRawPointer?, _ count: Int) -> Int {
         #if canImport(Darwin)
-        return POSIX.read(fd, buffer, count)
+        return Darwin.read(fd, buffer, count)
         #else
         return Glibc.read(fd, buffer, count)
         #endif
@@ -36,7 +36,7 @@ enum POSIX {
 
     static func write(_ fd: Int32, _ buffer: UnsafeRawPointer?, _ count: Int) -> Int {
         #if canImport(Darwin)
-        return POSIX.write(fd, buffer, count)
+        return Darwin.write(fd, buffer, count)
         #else
         return Glibc.write(fd, buffer, count)
         #endif

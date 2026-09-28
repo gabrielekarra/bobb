@@ -59,7 +59,7 @@ final class StatusItemController {
             _ = state.activityState
             _ = state.watching
         } onChange: { [weak self] in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.refreshIcon()
                 self?.observeState()
             }

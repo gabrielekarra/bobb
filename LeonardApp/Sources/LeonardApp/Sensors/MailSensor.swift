@@ -24,7 +24,7 @@ final class MailSensor {
     private var cachedId: String?
     private var cachedMessage: MailMessage?
     private var deniedReported = false
-    private let runner = AppleScriptRunner.shared
+    private var runner: AppleScriptRunner { .shared }
 
     private static let selectedIdScript = """
     tell application "Mail"

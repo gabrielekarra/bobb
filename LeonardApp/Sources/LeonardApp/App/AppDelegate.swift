@@ -149,34 +149,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func menuActions(closing controller: StatusItemController) -> MenuBarActions {
         MenuBarActions(
-            approve: { [weak self] decision in
-                controller.closePopover()
+            approve: { [weak self, weak controller] decision in
+                controller?.closePopover()
                 self?.coordinator.approve(decision)
             },
             dismiss: { [weak self] decision in self?.coordinator.dismiss(decision) },
             setWatching: { [weak self] watching in self?.coordinator.setWatching(watching) },
-            openCommandBar: { [weak self] in
-                controller.closePopover()
+            openCommandBar: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.commandBar.show(selection: nil)
             },
-            openMind: { [weak self] in
-                controller.closePopover()
+            openMind: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.mindWindowController.show()
             },
-            openMemory: { [weak self] in
-                controller.closePopover()
+            openMemory: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.showMemory()
             },
-            openSettings: { [weak self] in
-                controller.closePopover()
+            openSettings: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.showSettings(tab: .general)
             },
-            openLicense: { [weak self] in
-                controller.closePopover()
+            openLicense: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.showSettings(tab: .license)
             },
-            openOnboarding: { [weak self] in
-                controller.closePopover()
+            openOnboarding: { [weak self, weak controller] in
+                controller?.closePopover()
                 self?.showOnboarding()
             },
             quit: { NSApp.terminate(nil) }

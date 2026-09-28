@@ -75,7 +75,10 @@ jobs:
           swift --version
       - name: Build
         working-directory: LeonardApp
-        run: swift build -c release
+        run: |
+          set -o pipefail
+          swift build -Xswiftc -continue-building-after-errors 2>&1 | tee build.log || {
+            echo "::group::errors"; grep -E "error:" build.log | sort -u | head -150; echo "::endgroup::"; exit 1; }
       - name: Test
         working-directory: LeonardApp
         run: swift test -j 1

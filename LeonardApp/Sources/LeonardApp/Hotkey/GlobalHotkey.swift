@@ -25,7 +25,7 @@ final class GlobalHotkey {
         let id = EventHotKeyID(signature: Self.signature, id: 1)
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(hotkey.keyCode, hotkey.modifiers, id, GetApplicationEventTarget(), 0, &ref)
-        guard status == noErr else { return false }
+        guard status == OSStatus(noErr) else { return false }
         hotKeyRef = ref
         return true
     }
@@ -43,7 +43,7 @@ final class GlobalHotkey {
             let hotkey = Unmanaged<GlobalHotkey>.fromOpaque(userData).takeUnretainedValue()
             // Carbon dispatches application-target events on the main thread.
             MainActor.assumeIsolated { hotkey.action() }
-            return noErr
+            return OSStatus(noErr)
         }, 1, &eventType, context, &handlerRef)
     }
 }

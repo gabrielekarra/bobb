@@ -194,9 +194,9 @@ public final class LeonardCoordinator {
         }
         let frame = AskFrame(prompt: prompt, mode: mode, selection: selection, app: app, window: window)
         state.beginAsk(frame, mode: mode)
-        let client = client
+        let ipc = client
         Task { [weak self] in
-            let sent = await client.send(.ask(frame))
+            let sent = await ipc.send(.ask(frame))
             if !sent {
                 self?.state.applyError(ErrorFrame(ts: Date().timeIntervalSince1970, detail: L10n.t(.askNotReady), requestId: frame.id))
             }

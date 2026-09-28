@@ -224,7 +224,7 @@ final class DraftPanelController {
         withObservationTracking {
             _ = state.draft?.decision.id
         } onChange: { [weak self] in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.draftChanged()
                 self?.observe()
             }

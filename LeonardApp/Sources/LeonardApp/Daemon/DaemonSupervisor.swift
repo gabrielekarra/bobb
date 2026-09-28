@@ -124,7 +124,7 @@ final class DaemonSupervisor {
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] finished in
             let status = finished.terminationStatus
-            Task { @MainActor in self?.processExited(status: status) }
+            Task { @MainActor [weak self] in self?.processExited(status: status) }
         }
         do {
             try process.run()

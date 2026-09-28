@@ -376,7 +376,7 @@ final class CommandBarController {
             _ = model.selection
             _ = model.notice
         } onChange: { [weak self] in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self, let panel = self.panel, panel.isVisible, let hosting = self.hosting else { return }
                 self.resize(panel, to: hosting.fittingSize)
                 self.observeSize()
