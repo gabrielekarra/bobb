@@ -1,0 +1,206 @@
+{
+  "ts": 1789906486.2617128,
+  "model": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+  "hardware": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "python": "3.12.12",
+    "cpu_brand": "Apple M4",
+    "memory_gb": 24.0
+  },
+  "idle_check": {
+    "checked": true,
+    "load1": 4.681640625,
+    "load5": 4.40625,
+    "load15": 4.18896484375,
+    "cores": 10,
+    "ceiling": 3.0,
+    "settled": false,
+    "waited_s": 30.0,
+    "top_processes": [
+      {
+        "pid": "693",
+        "pcpu": "220.7",
+        "comm": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+      },
+      {
+        "pid": "20646",
+        "pcpu": "4.9",
+        "comm": "claude"
+      },
+      {
+        "pid": "846",
+        "pcpu": "2.0",
+        "comm": "/usr/libexec/hybridsearchd"
+      },
+      {
+        "pid": "539",
+        "pcpu": "1.7",
+        "comm": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+      },
+      {
+        "pid": "11606",
+        "pcpu": "1.0",
+        "comm": "/usr/libexec/spotlightknowledged.updater"
+      }
+    ]
+  },
+  "reps": 6,
+  "load_ms": 565.24,
+  "prime_ms": 860.69,
+  "warm_decide_ms": 849.24,
+  "per_decision": {
+    "mail.opened": {
+      "median_ms": 744.31,
+      "min_ms": 609.12,
+      "max_ms": 1096.22,
+      "n": 6,
+      "samples_ms": [
+        609.12,
+        683.16,
+        717.6,
+        771.03,
+        916.8,
+        1096.22
+      ]
+    },
+    "mail.composing": {
+      "median_ms": 654.12,
+      "min_ms": 535.18,
+      "max_ms": 966.87,
+      "n": 6,
+      "samples_ms": [
+        535.18,
+        593.18,
+        630.04,
+        678.2,
+        822.41,
+        966.87
+      ]
+    },
+    "text.selected": {
+      "median_ms": 659.02,
+      "min_ms": 536.92,
+      "max_ms": 989.08,
+      "n": 6,
+      "samples_ms": [
+        536.92,
+        594.9,
+        633.49,
+        684.54,
+        817.05,
+        989.08
+      ]
+    }
+  },
+  "socket_end_to_end": {
+    "median_ms": 764.49,
+    "min_ms": 628.57,
+    "max_ms": 1141.0,
+    "n": 6,
+    "samples_ms": [
+      628.57,
+      684.76,
+      727.14,
+      801.84,
+      949.82,
+      1141.0
+    ]
+  },
+  "batching_speedup": {
+    "k=2": {
+      "batched": {
+        "median_ms": 587.31,
+        "min_ms": 476.2,
+        "max_ms": 873.69,
+        "n": 6,
+        "samples_ms": [
+          476.2,
+          521.59,
+          548.15,
+          626.47,
+          731.88,
+          873.69
+        ]
+      },
+      "sequential": {
+        "median_ms": 904.82,
+        "min_ms": 722.23,
+        "max_ms": 1335.99,
+        "n": 6,
+        "samples_ms": [
+          722.23,
+          790.01,
+          867.56,
+          942.08,
+          1099.01,
+          1335.99
+        ]
+      },
+      "speedup_median": 1.541
+    },
+    "k=4": {
+      "batched": {
+        "median_ms": 911.73,
+        "min_ms": 719.41,
+        "max_ms": 1363.98,
+        "n": 6,
+        "samples_ms": [
+          719.41,
+          783.18,
+          878.7,
+          944.75,
+          1110.53,
+          1363.98
+        ]
+      },
+      "sequential": {
+        "median_ms": 1891.1,
+        "min_ms": 1516.61,
+        "max_ms": 2969.03,
+        "n": 6,
+        "samples_ms": [
+          1516.61,
+          1680.03,
+          1775.76,
+          2006.45,
+          2327.29,
+          2969.03
+        ]
+      },
+      "speedup_median": 2.074
+    },
+    "k=8": {
+      "batched": {
+        "median_ms": 1491.88,
+        "min_ms": 1219.47,
+        "max_ms": 2389.43,
+        "n": 6,
+        "samples_ms": [
+          1219.47,
+          1350.88,
+          1387.99,
+          1595.78,
+          1922.01,
+          2389.43
+        ]
+      },
+      "sequential": {
+        "median_ms": 3976.92,
+        "min_ms": 3215.0,
+        "max_ms": 6562.93,
+        "n": 6,
+        "samples_ms": [
+          3215.0,
+          3471.04,
+          3668.74,
+          4285.11,
+          5171.34,
+          6562.93
+        ]
+      },
+      "speedup_median": 2.666
+    }
+  }
+}

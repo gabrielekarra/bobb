@@ -1,0 +1,25 @@
+[project]
+name = "leonardd"
+version = "0.1.0"
+description = "Leonard's on-device decision daemon: typed, calibrated readouts over a resident local model, gated to a unix socket."
+requires-python = "==3.12.*"
+dependencies = [
+    "mlx",
+    "mlx-lm",
+    "numpy",
+    "pillow",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "slow: requires loading the resident model",
+]

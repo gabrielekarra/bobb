@@ -1,0 +1,31 @@
+import AppKit
+import SwiftUI
+import LeonardCore
+
+@MainActor
+final class AuditWindowController: NSWindowController {
+    init(auditPath: String) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Audit"
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 600, height: 380)
+        window.center()
+        super.init(window: window)
+        window.contentView = NSHostingView(rootView: AuditView(auditPath: auditPath))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("AuditWindowController does not support NSCoding")
+    }
+
+    func show() {
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+    }
+}

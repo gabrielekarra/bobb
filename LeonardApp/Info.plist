@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Leonard</string>
+    <key>CFBundleDisplayName</key>
+    <string>Leonard</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.leonard.app</string>
+    <key>CFBundleVersion</key>
+    <string>0.1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>LeonardApp</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Leonard usa gli eventi Apple per preparare risposte in Mail quando lo autorizzi.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>Leonard usa l'accessibilità per leggere quale app e finestra sono attive, così può decidere in autonomia quando offrirti aiuto senza mai leggere lo schermo per intero.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>Leonard osserva l'inattività della tastiera per capire quando è un buon momento per interromperti.</string>
+</dict>
+</plist>

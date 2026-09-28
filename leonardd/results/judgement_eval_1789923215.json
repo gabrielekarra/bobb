@@ -1,0 +1,666 @@
+{
+  "ts": 1789923215.3349178,
+  "model": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+  "n_events": 25,
+  "per_event": [
+    {
+      "id": "evt_it_deadline_venerdi",
+      "lang": "it",
+      "category": "urgent_deadline_personal",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.90589,
+      "urgency_value": 2,
+      "urgency_p": 0.364109,
+      "action": "prepare",
+      "action_confidence": 0.777662,
+      "schema_mass": 0.999936
+    },
+    {
+      "id": "evt_en_signoff_today",
+      "lang": "en",
+      "category": "urgent_deadline_work",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.870719,
+      "urgency_value": 3,
+      "urgency_p": 0.363023,
+      "action": "suggest",
+      "action_confidence": 0.80605,
+      "schema_mass": 0.99992
+    },
+    {
+      "id": "evt_en_client_question",
+      "lang": "en",
+      "category": "direct_question",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "transactional",
+      "message_type_p": 0.901593,
+      "urgency_value": 2,
+      "urgency_p": 0.37166,
+      "action": "wait",
+      "action_confidence": 0.595666,
+      "schema_mass": 0.999949
+    },
+    {
+      "id": "evt_it_cliente_arrabbiato",
+      "lang": "it",
+      "category": "angry_customer",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.875005,
+      "urgency_value": 4,
+      "urgency_p": 0.486286,
+      "action": "suggest",
+      "action_confidence": 0.895763,
+      "schema_mass": 0.999899
+    },
+    {
+      "id": "evt_en_angry_customer",
+      "lang": "en",
+      "category": "angry_customer",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.944563,
+      "urgency_value": 4,
+      "urgency_p": 0.575961,
+      "action": "suggest",
+      "action_confidence": 0.932575,
+      "schema_mass": 0.999927
+    },
+    {
+      "id": "evt_it_moglie_urgente",
+      "lang": "it",
+      "category": "personal_urgent",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.972414,
+      "urgency_value": 4,
+      "urgency_p": 0.257257,
+      "action": "suggest",
+      "action_confidence": 0.657589,
+      "schema_mass": 0.99993
+    },
+    {
+      "id": "evt_en_vendor_signature",
+      "lang": "en",
+      "category": "urgent_deadline_work",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.649837,
+      "urgency_value": 3,
+      "urgency_p": 0.427337,
+      "action": "suggest",
+      "action_confidence": 0.649837,
+      "schema_mass": 0.999935
+    },
+    {
+      "id": "evt_it_colloquio",
+      "lang": "it",
+      "category": "scheduling_request",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.947522,
+      "urgency_value": 2,
+      "urgency_p": 0.31489,
+      "action": "prepare",
+      "action_confidence": 0.553848,
+      "schema_mass": 0.999941
+    },
+    {
+      "id": "evt_en_reschedule",
+      "lang": "en",
+      "category": "scheduling_request",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.67601,
+      "urgency_value": 1,
+      "urgency_p": 0.31447,
+      "action": "wait",
+      "action_confidence": 0.527251,
+      "schema_mass": 0.99995
+    },
+    {
+      "id": "evt_en_invoice_overdue",
+      "lang": "en",
+      "category": "urgent_deadline_work",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "transactional",
+      "message_type_p": 0.998812,
+      "urgency_value": 0,
+      "urgency_p": 0.269677,
+      "action": "ignore",
+      "action_confidence": 0.500344,
+      "schema_mass": 0.999946
+    },
+    {
+      "id": "evt_it_amico_pranzo",
+      "lang": "it",
+      "category": "casual_low_urgency",
+      "reply_needed_expected": true,
+      "should_surface_expected": false,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.919213,
+      "urgency_value": 1,
+      "urgency_p": 0.314741,
+      "action": "wait",
+      "action_confidence": 0.619799,
+      "schema_mass": 0.999959
+    },
+    {
+      "id": "evt_en_friend_lunch",
+      "lang": "en",
+      "category": "casual_low_urgency",
+      "reply_needed_expected": true,
+      "should_surface_expected": false,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.856811,
+      "urgency_value": 2,
+      "urgency_p": 0.304142,
+      "action": "prepare",
+      "action_confidence": 0.419288,
+      "schema_mass": 0.99996
+    },
+    {
+      "id": "evt_en_techmeme",
+      "lang": "en",
+      "category": "newsletter",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.706944,
+      "urgency_value": 0,
+      "urgency_p": 0.850246,
+      "action": "ignore",
+      "action_confidence": 0.930577,
+      "schema_mass": 0.999982
+    },
+    {
+      "id": "evt_it_newsletter_marketing",
+      "lang": "it",
+      "category": "newsletter",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.909789,
+      "urgency_value": 0,
+      "urgency_p": 0.791726,
+      "action": "ignore",
+      "action_confidence": 0.897213,
+      "schema_mass": 0.999978
+    },
+    {
+      "id": "evt_en_shipping_notification",
+      "lang": "en",
+      "category": "automated_transactional",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.999786,
+      "urgency_value": 0,
+      "urgency_p": 0.770963,
+      "action": "ignore",
+      "action_confidence": 0.872092,
+      "schema_mass": 0.999981
+    },
+    {
+      "id": "evt_it_ricevuta",
+      "lang": "it",
+      "category": "automated_transactional",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.997986,
+      "urgency_value": 0,
+      "urgency_p": 0.77003,
+      "action": "ignore",
+      "action_confidence": 0.879243,
+      "schema_mass": 0.999975
+    },
+    {
+      "id": "evt_en_calendar_reminder",
+      "lang": "en",
+      "category": "automated_reminder",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.999437,
+      "urgency_value": 0,
+      "urgency_p": 0.405629,
+      "action": "ignore",
+      "action_confidence": 0.622747,
+      "schema_mass": 0.999938
+    },
+    {
+      "id": "evt_it_linkedin",
+      "lang": "it",
+      "category": "social_notification",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.958903,
+      "urgency_value": 0,
+      "urgency_p": 0.825066,
+      "action": "ignore",
+      "action_confidence": 0.892791,
+      "schema_mass": 0.999981
+    },
+    {
+      "id": "evt_en_fyi_thread",
+      "lang": "en",
+      "category": "fyi_no_action",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.873724,
+      "urgency_value": 0,
+      "urgency_p": 0.759685,
+      "action": "ignore",
+      "action_confidence": 0.895889,
+      "schema_mass": 0.999978
+    },
+    {
+      "id": "evt_it_fyi_nessuna_azione",
+      "lang": "it",
+      "category": "fyi_no_action",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "personal_no_ask",
+      "message_type_p": 0.572646,
+      "urgency_value": 0,
+      "urgency_p": 0.776309,
+      "action": "ignore",
+      "action_confidence": 0.895359,
+      "schema_mass": 0.999979
+    },
+    {
+      "id": "evt_en_security_alert",
+      "lang": "en",
+      "category": "security_alert",
+      "reply_needed_expected": false,
+      "should_surface_expected": true,
+      "message_type_value": "transactional",
+      "message_type_p": 0.999743,
+      "urgency_value": 0,
+      "urgency_p": 0.569458,
+      "action": "ignore",
+      "action_confidence": 0.71344,
+      "schema_mass": 0.999957
+    },
+    {
+      "id": "evt_it_ambiguo_breve",
+      "lang": "it",
+      "category": "ambiguous",
+      "reply_needed_expected": true,
+      "should_surface_expected": false,
+      "message_type_value": "personal_no_ask",
+      "message_type_p": 0.517964,
+      "urgency_value": 0,
+      "urgency_p": 0.632893,
+      "action": "ignore",
+      "action_confidence": 0.873112,
+      "schema_mass": 0.999968
+    },
+    {
+      "id": "evt_en_boss_decision",
+      "lang": "en",
+      "category": "urgent_deadline_work",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.939768,
+      "urgency_value": 4,
+      "urgency_p": 0.696959,
+      "action": "suggest",
+      "action_confidence": 0.960617,
+      "schema_mass": 0.999915
+    },
+    {
+      "id": "evt_it_evento_invito",
+      "lang": "it",
+      "category": "scheduling_request",
+      "reply_needed_expected": true,
+      "should_surface_expected": true,
+      "message_type_value": "personal_request",
+      "message_type_p": 0.769681,
+      "urgency_value": 2,
+      "urgency_p": 0.354645,
+      "action": "prepare",
+      "action_confidence": 0.760482,
+      "schema_mass": 0.999933
+    },
+    {
+      "id": "evt_en_promo_flash_sale",
+      "lang": "en",
+      "category": "newsletter",
+      "reply_needed_expected": false,
+      "should_surface_expected": false,
+      "message_type_value": "transactional",
+      "message_type_p": 0.978076,
+      "urgency_value": 0,
+      "urgency_p": 0.674897,
+      "action": "ignore",
+      "action_confidence": 0.825487,
+      "schema_mass": 0.999963
+    }
+  ],
+  "reply_needed_accuracy_via_message_type": 0.88,
+  "action_calibration_by_confidence_bin": {
+    "0.50-0.60": {
+      "n": 4,
+      "accuracy": 0.25
+    },
+    "0.60-0.70": {
+      "n": 4,
+      "accuracy": 1.0
+    },
+    "0.70-0.80": {
+      "n": 3,
+      "accuracy": 0.667
+    },
+    "0.80-0.90": {
+      "n": 10,
+      "accuracy": 1.0
+    },
+    "0.90-1.00": {
+      "n": 3,
+      "accuracy": 1.0
+    },
+    "<0.50": {
+      "n": 1,
+      "accuracy": 0.0
+    }
+  },
+  "floor_sweep": [
+    {
+      "floor": 0.0,
+      "coverage": 0.4,
+      "accuracy": 0.8,
+      "precision": 0.9,
+      "recall": 0.692,
+      "tp": 9,
+      "fp": 1,
+      "fn": 4,
+      "tn": 11
+    },
+    {
+      "floor": 0.5,
+      "coverage": 0.36,
+      "accuracy": 0.84,
+      "precision": 1.0,
+      "recall": 0.692,
+      "tp": 9,
+      "fp": 0,
+      "fn": 4,
+      "tn": 12
+    },
+    {
+      "floor": 0.55,
+      "coverage": 0.36,
+      "accuracy": 0.84,
+      "precision": 1.0,
+      "recall": 0.692,
+      "tp": 9,
+      "fp": 0,
+      "fn": 4,
+      "tn": 12
+    },
+    {
+      "floor": 0.577,
+      "coverage": 0.32,
+      "accuracy": 0.8,
+      "precision": 1.0,
+      "recall": 0.615,
+      "tp": 8,
+      "fp": 0,
+      "fn": 5,
+      "tn": 12
+    },
+    {
+      "floor": 0.6,
+      "coverage": 0.32,
+      "accuracy": 0.8,
+      "precision": 1.0,
+      "recall": 0.615,
+      "tp": 8,
+      "fp": 0,
+      "fn": 5,
+      "tn": 12
+    },
+    {
+      "floor": 0.65,
+      "coverage": 0.28,
+      "accuracy": 0.76,
+      "precision": 1.0,
+      "recall": 0.538,
+      "tp": 7,
+      "fp": 0,
+      "fn": 6,
+      "tn": 12
+    },
+    {
+      "floor": 0.7,
+      "coverage": 0.24,
+      "accuracy": 0.72,
+      "precision": 1.0,
+      "recall": 0.462,
+      "tp": 6,
+      "fp": 0,
+      "fn": 7,
+      "tn": 12
+    },
+    {
+      "floor": 0.75,
+      "coverage": 0.24,
+      "accuracy": 0.72,
+      "precision": 1.0,
+      "recall": 0.462,
+      "tp": 6,
+      "fp": 0,
+      "fn": 7,
+      "tn": 12
+    },
+    {
+      "floor": 0.8,
+      "coverage": 0.16,
+      "accuracy": 0.64,
+      "precision": 1.0,
+      "recall": 0.308,
+      "tp": 4,
+      "fp": 0,
+      "fn": 9,
+      "tn": 12
+    },
+    {
+      "floor": 0.9,
+      "coverage": 0.08,
+      "accuracy": 0.56,
+      "precision": 1.0,
+      "recall": 0.154,
+      "tp": 2,
+      "fp": 0,
+      "fn": 11,
+      "tn": 12
+    }
+  ],
+  "confusion_at_floor_0_50": {
+    "floor": 0.5,
+    "coverage": 0.36,
+    "accuracy": 0.84,
+    "precision": 1.0,
+    "recall": 0.692,
+    "tp": 9,
+    "fp": 0,
+    "fn": 4,
+    "tn": 12
+  },
+  "confusion_at_floor_0_60": {
+    "floor": 0.6,
+    "coverage": 0.32,
+    "accuracy": 0.8,
+    "precision": 1.0,
+    "recall": 0.615,
+    "tp": 8,
+    "fp": 0,
+    "fn": 5,
+    "tn": 12
+  },
+  "confusion_at_floor_0_70": {
+    "floor": 0.7,
+    "coverage": 0.24,
+    "accuracy": 0.72,
+    "precision": 1.0,
+    "recall": 0.462,
+    "tp": 6,
+    "fp": 0,
+    "fn": 7,
+    "tn": 12
+  },
+  "letter_order_bias": {
+    "question": "message_type",
+    "n_events": 25,
+    "n_moved": 7,
+    "moved_fraction": 0.28,
+    "moved": [
+      {
+        "id": "evt_en_client_question",
+        "original_order_value": "transactional",
+        "original_order_p": 0.902,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.576
+      },
+      {
+        "id": "evt_en_reschedule",
+        "original_order_value": "personal_request",
+        "original_order_p": 0.681,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.542
+      },
+      {
+        "id": "evt_en_friend_lunch",
+        "original_order_value": "personal_request",
+        "original_order_p": 0.859,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.582
+      },
+      {
+        "id": "evt_en_techmeme",
+        "original_order_value": "transactional",
+        "original_order_p": 0.706,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.66
+      },
+      {
+        "id": "evt_it_newsletter_marketing",
+        "original_order_value": "transactional",
+        "original_order_p": 0.91,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.717
+      },
+      {
+        "id": "evt_en_fyi_thread",
+        "original_order_value": "transactional",
+        "original_order_p": 0.877,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.735
+      },
+      {
+        "id": "evt_en_promo_flash_sale",
+        "original_order_value": "transactional",
+        "original_order_p": 0.979,
+        "reversed_order_value": "personal_no_ask",
+        "reversed_order_p": 0.638
+      }
+    ]
+  },
+  "highlights": {
+    "urgent_deadline_examples": [
+      {
+        "id": "evt_it_deadline_venerdi",
+        "category": "urgent_deadline_personal",
+        "message_type_value": "personal_request",
+        "urgency_value": 2,
+        "action": "prepare",
+        "action_confidence": 0.777662
+      },
+      {
+        "id": "evt_en_signoff_today",
+        "category": "urgent_deadline_work",
+        "message_type_value": "personal_request",
+        "urgency_value": 3,
+        "action": "suggest",
+        "action_confidence": 0.80605
+      },
+      {
+        "id": "evt_it_cliente_arrabbiato",
+        "category": "angry_customer",
+        "message_type_value": "personal_request",
+        "urgency_value": 4,
+        "action": "suggest",
+        "action_confidence": 0.895763
+      },
+      {
+        "id": "evt_en_angry_customer",
+        "category": "angry_customer",
+        "message_type_value": "personal_request",
+        "urgency_value": 4,
+        "action": "suggest",
+        "action_confidence": 0.932575
+      },
+      {
+        "id": "evt_en_vendor_signature",
+        "category": "urgent_deadline_work",
+        "message_type_value": "personal_request",
+        "urgency_value": 3,
+        "action": "suggest",
+        "action_confidence": 0.649837
+      },
+      {
+        "id": "evt_en_invoice_overdue",
+        "category": "urgent_deadline_work",
+        "message_type_value": "transactional",
+        "urgency_value": 0,
+        "action": "ignore",
+        "action_confidence": 0.500344
+      },
+      {
+        "id": "evt_en_boss_decision",
+        "category": "urgent_deadline_work",
+        "message_type_value": "personal_request",
+        "urgency_value": 4,
+        "action": "suggest",
+        "action_confidence": 0.960617
+      }
+    ],
+    "newsletter_examples": [
+      {
+        "id": "evt_en_techmeme",
+        "message_type_value": "transactional",
+        "action": "ignore",
+        "action_confidence": 0.930577
+      },
+      {
+        "id": "evt_it_newsletter_marketing",
+        "message_type_value": "transactional",
+        "action": "ignore",
+        "action_confidence": 0.897213
+      },
+      {
+        "id": "evt_en_promo_flash_sale",
+        "message_type_value": "transactional",
+        "action": "ignore",
+        "action_confidence": 0.825487
+      }
+    ]
+  }
+}

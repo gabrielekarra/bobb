@@ -1,0 +1,22 @@
+[project]
+name = "specialist"
+version = "0.1.0"
+description = "Leonard's personal specialist: mints a byte-level tiny transformer that scores ignore/wait/prepare/suggest from one user's own audit.db, distilled from the resident model and fit on real labels, entirely on-device."
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "safetensors",
+    "numpy",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.uv]
+package = false

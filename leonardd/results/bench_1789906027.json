@@ -1,0 +1,179 @@
+{
+  "ts": 1789906027.705361,
+  "model": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+  "hardware": {
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu_count": 10,
+    "python": "3.12.12",
+    "cpu_brand": "Apple M4",
+    "memory_gb": 24.0
+  },
+  "idle_check": {
+    "checked": true,
+    "load1": 4.31396484375,
+    "load5": 3.78466796875,
+    "load15": 3.82666015625,
+    "cores": 10,
+    "ceiling": 10.0,
+    "settled": true,
+    "waited_s": 0.0
+  },
+  "reps": 6,
+  "load_ms": 772.76,
+  "prime_ms": 858.37,
+  "warm_decide_ms": 898.68,
+  "per_decision": {
+    "mail.opened": {
+      "median_ms": 613.95,
+      "min_ms": 605.75,
+      "max_ms": 636.0,
+      "n": 6,
+      "samples_ms": [
+        605.75,
+        610.96,
+        612.66,
+        615.24,
+        635.18,
+        636.0
+      ]
+    },
+    "mail.composing": {
+      "median_ms": 540.4,
+      "min_ms": 532.46,
+      "max_ms": 555.97,
+      "n": 6,
+      "samples_ms": [
+        532.46,
+        536.41,
+        540.04,
+        540.77,
+        554.97,
+        555.97
+      ]
+    },
+    "text.selected": {
+      "median_ms": 542.64,
+      "min_ms": 534.78,
+      "max_ms": 557.94,
+      "n": 6,
+      "samples_ms": [
+        534.78,
+        535.49,
+        539.16,
+        546.12,
+        557.32,
+        557.94
+      ]
+    }
+  },
+  "batching_speedup": {
+    "k=2": {
+      "batched": {
+        "median_ms": 635.5,
+        "min_ms": 481.27,
+        "max_ms": 768.02,
+        "n": 6,
+        "samples_ms": [
+          481.27,
+          496.22,
+          624.76,
+          646.23,
+          662.36,
+          768.02
+        ]
+      },
+      "sequential": {
+        "median_ms": 931.17,
+        "min_ms": 732.94,
+        "max_ms": 1148.64,
+        "n": 6,
+        "samples_ms": [
+          732.94,
+          754.93,
+          925.78,
+          936.56,
+          1028.21,
+          1148.64
+        ]
+      },
+      "speedup_median": 1.465
+    },
+    "k=4": {
+      "batched": {
+        "median_ms": 920.52,
+        "min_ms": 739.06,
+        "max_ms": 1167.0,
+        "n": 6,
+        "samples_ms": [
+          739.06,
+          754.94,
+          902.15,
+          938.89,
+          1084.98,
+          1167.0
+        ]
+      },
+      "sequential": {
+        "median_ms": 1923.67,
+        "min_ms": 1579.81,
+        "max_ms": 2586.51,
+        "n": 6,
+        "samples_ms": [
+          1579.81,
+          1583.15,
+          1847.33,
+          2000.01,
+          2259.5,
+          2586.51
+        ]
+      },
+      "speedup_median": 2.09
+    },
+    "k=8": {
+      "batched": {
+        "median_ms": 1533.19,
+        "min_ms": 1268.27,
+        "max_ms": 2022.4,
+        "n": 6,
+        "samples_ms": [
+          1268.27,
+          1284.91,
+          1467.59,
+          1598.79,
+          1788.23,
+          2022.4
+        ]
+      },
+      "sequential": {
+        "median_ms": 4121.35,
+        "min_ms": 3187.66,
+        "max_ms": 5761.13,
+        "n": 6,
+        "samples_ms": [
+          3187.66,
+          3569.27,
+          3887.0,
+          4355.7,
+          4976.87,
+          5761.13
+        ]
+      },
+      "speedup_median": 2.688
+    }
+  },
+  "socket_end_to_end": {
+    "median_ms": 1212.57,
+    "min_ms": 1188.2,
+    "max_ms": 1267.73,
+    "n": 6,
+    "samples_ms": [
+      1188.2,
+      1199.84,
+      1202.16,
+      1222.99,
+      1244.4,
+      1267.73
+    ]
+  }
+}
