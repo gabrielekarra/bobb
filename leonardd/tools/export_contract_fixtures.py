@@ -26,6 +26,7 @@ from fake_engine import TrivialEngine  # noqa: E402
 from server_helpers import fake_decide_many  # noqa: E402
 
 import leonardd.act as act_mod  # noqa: E402
+import leonardd.agent as agent_mod  # noqa: E402
 import leonardd.attention as attention_mod  # noqa: E402
 import leonardd.server as server_mod  # noqa: E402
 from leonardd.attention import AttentionEngine  # noqa: E402
@@ -45,7 +46,29 @@ def fake_stream(engine, messages, *, max_tokens, on_delta=None, cancel=None, tem
     return Generated(text, 3, 12.0, 3.0, False, "stop")
 
 
+def fake_agent_decide(engine, context, questions, *, calibrators=None, primed=None):
+    """Picks the first option of every question: CLICK, the first target,
+    and "do" for routing, so the recorded frames show a real step."""
+    from leonardd.schema import Decision, decision_key
+
+    out = []
+    for q in questions:
+        value = q.labels[1] if q.name == "route" else (q.labels[0] if q.kind != "bool" else True)
+        key = decision_key(q.kind, value)
+        probabilities = {label: (0.9 if label == key else 0.1 / (len(q.labels) - 1)) for label in q.labels}
+        out.append(Decision(name=q.name, kind=q.kind, value=value, probabilities=probabilities,
+                            raw_probabilities=probabilities, confidence=0.9, schema_mass=0.98, latency_ms=4.0))
+    return out
+
+
+def fake_plan(engine, messages, **kwargs):
+    return Generated(" Apri Spotify\n2. Cerca Focus\n3. Avvia la playlist", 12, 40.0, 5.0, False, "stop")
+
+
 async def main() -> None:
+    agent_mod.decide_many = fake_agent_decide
+    agent_mod.supports_generation = lambda engine: True
+    agent_mod.stream_text = fake_plan
     attention_mod.decide_many = fake_decide_many
     act_mod.decide_many = fake_decide_many
     server_mod.supports_generation = lambda engine: True
@@ -89,6 +112,21 @@ async def main() -> None:
                 "candidates": [{"id": "c1", "label": "Reply", "role": "AXButton", "enabled": True},
                                {"id": "done", "label": "Done", "role": "-", "enabled": True},
                                {"id": "escalate", "label": "None", "role": "-", "enabled": True}], "digest": ""}, 1)
+    await send({"t": "ask", "id": "ask_route", "prompt": "Metti la playlist Focus su Spotify", "mode": "ask", "route": True}, 1)
+    await send({"t": "task.start", "id": "req_task", "task_id": "task_fixture", "goal": "Metti la playlist Focus su Spotify",
+                "app": "Finder", "window": "Download", "apps": ["Spotify", "Musica (Music)"]}, 1)
+    await send({"t": "observe", "id": "obs_task", "task_id": "task_fixture", "step": 1, "app": "Spotify", "window": "Spotify",
+                "digest": "d1",
+                "candidates": [{"id": "o1e1", "label": "Focus Flow", "role": "row", "kind": "press", "enabled": True,
+                                "focused": False, "value": "", "where": "sidebar"},
+                               {"id": "o1e2", "label": "Cosa vuoi ascoltare?", "role": "search field", "kind": "text",
+                                "enabled": True, "focused": True, "value": "", "where": ""}],
+                "apps": [{"id": "app1", "label": "Musica (Music)"}]}, 1)
+    await send({"t": "task.step", "task_id": "task_fixture", "step": 1, "app": "Spotify", "window": "Spotify",
+                "operation": "CLICK", "target": "Focus Flow", "target_role": "row", "confidence": 0.9,
+                "permission": "allowed", "outcome": "ok", "latency_ms": 180.0, "digest": "d1"}, 0)
+    await send({"t": "task.end", "task_id": "task_fixture", "status": "done", "detail": ""}, 0)
+    await send({"t": "tasks.recent", "id": "req_tasks", "limit": 5}, 1)
     await send({"t": "history.delete", "id": "req_history"}, 1)
     frames.append(server._status_frame() | {"state": "model_missing", "detail": "mlx-community/Llama-3.2-3B-Instruct-4bit"})
 

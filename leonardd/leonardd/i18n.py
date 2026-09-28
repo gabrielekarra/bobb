@@ -90,6 +90,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "en": "Proactive help is off for this kind of event.",
         "it": "L'aiuto proattivo è disattivato per questo tipo di evento.",
     },
+    "outcome.specialist": {
+        "en": "Leonard has learned from you that messages like this can wait, so it stayed quiet without asking the model.",
+        "it": "Leonard ha imparato da te che messaggi così possono aspettare, quindi è rimasto in silenzio senza interpellare il modello.",
+    },
     "outcome.recorded": {
         "en": "Recorded so Leonard can learn from what you do next.",
         "it": "Registrato perché Leonard impari da cosa fai dopo.",

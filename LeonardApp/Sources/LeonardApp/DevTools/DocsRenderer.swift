@@ -220,12 +220,13 @@ private struct Fixtures {
 
     func decision(id: String, event: String, action: DecisionAction, confidence: Double, suggestion: Suggestion? = nil,
                   explanation: String? = nil, abstained: Bool = false, readouts: [Readout] = [], latency: Double = 612,
-                  why: String = "message_type=personal_request p=0.93, urgency=3 p=0.83, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60") -> DecisionFrame {
+                  why: String = "message_type=personal_request p=0.93, urgency=3 p=0.83, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60",
+                  tier: String = "general") -> DecisionFrame {
         DecisionFrame(
             ts: now - 300, id: id, eventId: event, action: action, confidence: confidence, schemaMass: 0.99, latencyMs: latency,
             hypotheses: [Hypothesis(intent: "reply_to_email", p: confidence)], readouts: readouts, suggestion: suggestion,
             why: why,
-            abstained: abstained, explanation: explanation, floor: 0.60
+            abstained: abstained, explanation: explanation, floor: 0.60, tier: tier
         )
     }
 
@@ -239,7 +240,13 @@ private struct Fixtures {
             decisions: DecisionSummary(decisions: 412, suggested: 9, prepared: 14, abstained: 31, approved: 7, dismissed: 2, expired: 0, silent: 403, meanDecisionMs: 598),
             learning: LearningSnapshot(baseFloor: 0.6, kinds: [], mutedSenders: [
                 MutedSender(ruleId: "sender:news@techmeme.com", sender: "news@techmeme.com", dismissed: 3, since: now - 86400 * 4, manual: false),
-            ])
+            ]),
+            specialist: SpecialistSnapshot(
+                state: "active",
+                metrics: .init(trainedAt: now - 3600, examples: 412, personalLabels: 96, validation: 24, accuracy: 0.92,
+                               teacherAccuracy: 0.79, quietPrecision: 1.0, quietCoverage: 0.41, trainMs: 180, enabled: true, reason: "active"),
+                decisions: 412, decidedAlone: 131, aloneMs: 0.4, generalMs: 610, agreementWithGeneral: 0.9, compared: 281
+            )
         )
 
         let messageType = Readout(q: "message_type", value: .string("personal_request"), p: 0.93, schemaMass: 0.99,
@@ -254,8 +261,10 @@ private struct Fixtures {
             state.recordDecision(decision)
         }
         add(.mailOpened, "Mail", ["sender": "Techmeme <news@techmeme.com>", "subject": "Techmeme Daily"],
-            decision(id: "dec_0", event: "evt_0", action: .ignore, confidence: 0.97,
-                     explanation: it ? "Una newsletter o un invio di massa. Niente da fare." : "A newsletter or mass mailing. Nothing to do.", latency: 588))
+            decision(id: "dec_0", event: "evt_0", action: .ignore, confidence: 0.98,
+                     explanation: it ? "Leonard ha imparato da te che messaggi così possono aspettare, quindi è rimasto in silenzio senza interpellare il modello."
+                                     : "Leonard has learned from you that messages like this can wait, so it stayed quiet without asking the model.",
+                     latency: 0.4, why: "personal specialist: p_surface=0.021 <= 0.08", tier: "specialist"))
         add(.mailOpened, "Mail", ["sender": "Dana Whitfield <dana@apexsearch.co>", "subject": "Quick chat?"],
             decision(id: "dec_2", event: "evt_2", action: .wait, confidence: 0.54,
                      explanation: it ? "Dana Whitfield ti chiede qualcosa (entro la settimana). Leonard era sicuro al 54%, sotto la tua soglia del 60%: è rimasto in silenzio."

@@ -51,9 +51,22 @@ struct ContractFixtureTests {
                 #expect(prepared.body.hasPrefix("Ciao Marco,"))
                 #expect(prepared.replyTo?.contains("marco@studiorossi.it") == true)
                 #expect(prepared.messageId == "<m1@studiorossi.it>")
+            case .answer(let answer) where answer.resultKind == "task":
+                #expect(answer.ok)
+                #expect(answer.text == "Metti la playlist Focus su Spotify")
             case .answer(let answer):
                 #expect(answer.ok)
                 #expect(answer.sources.first?.app == "Slack")
+            case .taskPlan(let plan):
+                #expect(plan.taskId == "task_fixture")
+                #expect(plan.steps.count == 3)
+            case .act(let act) where act.taskId != nil:
+                #expect(act.operation == .click)
+                #expect(act.candidateId == "o1e1")
+                #expect(act.targetLabel == "Focus Flow")
+            case .tasksResults(let results):
+                #expect(results.tasks.first?.status == "done")
+                #expect(results.tasks.first?.steps.first?.target == "Focus Flow")
             case .memoryResults(let results):
                 #expect(results.requestId == "req_search")
                 #expect(results.results.first?.snippet.isEmpty == false)
@@ -96,6 +109,19 @@ struct ContractFixtureTests {
             .dismiss(DecisionResponseFrame(ts: 1, decisionId: "dec_unknown", reason: .timeout)),
             .memoryDelete(MemoryDeleteFrame(id: "d1", scope: .query, query: "guide")),
             .reload(RequestFrame(id: "rl1")),
+            .taskStart(TaskStartFrame(id: "ts1", taskId: "task_app", goal: "Apri Spotify", app: "Finder", window: "Download",
+                                      apps: ["Spotify", "Musica (Music)"])),
+            .taskObserve(TaskObserveFrame(ts: 1, id: "obs_app", taskId: "task_app", step: 1, app: "Spotify", window: "Spotify",
+                                          digest: "d1", candidates: [
+                                              AgentCandidate(id: "o1e1", label: "Play", role: "button", kind: .press, where: "toolbar"),
+                                              AgentCandidate(id: "o1e2", label: "Search", role: "search field", kind: .text, focused: true),
+                                              AgentCandidate(id: "o1e3", label: "Library", role: "scroll area", kind: .scroll),
+                                          ], apps: [AppCandidate(id: "app1", label: "Music")])),
+            .taskStep(TaskStepFrame(ts: 1, taskId: "task_app", step: 1, app: "Spotify", window: "Spotify", operation: "CLICK",
+                                    target: "Play", targetRole: "button", confidence: 0.9, permission: "allowed", outcome: .ok,
+                                    latencyMs: 120, digest: "d1")),
+            .taskEnd(TaskEndFrame(taskId: "task_app", status: .done)),
+            .tasksRecent(TasksRecentFrame(id: "tr1", limit: 5)),
         ]
         let lines = try frames.map { String(decoding: try $0.encoded(), as: UTF8.self) }
         try (lines.joined(separator: "\n") + "\n").write(

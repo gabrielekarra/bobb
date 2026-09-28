@@ -238,12 +238,19 @@ public struct DecisionFrame: Sendable, Equatable {
     /// The floor this decision was judged against — the user's personal
     /// floor for this kind when adaptive quiet is on.
     public var floor: Double?
+    /// "specialist" when the personal specialist decided alone (tier 0),
+    /// "general" when the resident model did (tier 1).
+    public var tier: String?
+    /// The specialist's probability that the user wants to hear about this.
+    public var specialistP: Double?
+
+    public var decidedBySpecialist: Bool { tier == "specialist" }
 
     public init(
         ts: Double, id: String, eventId: String, action: DecisionAction, confidence: Double,
         schemaMass: Double, latencyMs: Double, hypotheses: [Hypothesis] = [], readouts: [Readout] = [],
         suggestion: Suggestion? = nil, why: String = "", abstained: Bool = false,
-        explanation: String? = nil, floor: Double? = nil
+        explanation: String? = nil, floor: Double? = nil, tier: String? = nil, specialistP: Double? = nil
     ) {
         self.ts = ts
         self.id = id
@@ -259,12 +266,15 @@ public struct DecisionFrame: Sendable, Equatable {
         self.abstained = abstained
         self.explanation = explanation
         self.floor = floor
+        self.tier = tier
+        self.specialistP = specialistP
     }
 }
 
 extension DecisionFrame: Codable {
     enum CodingKeys: String, CodingKey {
-        case ts, id, action, confidence, hypotheses, readouts, suggestion, why, abstained, explanation, floor
+        case ts, id, action, confidence, hypotheses, readouts, suggestion, why, abstained, explanation, floor, tier
+        case specialistP = "specialist_p"
         case eventId = "event_id"
         case schemaMass = "schema_mass"
         case latencyMs = "latency_ms"
@@ -286,6 +296,8 @@ extension DecisionFrame: Codable {
         abstained = try container.decodeIfPresent(Bool.self, forKey: .abstained) ?? false
         explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
         floor = try container.decodeIfPresent(Double.self, forKey: .floor)
+        tier = try container.decodeIfPresent(String.self, forKey: .tier)
+        specialistP = try container.decodeIfPresent(Double.self, forKey: .specialistP)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -306,6 +318,8 @@ extension DecisionFrame: Codable {
         }
         try container.encodeIfPresent(explanation, forKey: .explanation)
         try container.encodeIfPresent(floor, forKey: .floor)
+        try container.encodeIfPresent(tier, forKey: .tier)
+        try container.encodeIfPresent(specialistP, forKey: .specialistP)
     }
 }
 

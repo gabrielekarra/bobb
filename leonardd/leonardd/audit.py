@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS learned_overrides (
     verdict  TEXT NOT NULL,
     ts       REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS labels (
+    decision_id TEXT PRIMARY KEY,
+    label       REAL NOT NULL,
+    weight      REAL NOT NULL,
+    source      TEXT NOT NULL,
+    ts          REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS tasks (
     task_id   TEXT PRIMARY KEY,
     ts        REAL NOT NULL,
@@ -88,6 +95,8 @@ _MIGRATIONS = (
     ("response_reason", "TEXT"),
     ("sender", "TEXT"),
     ("explanation", "TEXT"),
+    ("tier", "TEXT"),
+    ("specialist_p", "REAL"),
 )
 
 RESPONSES = ("approve", "dismiss")
@@ -138,8 +147,8 @@ def record_decision(conn: sqlite3.Connection, decision: dict, event: dict, *, fl
         INSERT OR REPLACE INTO decisions (
             decision_id, event_id, ts, kind, app, event_payload, model, floor,
             action, confidence, schema_mass, latency_ms, abstained,
-            hypotheses, readouts, suggestion, why, sender, explanation
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            hypotheses, readouts, suggestion, why, sender, explanation, tier, specialist_p
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             decision["id"],
@@ -161,6 +170,8 @@ def record_decision(conn: sqlite3.Connection, decision: dict, event: dict, *, fl
             decision.get("why"),
             sender_key(event.get("payload")),
             decision.get("explanation"),
+            decision.get("tier"),
+            decision.get("specialist_p"),
         ),
     )
     conn.commit()
@@ -198,6 +209,7 @@ def sweep(conn: sqlite3.Connection, retention_days: int, *, now: float | None = 
     now = now if now is not None else time.time()
     cutoff = now - retention_days * 86400
     cursor = conn.execute("DELETE FROM decisions WHERE ts < ?", (cutoff,))
+    conn.execute("DELETE FROM labels WHERE decision_id NOT IN (SELECT decision_id FROM decisions)")
     conn.execute("DELETE FROM task_steps WHERE task_id IN (SELECT task_id FROM tasks WHERE ts < ?)", (cutoff,))
     conn.execute("DELETE FROM tasks WHERE ts < ?", (cutoff,))
     conn.commit()
@@ -324,6 +336,7 @@ def task_summary(conn: sqlite3.Connection, *, since: float = 0.0) -> dict:
 def delete_all(conn: sqlite3.Connection) -> int:
     count = conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0]
     conn.execute("DELETE FROM decisions")
+    conn.execute("DELETE FROM labels")
     conn.execute("DELETE FROM task_steps")
     conn.execute("DELETE FROM tasks")
     conn.execute("DELETE FROM learned_overrides")

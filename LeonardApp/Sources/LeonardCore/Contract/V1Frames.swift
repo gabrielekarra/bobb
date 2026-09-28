@@ -401,22 +401,24 @@ public struct StatsFrame: Codable, Sendable, Equatable {
     public var learning: LearningSnapshot
     public var memory: MemoryStatsFrame?
     public var tasks: TaskSummary?
+    public var specialist: SpecialistSnapshot?
     public var state: String?
     public var model: String?
 
     enum CodingKeys: String, CodingKey {
-        case ts, decisions, learning, memory, tasks, state, model
+        case ts, decisions, learning, memory, tasks, specialist, state, model
         case requestId = "request_id"
     }
 
     public init(ts: Double, requestId: String? = nil, decisions: DecisionSummary, learning: LearningSnapshot, memory: MemoryStatsFrame? = nil,
-                tasks: TaskSummary? = nil, state: String? = nil, model: String? = nil) {
+                tasks: TaskSummary? = nil, specialist: SpecialistSnapshot? = nil, state: String? = nil, model: String? = nil) {
         self.ts = ts
         self.requestId = requestId
         self.decisions = decisions
         self.learning = learning
         self.memory = memory
         self.tasks = tasks
+        self.specialist = specialist
         self.state = state
         self.model = model
     }
@@ -691,5 +693,84 @@ extension IncomingFrame {
         case .tasksResults(let f): f.requestId
         default: nil
         }
+    }
+}
+
+/// The personal specialist (tier 0), as `stats` reports it.
+public struct SpecialistSnapshot: Codable, Sendable, Equatable {
+    public struct Metrics: Codable, Sendable, Equatable {
+        public var trainedAt: Double
+        public var examples: Int
+        public var personalLabels: Int
+        public var validation: Int
+        public var accuracy: Double?
+        public var teacherAccuracy: Double?
+        public var quietPrecision: Double?
+        public var quietCoverage: Double?
+        public var trainMs: Double
+        public var enabled: Bool
+        public var reason: String
+
+        enum CodingKeys: String, CodingKey {
+            case examples, validation, accuracy, enabled, reason
+            case trainedAt = "trained_at"
+            case personalLabels = "personal_labels"
+            case teacherAccuracy = "teacher_accuracy"
+            case quietPrecision = "quiet_precision"
+            case quietCoverage = "quiet_coverage"
+            case trainMs = "train_ms"
+        }
+
+        public init(trainedAt: Double = 0, examples: Int = 0, personalLabels: Int = 0, validation: Int = 0, accuracy: Double? = nil,
+                    teacherAccuracy: Double? = nil, quietPrecision: Double? = nil, quietCoverage: Double? = nil, trainMs: Double = 0,
+                    enabled: Bool = false, reason: String = "") {
+            self.trainedAt = trainedAt
+            self.examples = examples
+            self.personalLabels = personalLabels
+            self.validation = validation
+            self.accuracy = accuracy
+            self.teacherAccuracy = teacherAccuracy
+            self.quietPrecision = quietPrecision
+            self.quietCoverage = quietCoverage
+            self.trainMs = trainMs
+            self.enabled = enabled
+            self.reason = reason
+        }
+    }
+
+    public var state: String
+    public var metrics: Metrics
+    public var decisions: Int
+    public var decidedAlone: Int
+    public var aloneMs: Double?
+    public var generalMs: Double?
+    public var agreementWithGeneral: Double?
+    public var compared: Int
+
+    enum CodingKeys: String, CodingKey {
+        case state, metrics, decisions, compared
+        case decidedAlone = "decided_alone"
+        case aloneMs = "alone_ms"
+        case generalMs = "general_ms"
+        case agreementWithGeneral = "agreement_with_general"
+    }
+
+    public init(state: String, metrics: Metrics, decisions: Int = 0, decidedAlone: Int = 0, aloneMs: Double? = nil,
+                generalMs: Double? = nil, agreementWithGeneral: Double? = nil, compared: Int = 0) {
+        self.state = state
+        self.metrics = metrics
+        self.decisions = decisions
+        self.decidedAlone = decidedAlone
+        self.aloneMs = aloneMs
+        self.generalMs = generalMs
+        self.agreementWithGeneral = agreementWithGeneral
+        self.compared = compared
+    }
+
+    public var isActive: Bool { state == "active" }
+    /// Answers still needed before it can be checked, from its own reason.
+    public var answersNeeded: Int? {
+        guard !isActive, metrics.reason.hasPrefix("needs ") else { return nil }
+        return Int(metrics.reason.split(separator: " ")[1])
     }
 }

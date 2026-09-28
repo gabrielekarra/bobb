@@ -10,7 +10,9 @@ import json
 from pathlib import Path
 
 import pytest
-from server_helpers import recv_frame, running_server
+from server_helpers import fake_decide_many, recv_frame, running_server
+
+import leonardd.agent as agent_mod
 
 from leonardd.memory import MemoryStore
 
@@ -25,11 +27,13 @@ def _frames():
 
 def test_fixture_exists_and_covers_the_v1_frames():
     kinds = {f["t"] for f in _frames()}
-    assert {"hello", "settings", "memory.observe", "event", "ask", "cancel", "memory.search", "stats"} <= kinds
+    assert {"hello", "settings", "memory.observe", "event", "ask", "cancel", "memory.search", "stats",
+            "task.start", "observe", "task.step", "task.end", "tasks.recent"} <= kinds
 
 
 @pytest.mark.asyncio
 async def test_the_daemon_accepts_every_app_frame(tmp_path, monkeypatch):
+    monkeypatch.setattr(agent_mod, "decide_many", fake_decide_many)
     async with running_server(tmp_path, monkeypatch) as server:
         server.memory = MemoryStore(tmp_path / "memory.db")
         reader, writer = await asyncio.open_unix_connection(str(server.socket_path))

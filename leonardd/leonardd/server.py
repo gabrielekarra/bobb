@@ -43,6 +43,7 @@ from . import agent as agent_mod
 from . import audit as audit_mod
 from . import compose
 from . import settings as settings_mod
+from . import specialist as specialist_mod
 from .act import MAX_CANDIDATES, act_frame, score_action
 from .attention import AttentionEngine
 from .audit import fetch_decision, open_db, record_decision, record_response
@@ -150,6 +151,7 @@ class LeonardServer:
         settings_path: Path | None = None,
         personalizer: Personalizer | None = None,
         state: str | None = None,
+        specialist_path: Path | None = None,
     ):
         self.attention = attention
         self.conn = conn
@@ -173,6 +175,10 @@ class LeonardServer:
         self._tasks: set[asyncio.Task] = set()
         self._reload_hook = None
         self._task_sessions: dict[str, agent_mod.TaskSession] = {}
+        self.specialist_path = specialist_path
+        self.specialist = specialist_mod.Specialist.load(specialist_path) if specialist_path else None
+        self._training = False
+        self._apply_settings_to_attention()
 
     # ------------------------------------------------------------ lifecycle
 
@@ -232,6 +238,7 @@ class LeonardServer:
             self.attention.settings = self.settings
             if self.attention.personalizer is None:
                 self.attention.personalizer = self.personalizer
+            self.attention.specialist = getattr(self, "specialist", None)
 
     def apply_settings(self, frame: dict) -> None:
         self.settings = settings_mod.apply(self.settings, frame)
@@ -394,11 +401,16 @@ class LeonardServer:
                 "ts": _now(),
                 "event_id": event.get("id", ""),
                 "stage": "attention",
-                "detail": decision["action"],
+                "detail": decision["action"] + (" (specialist)" if decision.get("tier") == "specialist" else ""),
                 "ms": decision["latency_ms"],
             }
         )
         await client.send(decision)
+        # What the user just did may answer an earlier question (a reply
+        # started, a message left unread): that is how Leonard learns
+        # without asking.
+        if specialist_mod.record_implicit(self.conn, event):
+            self.maybe_train()
 
     async def _on_response(self, frame: dict, client: _Client, response: str) -> None:
         decision_id = frame.get("decision_id", "")
@@ -408,6 +420,7 @@ class LeonardServer:
             await client.send(_error_frame(f"unknown decision_id {decision_id!r}"))
             return
         self.personalizer.refresh()
+        self.maybe_train()
         if response != "approve":
             return
         self._spawn(self._prepare(decision_id, client, instruction=""))
@@ -685,6 +698,7 @@ class LeonardServer:
                 "learning": self.personalizer.snapshot(self.settings.floor),
                 "memory": self.memory.stats() if self.memory is not None else None,
                 "tasks": audit_mod.task_summary(self.conn, since=_now() - days * 86400),
+                "specialist": specialist_mod.snapshot(self.conn, self.specialist, since=_now() - days * 86400),
                 "state": self.state,
                 "model": self.model_name,
             }
@@ -737,6 +751,42 @@ class LeonardServer:
             raise ValueError(f"too many candidates ({len(candidates)} > {MAX_CANDIDATES})")
         result = await self._run_model(score_action, self.attention.engine, frame, floor=self.settings.floor)
         await client.send(act_frame(observation_id, result))
+
+    # ------------------------------------------------------------ tier 0
+
+    def maybe_train(self, *, force: bool = False) -> None:
+        """Refits the personal specialist when enough new answers have
+        arrived, or a day has passed with some. Off the event loop and off
+        the model thread; a few hundred milliseconds of NumPy."""
+        if self._training or self.specialist_path is None or not self.settings.adaptive:
+            return
+        trained_at = self.specialist.metrics.trained_at if self.specialist else 0.0
+        fresh = specialist_mod.labels_since(self.conn, trained_at)
+        due = force or fresh >= specialist_mod.RETRAIN_AFTER_LABELS or (
+            fresh > 0 and _now() - trained_at >= specialist_mod.RETRAIN_AFTER_SECONDS
+        )
+        if not due:
+            return
+        batch = specialist_mod.examples(self.conn)
+        if not batch:
+            return
+        self._training = True
+        self._spawn(self._train(batch))
+
+    async def _train(self, batch) -> None:
+        loop = asyncio.get_running_loop()
+        try:
+            specialist = await loop.run_in_executor(None, _train_specialist, batch)
+            specialist.save(self.specialist_path)
+            self.specialist = specialist
+            self._apply_settings_to_attention()
+            m = specialist.metrics
+            logger.info("specialist trained on %d examples (%d personal) in %.0fms: %s",
+                        m.examples, m.personal_labels, m.train_ms, m.reason)
+        except Exception as exc:  # training must never take the daemon down
+            logger.warning("specialist training failed: %s", type(exc).__name__)
+        finally:
+            self._training = False
 
     # ------------------------------------------------------------ tasks
 
@@ -910,8 +960,10 @@ async def serve(
         settings=settings,
         settings_path=settings_path,
         state="loading",
+        specialist_path=data_dir / "specialists" / "attention.npz",
     )
     server_impl.sweep()
+    server_impl.maybe_train()
     loader = _Loader(server_impl, model_id)
     server_impl._reload_hook = loader
 
@@ -956,3 +1008,10 @@ _WARMUP_EVENT = {
 
 
 __all__ = ["LeonardServer", "serve", "DEFAULT_SOCKET_PATH", "DEFAULT_DATA_DIR", "PROTOCOL_VERSION", "mail_observation"]
+
+
+# ---------------------------------------------------------------- tier 0 training
+
+
+def _train_specialist(batch):
+    return specialist_mod.train(batch)

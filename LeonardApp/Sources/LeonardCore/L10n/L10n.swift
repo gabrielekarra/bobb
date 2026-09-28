@@ -102,6 +102,9 @@ public enum L10n {
              reasonSendsMessage, reasonClosesWithoutSaving, reasonEveryStep, settingsActing, settingsActingEnabled,
              settingsActingHint, settingsActingApproval, settingsApprovalImportant, settingsApprovalEvery,
              settingsAllowRules, settingsAllowRulesEmpty, mindTasks, mindTasksEmpty, mindTaskSteps
+        // specialist
+        case mindSpecialist, mindSpecialistLearning, mindSpecialistChecking, mindSpecialistActive,
+             mindSpecialistAgreement, mindSpecialistAlone, mindSpecialistBadge
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -396,6 +399,14 @@ public enum L10n {
         .mindTasks: ("What Leonard did", "Cosa ha fatto Leonard"),
         .mindTasksEmpty: ("No tasks yet. Press ⌥Space and tell Leonard what to do.", "Ancora nessun compito. Premi ⌥Spazio e di' a Leonard cosa fare."),
         .mindTaskSteps: ("{count} steps", "{count} passi"),
+
+        .mindSpecialist: ("Your specialist", "Il tuo specialista"),
+        .mindSpecialistLearning: ("Learning from your answers. It starts deciding alone after {count} more.", "Sta imparando dalle tue risposte. Inizierà a decidere da solo dopo altre {count}."),
+        .mindSpecialistChecking: ("Learning from your answers; not yet sure enough to decide alone ({reason}).", "Sta imparando dalle tue risposte; non è ancora abbastanza sicuro per decidere da solo ({reason})."),
+        .mindSpecialistActive: ("Trained on this Mac from {count} of your answers.", "Addestrato su questo Mac da {count} tue risposte."),
+        .mindSpecialistAgreement: ("Agrees with you {specialist} of the time (the general model: {general}).", "È d'accordo con te il {specialist} delle volte (il modello generale: {general})."),
+        .mindSpecialistAlone: ("Decided alone {count} times in {ms}, instead of {general}.", "Ha deciso da solo {count} volte in {ms}, invece di {general}."),
+        .mindSpecialistBadge: ("Your specialist", "Il tuo specialista"),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

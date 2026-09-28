@@ -49,7 +49,10 @@ struct MindEntryRow: View {
             }
             Spacer()
             if let decision {
-                Text(String(format: "%.0f ms", decision.latencyMs))
+                if decision.decidedBySpecialist {
+                    Pill(text: L10n.t(.mindSpecialistBadge), color: .green)
+                }
+                Text(decision.latencyMs < 10 ? String(format: "%.1f ms", decision.latencyMs) : String(format: "%.0f ms", decision.latencyMs))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
             } else {

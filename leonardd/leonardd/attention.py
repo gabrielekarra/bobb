@@ -41,6 +41,8 @@ from .learning import Personalizer
 from .policy import PolicyResult, cap_by_user_state, decide_action
 from .schema import Decision
 from .settings import Settings
+from .specialist import QUIET_P, Specialist
+from .specialist import route as specialist_route
 
 DEFAULT_FLOOR = 0.60
 SCHEMA_MASS_FLOOR = 0.5
@@ -147,6 +149,8 @@ class AttentionEngine:
             base = Settings(floor=floor, proactive_kinds=proactive_kinds or frozenset(_ALL_DECIDABLE_KINDS))
         self.settings = base
         self.personalizer = personalizer
+        # Tier 0: the personal specialist, when one has been minted.
+        self.specialist: Specialist | None = None
         self.tracker = UserActivityTracker()
         self.primed: Cache = prime(engine, system_prefix)
 
@@ -213,6 +217,17 @@ class AttentionEngine:
                 started=started,
             )
 
+        tier0 = specialist_route(self.specialist, event) if self.settings.adaptive else None
+        if tier0 is not None and tier0.quiet:
+            decision = self._silent(
+                event,
+                why=f"personal specialist: p_surface={tier0.p:.3f} <= {QUIET_P}",
+                explanation=i18n.t("outcome.specialist", locale),
+                started=started,
+            )
+            decision.update(tier="specialist", specialist_p=round(tier0.p, 4), confidence=round(1 - tier0.p, 6))
+            return decision
+
         context = intent.context(event, user_state)
         answers = decide_many(self.engine, context, intent.questions, primed=self.primed)
         readouts = {d.name: d for d in answers}
@@ -272,6 +287,11 @@ class AttentionEngine:
             decision["suggestion"] = suggestion
         if abstained:
             decision["abstained"] = True
+        decision["tier"] = "general"
+        if tier0 is not None:
+            decision["specialist_p"] = round(tier0.p, 4)
+            if tier0.shadow:
+                decision["shadow"] = True
         return decision
 
     def _explain(

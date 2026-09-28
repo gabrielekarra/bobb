@@ -34,6 +34,7 @@ struct MindView: View {
                 ConfidenceFloorChart(entries: state.entries, floor: state.floor)
                 floorSection
                 learnedSection
+                specialistSection
                 tasksSection
                 filterSection
             }
@@ -121,6 +122,47 @@ struct MindView: View {
                         .font(.system(size: 10.5))
                 }
             }
+        }
+    }
+
+    /// Tier 0: the model this Mac minted from this person's answers, how
+    /// good it is against them, and how much it now decides alone — the
+    /// "gets faster the longer you use it" claim, shown rather than told.
+    private var specialistSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionTitle(L10n.t(.mindSpecialist))
+            if let specialist = state.stats?.specialist {
+                let m = specialist.metrics
+                if specialist.isActive {
+                    specialistLine(L10n.t(.mindSpecialistActive, ["count": "\(m.personalLabels)"]), icon: "brain.head.profile")
+                    if let accuracy = m.accuracy {
+                        specialistLine(L10n.t(.mindSpecialistAgreement, [
+                            "specialist": L10n.percent(accuracy),
+                            "general": m.teacherAccuracy.map { L10n.percent($0) } ?? "—",
+                        ]), icon: "person.fill.checkmark")
+                    }
+                    if specialist.decidedAlone > 0 {
+                        specialistLine(L10n.t(.mindSpecialistAlone, [
+                            "count": "\(specialist.decidedAlone)",
+                            "ms": specialist.aloneMs.map { String(format: "%.1f ms", $0) } ?? "—",
+                            "general": specialist.generalMs.map { String(format: "%.0f ms", $0) } ?? "—",
+                        ]), icon: "bolt")
+                    }
+                } else if let needed = specialist.answersNeeded {
+                    specialistLine(L10n.t(.mindSpecialistLearning, ["count": "\(needed)"]), icon: "hourglass")
+                } else {
+                    specialistLine(L10n.t(.mindSpecialistChecking, ["reason": m.reason]), icon: "hourglass")
+                }
+            } else {
+                specialistLine(L10n.t(.mindSpecialistLearning, ["count": "30"]), icon: "hourglass")
+            }
+        }
+    }
+
+    private func specialistLine(_ text: String, icon: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon).font(.system(size: 10)).foregroundStyle(.secondary).frame(width: 12)
+            Text(text).font(.system(size: 10.5)).fixedSize(horizontal: false, vertical: true)
         }
     }
 
