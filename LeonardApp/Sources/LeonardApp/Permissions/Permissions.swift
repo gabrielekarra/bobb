@@ -41,11 +41,14 @@ final class Permissions {
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self else { timer.invalidate(); return }
+                guard let self else { return }
                 self.refresh()
-                if self.accessibility == .granted { timer.invalidate() }
+                if self.accessibility == .granted {
+                    self.pollTimer?.invalidate()
+                    self.pollTimer = nil
+                }
             }
         }
     }

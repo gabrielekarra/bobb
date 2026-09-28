@@ -82,3 +82,36 @@ jobs:
       - name: Test
         working-directory: LeonardApp
         run: swift test -j 1
+
+  package:
+    name: Leonard.dmg (bundle, daemon smoke test, DMG)
+    runs-on: macos-latest
+    needs: [app, daemon]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Select newest Xcode
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+      - name: Package (ad-hoc signed)
+        run: scripts/package.sh
+      - name: Render screenshots of the real views
+        run: |
+          dist/Leonard.app/Contents/MacOS/LeonardApp --render-docs dist/screenshots || true
+          ls -la dist/screenshots || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Leonard-dmg
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: dist/screenshots
+          if-no-files-found: ignore
+          retention-days: 14

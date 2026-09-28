@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Builds Leonard.app (scripts/build.sh) and launches it. Any arguments are
-# forwarded to the app, e.g. `./run.sh --mock-events` for the scripted
-# demo scenario instead of the real WorkspaceEventSource.
+# Builds the development app and launches it against this checkout's daemon
+# (`uv run` in leonardd/). Extra arguments go to the app, e.g.
+#   scripts/run.sh --mock-events     # scripted demo events, no Mail needed
+#   scripts/run.sh --no-daemon       # connect to a daemon you started yourself
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_BUNDLE="$SCRIPT_DIR/../LeonardApp/build/Leonard.app"
-
-"$SCRIPT_DIR/build.sh"
-
-echo "==> launching $APP_BUNDLE"
-open "$APP_BUNDLE" --args "$@"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+"$ROOT/scripts/build.sh"
+echo "==> launching $ROOT/dist/Leonard.app"
+open "$ROOT/dist/Leonard.app" --args --daemon-dir "$ROOT/leonardd" "$@"
