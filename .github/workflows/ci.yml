@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  daemon:
+    name: leonardd (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync
+        working-directory: leonardd
+        run: |
+          uv sync --frozen
+          # Linux has no Metal; the CPU build of MLX lets the model-free suite import.
+          uv pip install "mlx[cpu]==$(uv run --no-sync python -c 'import importlib.metadata as m; print(m.version("mlx"))')"
+      - name: Test
+        working-directory: leonardd
+        run: uv run --no-sync pytest -q -m "not slow"
+
+  specialist:
+    name: specialist (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Test
+        working-directory: specialist
+        run: |
+          uv sync --frozen
+          uv run --no-sync pytest -q
+
+  app:
+    name: LeonardApp (Swift, macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+          xcodebuild -version
+          swift --version
+      - name: Build
+        working-directory: LeonardApp
+        run: swift build -c release
+      - name: Test
+        working-directory: LeonardApp
+        run: swift test -j 1
