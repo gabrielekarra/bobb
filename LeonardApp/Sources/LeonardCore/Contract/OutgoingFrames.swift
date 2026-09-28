@@ -101,6 +101,8 @@ public enum OutgoingFrame: Sendable, Equatable {
     case taskStep(TaskStepFrame)
     case taskEnd(TaskEndFrame)
     case tasksRecent(TasksRecentFrame)
+    case commitmentsList(CommitmentsListFrame)
+    case commitmentUpdate(CommitmentUpdateFrame)
 
     public func encoded() throws -> Data {
         switch self {
@@ -130,6 +132,8 @@ public enum OutgoingFrame: Sendable, Equatable {
         case .taskStep(let frame): try FrameCodec.data(type: "task.step", payload: frame)
         case .taskEnd(let frame): try FrameCodec.data(type: "task.end", payload: frame)
         case .tasksRecent(let frame): try FrameCodec.data(type: "tasks.recent", payload: frame)
+        case .commitmentsList(let frame): try FrameCodec.data(type: "commitments.list", payload: frame)
+        case .commitmentUpdate(let frame): try FrameCodec.data(type: "commitment.update", payload: frame)
         }
     }
 }

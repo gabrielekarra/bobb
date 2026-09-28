@@ -12,6 +12,11 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
     case mailOpened = "mail.opened"
     case mailClosed = "mail.closed"
     case mailComposing = "mail.composing"
+    /// A message the user sent, read from Mail's Sent mailbox: where their
+    /// promises are.
+    case mailSent = "mail.sent"
+    /// A meeting with other people about to start.
+    case calendarUpcoming = "calendar.upcoming"
     case mailArchived = "mail.archived"
     case mailDeleted = "mail.deleted"
     case textSelected = "text.selected"
@@ -30,7 +35,9 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
     public var isLearningSignal: Bool {
         switch self {
         case .mailArrived, .mailClosed, .mailArchived, .mailDeleted: true
-        case .appActivated, .windowChanged, .mailOpened, .mailComposing, .textSelected, .messageOpened, .idleEntered, .idleLeft: false
+        case .mailSent: true
+        case .appActivated, .windowChanged, .mailOpened, .mailComposing, .textSelected, .messageOpened, .calendarUpcoming,
+             .idleEntered, .idleLeft: false
         }
     }
 }

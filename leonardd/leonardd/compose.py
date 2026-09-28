@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from .i18n import display_name, locale_or_default
@@ -390,9 +391,47 @@ def continue_draft(event: dict, memory: MemoryStore | None, locale: str) -> Task
     )
 
 
-def for_action(action_id: str, event: dict, memory: MemoryStore | None, locale: str) -> Task:
+def meeting_brief(event: dict, memory: MemoryStore | None, locale: str, promises: Sequence[str] = ()) -> Task:
+    """What the user knows before a meeting, from what they saw and what
+    they promised these people. Grounded and cited, or it says there is
+    nothing."""
+    p = _payload(event)
+    attendees = [str(a) for a in (p.get("attendees") or []) if str(a).strip()]
+    names = " ".join(display_name(a) for a in attendees[:4])
+    hits, terms = related_memory(memory, f"{p.get('title', '')} {names}")
+    block, sources = _memory_block(hits, terms, locale)
+    language = LANGUAGE_NAMES[locale_or_default(locale)]
+    owed = "\n".join(f"- {promise}" for promise in promises[:6])
+    system = (
+        "You are Leonard, a private assistant. The user has a meeting in a few minutes. Write a brief of at most "
+        "four short bullet points from the notes below only: what it is about, what is still open, anything the "
+        "user promised these people, and one useful question to ask. Cite notes as [1], [2]. If the notes say "
+        f"nothing relevant, say so in one line. Write in {language}. " + _UNTRUSTED
+    )
+    user = (
+        f"Meeting: {p.get('title', '')}\nWith: {', '.join(attendees) or 'not listed'}\n"
+        f"Agenda or notes:\n{_fence(str(p.get('notes') or ''), 800)}"
+    )
+    if owed:
+        user += f"\n\nWhat the user promised these people:\n{owed}"
+    if block:
+        user += f"\n\nThings the user saw on screen:\n{block}"
+    return Task(
+        "prepare_meeting",
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=220,
+        sources=sources,
+        temperature=0.2,
+        result_kind="brief",
+        grounding="\n".join((str(p.get("title") or ""), ", ".join(attendees), str(p.get("notes") or ""), owed, block)),
+    )
+
+
+def for_action(action_id: str, event: dict, memory: MemoryStore | None, locale: str, *, promises: Sequence[str] = ()) -> Task:
     """The task behind an approved suggestion."""
     p = _payload(event)
+    if action_id == "prepare_meeting":
+        return meeting_brief(event, memory, locale, promises)
     if action_id == "draft_reply":
         return draft_reply(event, memory, locale)
     if action_id == "summarize_notice":

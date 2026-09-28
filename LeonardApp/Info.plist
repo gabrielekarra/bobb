@@ -37,6 +37,10 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Leonard. All rights reserved.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Leonard reads your calendar on this Mac to brief you before meetings and to answer questions about your schedule. It never changes your calendar.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Leonard reads your calendar on this Mac to brief you before meetings. It never changes your calendar.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Leonard reads the message you open in Mail and opens a reply window with its draft. It never sends anything.</string>
 </dict>

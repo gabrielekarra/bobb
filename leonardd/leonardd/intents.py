@@ -55,6 +55,8 @@ language. User-facing copy lives in `i18n.py`, in English and Italian.
 
 from __future__ import annotations
 
+import time
+
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -366,6 +368,56 @@ def _text_selected_explanation(event: dict, readouts: dict[str, Decision], local
     return i18n.t("explain.selection", locale)
 
 
+# ---------- calendar.upcoming ----------
+
+_WORTH_PREPARING = Bool(
+    name="worth_preparing",
+    statement=(
+        "This calendar event is a meeting or call with other people that is worth two minutes of preparation, "
+        "not a personal reminder, a focus block, travel time, a birthday or a routine all-hands."
+    ),
+)
+
+
+def _clock(ts) -> str:
+    return time.strftime("%H:%M", time.localtime(ts)) if isinstance(ts, (int, float)) else ""
+
+
+def _calendar_context(event: dict, user_state: str) -> str:
+    p = _payload(event)
+    attendees = ", ".join(str(a) for a in (p.get("attendees") or [])[:12]) or "nobody listed"
+    return (
+        "A calendar event is about to start.\n"
+        f"Title: {p.get('title', '')}\n"
+        f"Starts in {p.get('minutes_until', '?')} minutes, at {_clock(p.get('start_ts'))}.\n"
+        f"With: {attendees}\n"
+        f"Where: {p.get('location') or 'not stated'}\n"
+        f"Notes:\n{_clip_body(p.get('notes', ''), 800)}"
+    )
+
+
+def _calendar_hypotheses(event: dict, readouts: dict[str, Decision]) -> list[Hypothesis]:
+    return [Hypothesis("prepare_meeting", readouts["worth_preparing"].probabilities["true"])]
+
+
+def _calendar_suggestion(event: dict, readouts: dict[str, Decision], hypotheses: list[Hypothesis], locale: str) -> dict:
+    p = _payload(event)
+    attendees = [str(a) for a in (p.get("attendees") or []) if str(a).strip()]
+    who = i18n.display_name(attendees[0], locale) if attendees else _clip(p.get("title") or "", 40)
+    if len(attendees) > 1:
+        who = i18n.t("meeting.others", locale, name=who, count=len(attendees) - 1)
+    return {
+        "title": i18n.t("meeting.title", locale, time=_clock(p.get("start_ts")), who=who),
+        "action_id": "prepare_meeting",
+        "detail": " · ".join(x for x in (_clip(p.get("title") or "", 50), _clip(p.get("location") or "", 30)) if x),
+        "cta": i18n.t("meeting.cta", locale),
+    }
+
+
+def _calendar_explanation(event: dict, readouts: dict[str, Decision], locale: str) -> str:
+    return i18n.t("explain.meeting", locale, minutes=_payload(event).get("minutes_until", "?"))
+
+
 # ---------- app.activated / window.changed ----------
 #
 # Kept so the facts are still recorded for the personal specialist, but these
@@ -449,6 +501,14 @@ INTENTS: dict[str, EventIntent] = {
         suggestion=_message_opened_suggestion,
         explain=_mail_opened_explanation,
     ),
+    "calendar.upcoming": EventIntent(
+        kind="calendar.upcoming",
+        questions=(_WORTH_PREPARING,),
+        context=_calendar_context,
+        hypotheses=_calendar_hypotheses,
+        suggestion=_calendar_suggestion,
+        explain=_calendar_explanation,
+    ),
     "mail.composing": EventIntent(
         kind="mail.composing",
         questions=(_TONE,),
@@ -498,6 +558,7 @@ PREPARABLE_ACTIONS = frozenset(
     {
         "draft_reply",
         "summarize_notice",
+        "prepare_meeting",
         "review_tone",
         "continue_draft",
         "define_selection",

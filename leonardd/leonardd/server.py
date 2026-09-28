@@ -41,6 +41,7 @@ import numpy as np
 from . import __version__
 from . import agent as agent_mod
 from . import audit as audit_mod
+from . import commitments as commitments_mod
 from . import compose
 from . import settings as settings_mod
 from . import specialist as specialist_mod
@@ -69,6 +70,8 @@ FEATURES = (
     "act",
     "status",
     "tasks",
+    "commitments",
+    "specialist",
 )
 MAX_OPEN_TASKS = 8
 
@@ -175,6 +178,7 @@ class LeonardServer:
         self._tasks: set[asyncio.Task] = set()
         self._reload_hook = None
         self._task_sessions: dict[str, agent_mod.TaskSession] = {}
+        commitments_mod.ensure_schema(conn)
         self.specialist_path = specialist_path
         self.specialist = specialist_mod.Specialist.load(specialist_path) if specialist_path else None
         self._training = False
@@ -249,6 +253,7 @@ class LeonardServer:
     def sweep(self, now: float | None = None) -> dict:
         memory_rows = self.memory.sweep(self.settings.memory_retention_days, now=now) if self.memory else 0
         decisions = audit_mod.sweep(self.conn, self.settings.history_retention_days, now=now)
+        commitments_mod.sweep(self.conn, self.settings.history_retention_days, now=now)
         if memory_rows or decisions:
             logger.info("retention: forgot %d memory rows, %d decisions", memory_rows, decisions)
         return {"memory": memory_rows, "decisions": decisions}
@@ -309,6 +314,8 @@ class LeonardServer:
             "learning.mute": self._on_learning_mute,
             "reload": self._on_reload,
             "history.delete": self._on_history_delete,
+            "commitments.list": self._on_commitments_list,
+            "commitment.update": self._on_commitment_update,
             "task.start": self._on_task_start,
             "task.step": self._on_task_step,
             "task.end": self._on_task_end,
@@ -411,6 +418,8 @@ class LeonardServer:
         # without asking.
         if specialist_mod.record_implicit(self.conn, event):
             self.maybe_train()
+        if event.get("kind") == "mail.sent" and self.attention is not None:
+            self._spawn(self._find_commitment(event))
 
     async def _on_response(self, frame: dict, client: _Client, response: str) -> None:
         decision_id = frame.get("decision_id", "")
@@ -442,7 +451,8 @@ class LeonardServer:
         locale = self.settings.locale
         started = time.perf_counter()
         try:
-            task = compose.for_action(action_id, event, self.memory, locale)
+            promises = self._promises_for(event) if action_id == "prepare_meeting" else ()
+            task = compose.for_action(action_id, event, self.memory, locale, promises=promises)
             if instruction and action_id == "draft_reply":
                 task = compose.draft_reply(event, self.memory, locale, instruction=instruction)
         except KeyError:
@@ -682,6 +692,7 @@ class LeonardServer:
 
     async def _on_history_delete(self, frame: dict, client: _Client) -> None:
         count = audit_mod.delete_all(self.conn)
+        commitments_mod.delete_all(self.conn)
         self.personalizer.refresh()
         await client.send({"t": "history.deleted", "ts": _now(), "request_id": frame.get("id"), "count": count})
 
@@ -751,6 +762,46 @@ class LeonardServer:
             raise ValueError(f"too many candidates ({len(candidates)} > {MAX_CANDIDATES})")
         result = await self._run_model(score_action, self.attention.engine, frame, floor=self.settings.floor)
         await client.send(act_frame(observation_id, result))
+
+    # ------------------------------------------------------------ commitments
+
+    async def _find_commitment(self, event: dict) -> None:
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        message_id = str(payload.get("message_id") or "")
+        if message_id and commitments_mod.seen(self.conn, message_id):
+            return
+        try:
+            commitment = await self._run_model(commitments_mod.find_promise, self.attention.engine, event)
+        except Exception as exc:  # a message that confuses the model must not cost the daemon
+            logger.warning("commitment extraction failed: %s", type(exc).__name__)
+            return
+        if commitment is not None and commitments_mod.save(self.conn, commitment):
+            await self.broadcast({"t": "commitment", "ts": _now(), "item": commitment.to_frame()})
+
+    def _promises_for(self, event: dict) -> list[str]:
+        """Open promises to anyone in a meeting, by address or by name."""
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        people = [str(a).lower() for a in (payload.get("attendees") or [])]
+        out = []
+        for item in commitments_mod.listing(self.conn):
+            address, person = (item["address"] or "").lower(), (item["person"] or "").lower()
+            if any((address and address in p) or (person and person in p) for p in people):
+                due = time.strftime("%d/%m", time.localtime(item["due_ts"])) if item["due_ts"] else ""
+                out.append(f"{item['what']} ({item['person']}{', ' + due if due else ''})")
+        return out
+
+    async def _on_commitments_list(self, frame: dict, client: _Client) -> None:
+        status = frame.get("status", "open")
+        await client.send({"t": "commitments", "ts": _now(), "request_id": frame.get("id"),
+                           "items": commitments_mod.listing(self.conn, status=status if status in commitments_mod.STATUSES else None)})
+
+    async def _on_commitment_update(self, frame: dict, client: _Client) -> None:
+        commitments_mod.update(
+            self.conn, str(frame.get("commitment_id") or ""),
+            status=frame.get("status") if isinstance(frame.get("status"), str) else None,
+            due_ts=frame.get("due_ts") if isinstance(frame.get("due_ts"), (int, float)) else None,
+        )
+        await self._on_commitments_list({"id": frame.get("id")}, client)
 
     # ------------------------------------------------------------ tier 0
 

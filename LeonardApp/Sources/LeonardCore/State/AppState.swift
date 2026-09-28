@@ -104,6 +104,14 @@ public final class AppState {
     public var task: TaskRunState?
     /// Past tasks, for Mind; loaded on demand.
     public var recentTasks: [TaskRecord] = []
+    /// Open promises the user made, from the mail they sent.
+    public var commitments: [Commitment] = []
+
+    /// The promises worth a line under "For you".
+    public func promisesDue(now: Date = Date()) -> [Commitment] {
+        commitments.filter { $0.isDueSoon(now: now) }
+            .sorted { ($0.dueTs ?? .infinity, -$0.ts) < ($1.dueTs ?? .infinity, -$1.ts) }
+    }
     public var stats: StatsFrame?
 
     public var activityState: ActivityState {

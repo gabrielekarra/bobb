@@ -274,6 +274,10 @@ private struct Fixtures {
         add(.mailOpened, "Mail", ["sender": "Marco Rossi <marco@studiorossi.it>", "subject": "Preventivo revisione", "thread_len": 2],
             decision(id: "dec_1", event: "evt_1", action: .suggest, confidence: 0.83, suggestion: suggestion, explanation: explanation,
                      readouts: [messageType, urgency], latency: 604))
+        state.commitments = [
+            Commitment(id: "c1", ts: now - 86400, person: "Marco Rossi",
+                       what: it ? "Mandare il contratto firmato" : "Send the signed contract", dueTs: now + 3600 * 5),
+        ]
         state.pendingOverlay = nil
         return state
     }

@@ -17,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var permissions: Permissions!
     private var screenSensor: ScreenMemorySensor!
     private var conversations = ConversationTracker()
+    private var sentMail: SentMailSensor!
+    private(set) var calendar: CalendarSensor!
     private var hotkey: GlobalHotkey!
 
     private var statusItemController: StatusItemController!
@@ -78,6 +80,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenSensor = ScreenMemorySensor(policy: ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps))
         screenSensor.onFrame = { [weak coordinator] frame in coordinator?.observe(frame) }
         screenSensor.onWindowText = { [weak self] text in self?.windowRead(text) }
+        sentMail = SentMailSensor(seenFile: AppPaths.dataDirectory.appendingPathComponent("sent-seen.json"))
+        sentMail.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
+        calendar = CalendarSensor()
+        calendar.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
+        calendar.onMemory = { [weak coordinator] frame in coordinator?.observe(frame) }
 
         overlayController = OverlayController(state: state, coordinator: coordinator)
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
@@ -96,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         supervisor.start()
         coordinator.start()
         if Self.needsScreenSensor(settings) { screenSensor.start() }
+        syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
 
         housekeeping = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
@@ -126,7 +134,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             screenSensor.stop()
         }
+        syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
+    }
+
+    private func syncSensors(_ settings: LeonardSettings) {
+        if settings.watching && settings.trackPromises { sentMail.start() } else { sentMail.stop() }
+        if settings.watching && (settings.meetingPrep || settings.memoryEnabled) { calendar.start() } else { calendar.stop() }
     }
 
     /// The screen sensor's reads feed both screen memory and the
@@ -199,7 +213,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 controller?.closePopover()
                 self?.showOnboarding()
             },
-            quit: { NSApp.terminate(nil) }
+            quit: { NSApp.terminate(nil) },
+            promise: { [weak self] promise, action in
+                switch action {
+                case .done: self?.coordinator.updateCommitment(promise.id, status: "done")
+                case .dismiss: self?.coordinator.updateCommitment(promise.id, status: "dismissed")
+                case .tomorrow:
+                    let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!
+                    self?.coordinator.updateCommitment(promise.id, dueTs: tomorrow.addingTimeInterval(18 * 3600).timeIntervalSince1970)
+                }
+            }
         )
     }
 
@@ -218,7 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             let view = SettingsView(
                 state: state, ui: settingsUI, license: license, permissions: permissions, downloader: downloader,
-                coordinator: coordinator,
+                calendar: calendar, coordinator: coordinator,
                 services: SettingsServices(
                     openMemory: { [weak self] in self?.showMemory() },
                     startDownload: { [weak self] in self?.startDownload() },

@@ -107,6 +107,10 @@ public enum L10n {
              mindSpecialistAgreement, mindSpecialistAlone, mindSpecialistBadge
         // chats
         case settingsChatProactive, settingsChatProactiveHint
+        // promises
+        case promiseDone, promiseTomorrow, promiseNotAPromise, promiseTo, promiseToDue, promiseOverdue, promiseToday,
+             promiseTomorrowDue, settingsCalendar, settingsCalendarAllow, settingsMeetingPrep,
+             settingsMeetingPrepHint, settingsTrackPromises, settingsTrackPromisesHint
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -412,6 +416,21 @@ public enum L10n {
 
         .settingsChatProactive: ("Conversations in chat apps", "Conversazioni nelle app di chat"),
         .settingsChatProactiveHint: ("Slack, WhatsApp, Messages, Teams, Telegram and others: when someone asks you something, Leonard offers a reply and puts it in the message box. It never sends.", "Slack, WhatsApp, Messaggi, Teams, Telegram e altre: quando qualcuno ti chiede qualcosa, Leonard propone una risposta e la mette nella casella del messaggio. Non invia mai."),
+
+        .promiseDone: ("Done", "Fatto"),
+        .promiseTomorrow: ("Remind me tomorrow", "Ricordamelo domani"),
+        .promiseNotAPromise: ("Not a promise", "Non è una promessa"),
+        .promiseTo: ("Promised to {person}", "Promesso a {person}"),
+        .promiseToDue: ("Promised to {person} · {when}", "Promesso a {person} · {when}"),
+        .promiseOverdue: ("overdue", "in ritardo"),
+        .promiseToday: ("due today", "scade oggi"),
+        .promiseTomorrowDue: ("due tomorrow", "scade domani"),
+        .settingsCalendar: ("Calendar — for meeting briefs", "Calendario — per prepararti agli incontri"),
+        .settingsCalendarAllow: ("Allow calendar access…", "Consenti l'accesso al calendario…"),
+        .settingsMeetingPrep: ("Brief me before meetings", "Preparami prima degli incontri"),
+        .settingsMeetingPrepHint: ("Ten minutes before a meeting with other people, Leonard offers what you know about it: what you saw, what you promised them. Reads your calendar on this Mac; never changes it.", "Dieci minuti prima di un incontro con altre persone, Leonard ti propone ciò che sai: cosa hai visto, cosa hai promesso. Legge il calendario su questo Mac; non lo modifica mai."),
+        .settingsTrackPromises: ("Keep track of what I promise", "Tieni traccia di ciò che prometto"),
+        .settingsTrackPromisesHint: ("Leonard reads the mail you send (Mail's Sent mailbox, on this Mac) and keeps the promises in it — “I'll send it by Friday” — until you mark them done.", "Leonard legge la posta che invii (la cartella Inviati di Mail, su questo Mac) e tiene le promesse che contiene — “te lo mando venerdì” — finché non le segni come fatte."),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

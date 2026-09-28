@@ -161,7 +161,11 @@ struct MenuBarPopoverView: View {
     private var forYou: some View {
         VStack(alignment: .leading, spacing: 8) {
             Theme.sectionTitle(L10n.t(.menuForYou))
-            if state.forYou.isEmpty {
+            let promises = state.promisesDue()
+            ForEach(promises.prefix(4)) { promise in
+                promiseRow(promise)
+            }
+            if state.forYou.isEmpty && promises.isEmpty {
                 Text(L10n.t(.menuNothingForYou))
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
@@ -174,6 +178,60 @@ struct MenuBarPopoverView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    /// "You told Marco you'd send the contract — due tomorrow."
+    private func promiseRow(_ promise: Commitment) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: promise.isOverdue() ? "exclamationmark.circle" : "arrow.uturn.forward.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(promise.isOverdue() ? Theme.attention : Color.secondary)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(promise.what)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(2)
+                Text(Self.promiseDetail(promise))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 6) {
+                Button { actions.promise(promise, .done) } label: { Image(systemName: "checkmark") }
+                    .buttonStyle(QuietButtonStyle())
+                    .help(L10n.t(.promiseDone))
+                Menu {
+                    Button(L10n.t(.promiseTomorrow)) { actions.promise(promise, .tomorrow) }
+                    Button(L10n.t(.promiseNotAPromise)) { actions.promise(promise, .dismiss) }
+                } label: { Image(systemName: "ellipsis") }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+            }
+        }
+        .padding(10)
+        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+    }
+
+    static func promiseDetail(_ promise: Commitment) -> String {
+        guard let due = promise.dueTs else { return L10n.t(.promiseTo, ["person": promise.person]) }
+        let day = Date(timeIntervalSince1970: due)
+        let calendar = Calendar.current
+        let when: String
+        if due < Date().timeIntervalSince1970 && !calendar.isDateInToday(day) {
+            when = L10n.t(.promiseOverdue)
+        } else if calendar.isDateInToday(day) {
+            when = L10n.t(.promiseToday)
+        } else if calendar.isDateInTomorrow(day) {
+            when = L10n.t(.promiseTomorrowDue)
+        } else {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: L10n.code)
+            formatter.setLocalizedDateFormatFromTemplate("EEEEdMMM")
+            when = formatter.string(from: day)
+        }
+        return L10n.t(.promiseToDue, ["person": promise.person, "when": when])
     }
 
     private func forYouRow(_ decision: DecisionFrame) -> some View {
@@ -254,4 +312,10 @@ struct MenuBarActions {
     var openLicense: () -> Void
     var openOnboarding: () -> Void
     var quit: () -> Void
+    /// A promise: "done", "not a promise", or "tomorrow".
+    var promise: (Commitment, PromiseAction) -> Void = { _, _ in }
+}
+
+enum PromiseAction {
+    case done, dismiss, tomorrow
 }

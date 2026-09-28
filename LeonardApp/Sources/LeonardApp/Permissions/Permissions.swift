@@ -26,6 +26,12 @@ final class Permissions {
         refresh()
     }
 
+    static func openCalendarSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     func refresh() {
         accessibility = AXIsProcessTrusted() ? .granted : .notDetermined
         let mail = Self.automationStatus(bundleId: "com.apple.mail", ask: false)

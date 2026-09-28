@@ -45,6 +45,7 @@ public final class LeonardCoordinator {
                     state.daemonStatus = nil
                     await self?.pushSettings()
                     await self?.refreshStats()
+                    await self?.refreshCommitments()
                 }
                 if case .connected = connectionState {
                     await self?.pushSettings()
@@ -129,6 +130,10 @@ public final class LeonardCoordinator {
             state.applyError(error)
         case .tasksResults(let results):
             state.recentTasks = results.tasks
+        case .commitment(let found):
+            if !state.commitments.contains(where: { $0.id == found.item.id }) { state.commitments.append(found.item) }
+        case .commitments(let list):
+            state.commitments = list.items
         case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .unknown:
             break
         }
@@ -278,6 +283,21 @@ public final class LeonardCoordinator {
     /// Ask the daemon to look for the model again, after a download.
     public func reloadModel() {
         Task { await client.send(.reload(RequestFrame())) }
+    }
+
+    // MARK: Promises
+
+    public func refreshCommitments() async {
+        let frame = CommitmentsListFrame()
+        _ = await request(.commitmentsList(frame), id: frame.id)
+    }
+
+    /// "Done", "not a promise", or "remind me later".
+    public func updateCommitment(_ id: String, status: String? = nil, dueTs: Double? = nil) {
+        if let status, status != "open" { state.commitments.removeAll { $0.id == id } }
+        if let dueTs, let index = state.commitments.firstIndex(where: { $0.id == id }) { state.commitments[index].dueTs = dueTs }
+        let frame = CommitmentUpdateFrame(commitmentId: id, status: status, dueTs: dueTs)
+        Task { _ = await request(.commitmentUpdate(frame), id: frame.id) }
     }
 
     // MARK: Tasks

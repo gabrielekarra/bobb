@@ -28,6 +28,7 @@ struct SettingsView: View {
     @Bindable var license: LicenseController
     @Bindable var permissions: Permissions
     @Bindable var downloader: ModelDownloader
+    @Bindable var calendar: CalendarSensor
     let coordinator: LeonardCoordinator
     let services: SettingsServices
 
@@ -84,6 +85,18 @@ struct SettingsView: View {
             Section(L10n.t(.settingsPermissions)) {
                 permissionRow(L10n.t(.settingsAccessibility), permissions.accessibility) { Permissions.openAccessibilitySettings() }
                 permissionRow(L10n.t(.settingsAutomation), permissions.mailAutomation) { Permissions.openAutomationSettings() }
+                HStack {
+                    Text(L10n.t(.settingsCalendar)).font(.system(size: 12))
+                    Spacer()
+                    switch calendar.access {
+                    case .granted:
+                        Label(L10n.t(.settingsGranted), systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 11))
+                    case .notDetermined:
+                        Button(L10n.t(.onbGrant)) { calendar.requestAccess() }.controlSize(.small)
+                    case .denied:
+                        Button(L10n.t(.settingsOpenSystemSettings)) { Permissions.openCalendarSettings() }.controlSize(.small)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
@@ -110,6 +123,13 @@ struct SettingsView: View {
                 hint(L10n.t(.settingsMailProactiveHint))
                 Toggle(L10n.t(.settingsChatProactive), isOn: binding(\.chatProactive))
                 hint(L10n.t(.settingsChatProactiveHint))
+                Toggle(L10n.t(.settingsMeetingPrep), isOn: binding(\.meetingPrep))
+                hint(L10n.t(.settingsMeetingPrepHint))
+                if state.settings.meetingPrep && calendar.access != .granted {
+                    Button(L10n.t(.settingsCalendarAllow)) { calendar.requestAccess() }.controlSize(.small)
+                }
+                Toggle(L10n.t(.settingsTrackPromises), isOn: binding(\.trackPromises))
+                hint(L10n.t(.settingsTrackPromisesHint))
                 Toggle(L10n.t(.settingsToneCheck), isOn: binding(\.toneCheck))
                 hint(L10n.t(.settingsToneCheckHint))
             }

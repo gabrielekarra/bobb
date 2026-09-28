@@ -455,3 +455,58 @@ private let spotify = ScreenObservation(app: "Spotify", bundleId: "com.spotify.c
         #expect(!settings.proactiveKinds.contains("message.opened"))
     }
 }
+
+// MARK: - Promises and meetings
+
+@Suite struct PromiseAndMeetingTests {
+    let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    @Test func sentMailParsesAndIsReadOnce() {
+        let us = MailScriptFormat.unit, rs = MailScriptFormat.record
+        let iso = { (d: Date) -> String in
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = .current
+            f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; return f.string(from: d)
+        }
+        let raw = ["<a@x>", iso(now.addingTimeInterval(-3600)), "Marco <m@x.it>", "Re: Contratto", "Te lo mando venerdì."].joined(separator: us)
+            + rs + ["<old@x>", iso(now.addingTimeInterval(-20 * 86400)), "Anna <a@y>", "Hi", "Old."].joined(separator: us) + rs
+        let messages = MailScriptFormat.parseSent(raw)
+        #expect(messages.count == 2)
+        #expect(messages[0].to == "Marco <m@x.it>")
+        var tracker = SentMailTracker()
+        #expect(tracker.fresh(messages, now: now).map(\.messageId) == ["<a@x>"])
+        #expect(tracker.fresh(messages, now: now).isEmpty)
+        let event = SentMailTracker.event(for: messages[0])
+        #expect(event.kind == .mailSent)
+        #expect(event.payload.fields["message_id"] == .string("<a@x>"))
+    }
+
+    @Test func briefsAreOfferedOnceTenMinutesBefore() {
+        var scheduler = MeetingScheduler()
+        let meeting = CalendarItem(id: "e1", title: "Revisione", start: now.addingTimeInterval(600), end: now.addingTimeInterval(3600),
+                                   attendees: ["Marco Rossi <m@x.it>"])
+        let focus = CalendarItem(id: "e2", title: "Focus", start: now.addingTimeInterval(600), end: now.addingTimeInterval(3600))
+        let allDay = CalendarItem(id: "e3", title: "Holiday", start: now.addingTimeInterval(600), end: now.addingTimeInterval(86400),
+                                  allDay: true, attendees: ["x"])
+        let later = CalendarItem(id: "e4", title: "Later", start: now.addingTimeInterval(3600), end: now.addingTimeInterval(7200),
+                                 attendees: ["y"])
+        #expect(scheduler.due([meeting, focus, allDay, later], now: now).map(\.id) == ["e1"])
+        #expect(scheduler.due([meeting], now: now.addingTimeInterval(60)).isEmpty)
+        let event = MeetingScheduler.event(for: meeting, now: now)
+        #expect(event.kind == .calendarUpcoming)
+        #expect(event.payload.fields["minutes_until"] == .number(10))
+    }
+
+    @MainActor @Test func promisesDueSoonAreTheOnesShown() {
+        let state = AppState()
+        let t = now.timeIntervalSince1970
+        state.commitments = [
+            Commitment(id: "later", ts: t - 86400, person: "A", what: "far", dueTs: t + 10 * 86400),
+            Commitment(id: "soon", ts: t - 86400, person: "B", what: "tomorrow", dueTs: t + 86400),
+            Commitment(id: "late", ts: t - 5 * 86400, person: "C", what: "overdue", dueTs: t - 3600),
+            Commitment(id: "fresh", ts: t - 3600, person: "D", what: "undated"),
+            Commitment(id: "stale", ts: t - 10 * 86400, person: "E", what: "old undated"),
+        ]
+        #expect(state.promisesDue(now: now).map(\.id) == ["late", "soon", "fresh"])
+        #expect(state.commitments[2].isOverdue(now: now))
+    }
+}

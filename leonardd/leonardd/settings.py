@@ -32,7 +32,7 @@ SUPPORTED_LOCALES = ("en", "it")
 # readouts are `Bool`s, which `leonardd/README.md` measured as yes-biased, and
 # a yes-biased interruption is exactly the noise this product exists to avoid.
 # Selection help lives in the command bar instead, where the user asked.
-DEFAULT_PROACTIVE_KINDS = frozenset({"mail.opened", "mail.composing", "message.opened"})
+DEFAULT_PROACTIVE_KINDS = frozenset({"mail.opened", "mail.composing", "message.opened", "calendar.upcoming"})
 
 # Never observed, never stored, never driven. Matched against bundle id and,
 # as a fallback for apps that report none, the localized name. The app applies

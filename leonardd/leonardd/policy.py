@@ -167,7 +167,15 @@ def _relevance_action(readouts: dict[str, Decision], user_state: str, event: dic
     return PolicyResult("ignore", relevant.confidence, ("relevant",))
 
 
+def _calendar_action(readouts: dict[str, Decision], user_state: str, event: dict | None) -> PolicyResult:
+    worth = readouts["worth_preparing"]
+    if worth.value:
+        return PolicyResult("suggest", worth.confidence, ("worth_preparing",))
+    return PolicyResult("ignore", worth.confidence, ("worth_preparing",))
+
+
 _POLICIES = {
+    "calendar.upcoming": _calendar_action,
     "mail.opened": _mail_opened_action,
     # A chat message is judged on the same facts as an email: who wrote it,
     # whether it asks for something, how soon.

@@ -419,6 +419,8 @@ public enum IncomingFrame: Sendable, Equatable {
     case act(ActFrame)
     case taskPlan(TaskPlanFrame)
     case tasksResults(TasksResultsFrame)
+    case commitment(CommitmentFoundFrame)
+    case commitments(CommitmentsFrame)
     case unknown(type: String)
 
     public static func decode(from data: Data) throws -> IncomingFrame {
@@ -441,6 +443,8 @@ public enum IncomingFrame: Sendable, Equatable {
         case "act": return .act(try FrameCodec.payload(ActFrame.self, from: data))
         case "task.plan": return .taskPlan(try FrameCodec.payload(TaskPlanFrame.self, from: data))
         case "tasks.results": return .tasksResults(try FrameCodec.payload(TasksResultsFrame.self, from: data))
+        case "commitment": return .commitment(try FrameCodec.payload(CommitmentFoundFrame.self, from: data))
+        case "commitments": return .commitments(try FrameCodec.payload(CommitmentsFrame.self, from: data))
         default: return .unknown(type: type)
         }
     }

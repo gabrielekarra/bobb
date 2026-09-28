@@ -1,20 +1,20 @@
-{"ts":1,"version":"1.0","locale":"it","t":"hello","client":"LeonardApp"}
-{"t":"settings","memory_enabled":true,"history_retention_days":90,"floor":0.6,"adaptive":true,"extra_protected_apps":[],"locale":"en","quiet_hours":null,"memory_retention_days":30,"proactive_kinds":["mail.opened","message.opened","mail.composing"]}
-{"source":"screen","ts":1790000000,"bundle_id":"com.apple.Safari","text":"Installation guide for the product, step one","t":"memory.observe","window":"Docs","app":"Safari"}
-{"payload":{"thread_len":1,"unread":true,"typing":false,"idle":false,"sender":"Marco Rossi <marco@studiorossi.it>","body":"Ciao, mi confermi il preventivo?","subject":"Preventivo"},"kind":"mail.opened","ts":1790000000,"t":"event","id":"evt_app_fixture","app":"Mail"}
-{"id":"ask_app","t":"ask","route":false,"window":"","selection":"","app":"","mode":"ask","prompt":"Cosa dice la guida?"}
+{"client":"LeonardApp","t":"hello","locale":"it","ts":1,"version":"1.0"}
+{"quiet_hours":null,"memory_enabled":true,"adaptive":true,"t":"settings","memory_retention_days":30,"extra_protected_apps":[],"proactive_kinds":["mail.opened","message.opened","calendar.upcoming","mail.composing"],"floor":0.6,"locale":"en","history_retention_days":90}
+{"window":"Docs","ts":1790000000,"text":"Installation guide for the product, step one","source":"screen","t":"memory.observe","bundle_id":"com.apple.Safari","app":"Safari"}
+{"t":"event","payload":{"thread_len":1,"body":"Ciao, mi confermi il preventivo?","subject":"Preventivo","idle":false,"typing":false,"sender":"Marco Rossi <marco@studiorossi.it>","unread":true},"id":"evt_app_fixture","kind":"mail.opened","ts":1790000000,"app":"Mail"}
+{"id":"ask_app","window":"","app":"","prompt":"Cosa dice la guida?","route":false,"t":"ask","selection":"","mode":"ask"}
 {"t":"cancel","request_id":"ask_app"}
-{"id":"s1","t":"memory.search","query":"guide","limit":30}
-{"id":"r1","limit":60,"t":"memory.recent"}
+{"limit":30,"t":"memory.search","query":"guide","id":"s1"}
+{"limit":60,"id":"r1","t":"memory.recent"}
 {"t":"memory.stats","id":"ms1"}
 {"t":"stats","id":"st1"}
 {"id":"lm1","sender":"news@example.com","t":"learning.mute"}
 {"id":"lf1","rule_id":"sender:news@example.com","t":"learning.forget"}
-{"decision_id":"dec_unknown","t":"dismiss","reason":"timeout","ts":1}
-{"scope":"query","id":"d1","query":"guide","t":"memory.delete"}
+{"ts":1,"t":"dismiss","decision_id":"dec_unknown","reason":"timeout"}
+{"t":"memory.delete","scope":"query","query":"guide","id":"d1"}
 {"t":"reload","id":"rl1"}
-{"task_id":"task_app","goal":"Apri Spotify","apps":["Spotify","Musica (Music)"],"t":"task.start","id":"ts1","window":"Download","app":"Finder"}
-{"ts":1,"t":"observe","digest":"d1","step":1,"id":"obs_app","window":"Spotify","apps":[{"id":"app1","label":"Music"}],"candidates":[{"id":"o1e1","focused":false,"where":"toolbar","value":"","label":"Play","kind":"press","role":"button","enabled":true},{"where":"","enabled":true,"kind":"text","focused":true,"label":"Search","role":"search field","id":"o1e2","value":""},{"focused":false,"kind":"scroll","value":"","role":"scroll area","label":"Library","where":"","enabled":true,"id":"o1e3"}],"app":"Spotify","task_id":"task_app"}
-{"operation":"CLICK","t":"task.step","latency_ms":120,"task_id":"task_app","window":"Spotify","digest":"d1","ts":1,"step":1,"outcome":"ok","app":"Spotify","target":"Play","permission":"allowed","target_role":"button","confidence":0.9}
-{"status":"done","detail":"","task_id":"task_app","t":"task.end"}
-{"t":"tasks.recent","id":"tr1","limit":5}
+{"window":"Download","task_id":"task_app","goal":"Apri Spotify","t":"task.start","apps":["Spotify","Musica (Music)"],"id":"ts1","app":"Finder"}
+{"step":1,"task_id":"task_app","candidates":[{"id":"o1e1","kind":"press","where":"toolbar","label":"Play","enabled":true,"value":"","role":"button","focused":false},{"enabled":true,"where":"","value":"","kind":"text","label":"Search","role":"search field","id":"o1e2","focused":true},{"id":"o1e3","where":"","focused":false,"role":"scroll area","kind":"scroll","value":"","enabled":true,"label":"Library"}],"apps":[{"label":"Music","id":"app1"}],"t":"observe","app":"Spotify","ts":1,"window":"Spotify","digest":"d1","id":"obs_app"}
+{"task_id":"task_app","permission":"allowed","step":1,"digest":"d1","outcome":"ok","target_role":"button","operation":"CLICK","t":"task.step","confidence":0.9,"latency_ms":120,"target":"Play","window":"Spotify","ts":1,"app":"Spotify"}
+{"detail":"","t":"task.end","status":"done","task_id":"task_app"}
+{"id":"tr1","t":"tasks.recent","limit":5}

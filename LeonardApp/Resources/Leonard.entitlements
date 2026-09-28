@@ -6,5 +6,9 @@
          Leonard read the open message in Mail and open a reply window. -->
     <key>com.apple.security.automation.apple-events</key>
     <true/>
+    <!-- Hardened runtime blocks calendar access without this; it is used
+         only to read events for meeting briefs, never to change them. -->
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
 </dict>
 </plist>
