@@ -102,7 +102,8 @@ struct TaskView: View {
 
     static func describe(_ line: TaskStepLine) -> String {
         switch line.operation {
-        case .click, .select: L10n.t(.taskPressing, ["target": line.target])
+        case .click, .select, .key: L10n.t(.taskPressing, ["target": line.target])
+        case .open: L10n.t(.taskOpening, ["target": line.target])
         case .type, .typeText: L10n.t(.taskTyping, ["target": line.target])
         case .scrollDown, .scrollUp: L10n.t(.taskScrolling, ["target": line.target])
         case .openApp: L10n.t(.taskOpening, ["target": line.target])

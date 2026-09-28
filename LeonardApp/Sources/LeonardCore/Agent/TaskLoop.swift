@@ -8,13 +8,24 @@ public struct ScreenObservation: Sendable, Equatable {
     public var window: String
     public var elements: [UIElementSnapshot]
     public var screen: ScreenRect?
+    /// The window's text, top to bottom.
+    public var screenText: String
+    /// The title of the window's default button, which Return presses.
+    public var defaultButton: String
+    /// The window showed no controls to read and its pixels could not be
+    /// read either (the user has not allowed reading text in images).
+    public var unreadable: Bool
 
-    public init(app: String, bundleId: String?, window: String, elements: [UIElementSnapshot], screen: ScreenRect? = nil) {
+    public init(app: String, bundleId: String?, window: String, elements: [UIElementSnapshot], screen: ScreenRect? = nil,
+                screenText: String = "", defaultButton: String = "", unreadable: Bool = false) {
         self.app = app
         self.bundleId = bundleId
         self.window = window
         self.elements = elements
         self.screen = screen
+        self.screenText = screenText
+        self.defaultButton = defaultButton
+        self.unreadable = unreadable
     }
 }
 
@@ -22,9 +33,12 @@ public struct ScreenObservation: Sendable, Equatable {
 /// key the driver itself handed out in the last observation.
 public enum DriverAction: Sendable, Equatable {
     case press(key: Int)
+    /// Open the item, as a double-click would.
+    case open(key: Int)
     case type(key: Int, text: String, submit: Bool)
     case scroll(key: Int, down: Bool)
     case openApp(name: String)
+    case key(KeyChord)
 }
 
 public enum DriverResult: Sendable, Equatable {
@@ -146,15 +160,19 @@ public final class TaskLoop {
             if stopped { return await finish(.stopped, detail: "user") }
             state.task?.phase = .working
             let observation = await driver.observe() ?? ScreenObservation(app: "", bundleId: nil, window: "", elements: [])
-            if policy.protectedApps.isProtected(bundleId: observation.bundleId, appName: observation.app), !observation.app.isEmpty {
+            if policy.isProtected(bundleId: observation.bundleId, appName: observation.app), !observation.app.isEmpty {
                 return await finish(.blocked, detail: "protected")
             }
             let focusWords = plan.steps.joined(separator: " ")
             let ranked = ranker.rank(observation.elements, goal: goal, focus: focusWords, recent: recentTargets, screen: observation.screen)
             let table = CandidateTable(ranked: ranked, observation: step)
             let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app)
+            let screenText = String(observation.screenText.prefix(Self.maxScreenText))
+            let keys = KeyChord.offered(bundleId: observation.bundleId)
+            let digest = table.digest(screenText: screenText)
             let frame = TaskObserveFrame(taskId: taskId, step: step, app: observation.app, window: observation.window,
-                                         digest: table.digest, candidates: table.candidates, apps: appChoices)
+                                         digest: digest, candidates: table.candidates, apps: appChoices,
+                                         screenText: screenText.isEmpty ? nil : screenText, keys: keys.map(\.rawValue))
             guard let act = await brain.decide(frame) else {
                 return await finish(.failed, detail: "engine")
             }
@@ -162,9 +180,12 @@ public final class TaskLoop {
 
             switch act.operation {
             case .done:
+                if let text = act.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                    state.task?.report = text
+                }
                 return await finish(.done, detail: act.why)
             case .blocked:
-                return await finish(.blocked, detail: act.why)
+                return await finish(.blocked, detail: observation.unreadable ? "unreadable" : act.why)
             case .wait:
                 waits += 1
                 if waits > maxConsecutiveWaits { return await finish(.blocked, detail: "waiting") }
@@ -174,8 +195,8 @@ public final class TaskLoop {
                 waits = 0
             }
 
-            guard let resolved = resolve(act, table: table, apps: appChoices) else {
-                await report(step, act, observation, label: act.targetLabel ?? "", role: "", outcome: .failed, permission: "allowed", digest: table.digest)
+            guard let resolved = resolve(act, table: table, apps: appChoices, keys: keys) else {
+                await report(step, act, observation, label: act.targetLabel ?? "", role: "", outcome: .failed, permission: "allowed", digest: digest)
                 failures += 1
                 if failures >= maxConsecutiveFailures { return await finish(.failed, detail: "stale") }
                 continue
@@ -186,11 +207,12 @@ public final class TaskLoop {
             let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: resolved.role,
                                           appBundleId: act.operation == .openApp ? nil : observation.bundleId,
                                           appName: act.operation == .openApp ? resolved.label : observation.app,
-                                          secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline)
+                                          secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
+                                          window: observation.window, key: resolved.key, defaultButton: observation.defaultButton)
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
-                await report(step, act, observation, label: resolved.label, role: resolved.role, outcome: .denied, permission: "refused", digest: table.digest)
+                await report(step, act, observation, label: resolved.label, role: resolved.role, outcome: .denied, permission: "refused", digest: digest)
                 return await finish(.blocked, detail: reason)
             case .ask(let reason):
                 let request = PermissionRequest(operation: act.operation, label: resolved.label, role: resolved.role,
@@ -198,13 +220,15 @@ public final class TaskLoop {
                 state.task?.phase = .waitingForPermission(request)
                 let answer = await askPermission()
                 if answer == .deny || stopped {
-                    await report(step, act, observation, label: resolved.label, role: resolved.role, outcome: .denied, permission: "refused", digest: table.digest)
+                    await report(step, act, observation, label: resolved.label, role: resolved.role, outcome: .denied, permission: "refused", digest: digest)
                     return await finish(.stopped, detail: "declined")
                 }
                 if answer == .allowAlways {
-                    let rule = ActionAllowRule(app: observation.bundleId ?? observation.app, operation: act.operation.rawValue, label: resolved.label)
-                    policy.allowRules.insert(rule)
-                    onAllowAlways?(rule)
+                    if reason != ActionPolicy.Reason.settings.rawValue {
+                        let rule = ActionAllowRule(app: observation.bundleId ?? observation.app, operation: act.operation.rawValue, label: resolved.label)
+                        policy.allowRules.insert(rule)
+                        onAllowAlways?(rule)
+                    }
                 }
                 permissionUsed = "asked"
             case .allow:
@@ -212,7 +236,8 @@ public final class TaskLoop {
             }
 
             state.task?.phase = .acting
-            appendLine(TaskStepLine(id: step, operation: act.operation, target: resolved.label, text: act.text, app: observation.app))
+            appendLine(TaskStepLine(id: step, operation: act.operation, target: resolved.label,
+                                    text: act.operation == .type ? act.text : nil, app: observation.app))
             let started = Date()
             let result = await driver.perform(resolved.action)
             await driver.settle()
@@ -220,7 +245,7 @@ public final class TaskLoop {
             updateLine(step, outcome: outcome)
             recentTargets.append(resolved.label)
             await report(step, act, observation, label: resolved.label, role: resolved.role, outcome: outcome,
-                         permission: permissionUsed, digest: table.digest, latency: Date().timeIntervalSince(started) * 1000)
+                         permission: permissionUsed, digest: digest, latency: Date().timeIntervalSince(started) * 1000)
             if outcome == .ok {
                 failures = 0
                 state.task?.canUndo = act.operation != .openApp
@@ -234,17 +259,26 @@ public final class TaskLoop {
 
     // MARK: Helpers
 
+    /// How much of the window's text travels with each observation.
+    static let maxScreenText = 6000
+
     struct Resolved {
         var action: DriverAction
         var label: String
         var role: String
         var element: UIElementSnapshot?
+        var key: KeyChord? = nil
     }
 
-    func resolve(_ act: ActFrame, table: CandidateTable, apps: [AppCandidate]) -> Resolved? {
+    func resolve(_ act: ActFrame, table: CandidateTable, apps: [AppCandidate], keys: [KeyChord] = KeyChord.allCases) -> Resolved? {
         if act.operation == .openApp {
             guard let app = apps.first(where: { $0.id == act.candidateId }) else { return nil }
             return Resolved(action: .openApp(name: app.label), label: app.label, role: "application", element: nil)
+        }
+        if act.operation == .key {
+            // Only a key that was offered, by its exact name.
+            guard let chord = KeyChord(rawValue: act.candidateId), keys.contains(chord) else { return nil }
+            return Resolved(action: .key(chord), label: chord.symbol, role: "key", element: nil, key: chord)
         }
         guard let key = table.keys[act.candidateId], let element = table.byId[act.candidateId],
               let candidate = table.candidates.first(where: { $0.id == act.candidateId }) else { return nil }
@@ -253,6 +287,9 @@ public final class TaskLoop {
         case .click, .select:
             guard candidate.kind == .press else { return nil }
             action = .press(key: key)
+        case .open:
+            guard candidate.kind == .press else { return nil }
+            action = .open(key: key)
         case .type, .typeText:
             guard candidate.kind == .text, let text = act.text, !text.isEmpty else { return nil }
             action = .type(key: key, text: text, submit: act.submit)
@@ -378,6 +415,8 @@ public struct TaskRunState: Sendable, Equatable {
     public var phase: TaskPhase = .planning
     public var canUndo = false
     public var startedAt: Date
+    /// What Leonard found, when the request was to find something out.
+    public var report: String?
 
     public init(id: String, goal: String, startedAt: Date = Date()) {
         self.id = id

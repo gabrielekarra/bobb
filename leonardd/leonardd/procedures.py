@@ -43,7 +43,8 @@ _STOP = frozenset(
     "della dei delle al alla ai alle nel nella per con su sul sulla mi mia mio che si ti puoi".split()
 )
 _VERBS = {
-    "CLICK": ("Press", "Premi"), "TYPE": ("Type into", "Scrivi in"), "SCROLL_DOWN": ("Scroll down", "Scorri giù"),
+    "CLICK": ("Press", "Premi"), "OPEN": ("Open", "Apri"), "TYPE": ("Type into", "Scrivi in"),
+    "KEY": ("Press the key", "Premi il tasto"), "SCROLL_DOWN": ("Scroll down", "Scorri giù"),
     "SCROLL_UP": ("Scroll up", "Scorri su"), "OPEN_APP": ("Open", "Apri"),
 }
 

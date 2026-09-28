@@ -62,7 +62,10 @@ public struct CandidateRanker: Sendable {
             let words = Tokens.words(label + " " + element.value.prefix(60))
             let lexical = overlap(words, goalWords) * 3 + overlap(words, focusWords) * 4
             score += lexical
-            if element.isMenuItem && lexical == 0 { continue }
+            // The menu bar holds hundreds of items: only those whose words
+            // match. A menu that is open is the next thing to deal with.
+            if element.isMenuItem && !element.isOpenMenuItem && lexical == 0 { continue }
+            if element.isOpenMenuItem { score += 4 }
             if element.focused { score += kind == .text ? 5 : 1 }
             if !element.enabled { score -= 4 }
             if element.selected { score += 0.3 }
@@ -148,7 +151,8 @@ public struct CandidateTable: Sendable {
                         enabled: element.enabled,
                         focused: element.focused,
                         value: kind == .text ? String(element.value.prefix(200)) : "",
-                        where: ElementClassifier.place(of: element)
+                        where: ElementClassifier.place(of: element),
+                        selected: element.selected
                     )
                 )
                 keys[id] = element.key
@@ -159,14 +163,23 @@ public struct CandidateTable: Sendable {
 
     /// A short fingerprint of what was offered, so the daemon can tell a
     /// step that changed nothing from one that did.
-    public var digest: String {
+    public var digest: String { digest(screenText: "") }
+
+    /// The fingerprint including what the window shows, so a step that
+    /// changed only text (a cell filled in, a page scrolled) counts as a
+    /// change.
+    public func digest(screenText: String) -> String {
         var hash: UInt64 = 1469598103934665603
-        for c in candidates {
-            for byte in "\(c.kind.rawValue)|\(c.label)|\(c.value)|\(c.focused)\n".utf8 {
+        func mix(_ text: String) {
+            for byte in text.utf8 {
                 hash ^= UInt64(byte)
                 hash = hash &* 1099511628211
             }
         }
+        for c in candidates {
+            mix("\(c.kind.rawValue)|\(c.label)|\(c.value)|\(c.focused)\(c.selected ? "|s" : "")\n")
+        }
+        if !screenText.isEmpty { mix(String(screenText.prefix(4000))) }
         return String(hash, radix: 16)
     }
 }

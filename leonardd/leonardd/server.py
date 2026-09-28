@@ -558,6 +558,7 @@ class LeonardServer:
             selection=str(frame.get("selection") or ""),
             app=str(frame.get("app") or ""),
             window=str(frame.get("window") or ""),
+            screen=str(frame.get("screen") or "")[:20_000],
         )
         if not request.prompt.strip() and not request.selection.strip():
             await client.send(_error_frame("ask needs a prompt or a selection", request_id=request_id))

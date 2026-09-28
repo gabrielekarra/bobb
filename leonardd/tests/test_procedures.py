@@ -92,3 +92,12 @@ async def test_a_demonstration_is_recorded(tmp_path, monkeypatch):
         assert reply["procedure"]["source"] == "demonstration"
         assert len(reply["procedure"]["steps"]) == 2
         writer.close()
+
+
+def test_keys_and_opens_read_as_steps():
+    procedure = pm.Procedure(
+        id="p", ts=0, goal="g", source="task",
+        steps=[{"operation": "OPEN", "target": "Contratto.pdf", "app": "Finder"},
+               {"operation": "KEY", "target": "⌘S — save", "app": "Preview"}],
+    )
+    assert procedure.lines("it") == ["Apri “Contratto.pdf” (Finder)", "Premi il tasto “⌘S — save” (Preview)"]

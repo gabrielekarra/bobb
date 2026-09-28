@@ -24,9 +24,15 @@ public struct AgentCandidate: Codable, Sendable, Equatable, Identifiable {
     public var value: String
     /// Where it is, in words: "toolbar", "sidebar", "File menu".
     public var `where`: String
+    /// The selected row, tab, option or cell. Sent only when true.
+    public var selected: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, role, kind, enabled, focused, value, `where`, selected
+    }
 
     public init(id: String, label: String, role: String, kind: CandidateKind, enabled: Bool = true,
-                focused: Bool = false, value: String = "", where: String = "") {
+                focused: Bool = false, value: String = "", where: String = "", selected: Bool = false) {
         self.id = id
         self.label = label
         self.role = role
@@ -35,6 +41,33 @@ public struct AgentCandidate: Codable, Sendable, Equatable, Identifiable {
         self.focused = focused
         self.value = value
         self.where = `where`
+        self.selected = selected
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        label = try c.decode(String.self, forKey: .label)
+        role = try c.decode(String.self, forKey: .role)
+        kind = try c.decode(CandidateKind.self, forKey: .kind)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        focused = try c.decodeIfPresent(Bool.self, forKey: .focused) ?? false
+        value = try c.decodeIfPresent(String.self, forKey: .value) ?? ""
+        `where` = try c.decodeIfPresent(String.self, forKey: .where) ?? ""
+        selected = try c.decodeIfPresent(Bool.self, forKey: .selected) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(label, forKey: .label)
+        try c.encode(role, forKey: .role)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(enabled, forKey: .enabled)
+        try c.encode(focused, forKey: .focused)
+        try c.encode(value, forKey: .value)
+        try c.encode(`where`, forKey: .where)
+        if selected { try c.encode(selected, forKey: .selected) }
     }
 }
 
@@ -88,14 +121,21 @@ public struct TaskObserveFrame: Codable, Sendable, Equatable {
     public var digest: String
     public var candidates: [AgentCandidate]
     public var apps: [AppCandidate]
+    /// What the window shows, top to bottom, read from the screen: the
+    /// figures in a sheet, the text of a page, the code in an editor.
+    public var screenText: String?
+    /// The keys that make sense here, by `KeyChord` name.
+    public var keys: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case ts, id, step, app, window, digest, candidates, apps
+        case ts, id, step, app, window, digest, candidates, apps, keys
         case taskId = "task_id"
+        case screenText = "screen_text"
     }
 
     public init(ts: Double = Date().timeIntervalSince1970, id: String = TaskObserveFrame.newID(), taskId: String, step: Int,
-                app: String, window: String, digest: String, candidates: [AgentCandidate], apps: [AppCandidate]) {
+                app: String, window: String, digest: String, candidates: [AgentCandidate], apps: [AppCandidate],
+                screenText: String? = nil, keys: [String]? = nil) {
         self.ts = ts
         self.id = id
         self.taskId = taskId
@@ -105,6 +145,8 @@ public struct TaskObserveFrame: Codable, Sendable, Equatable {
         self.digest = digest
         self.candidates = candidates
         self.apps = apps
+        self.screenText = screenText
+        self.keys = keys
     }
 
     public static func newID() -> String {

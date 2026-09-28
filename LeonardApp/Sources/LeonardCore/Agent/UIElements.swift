@@ -49,12 +49,16 @@ public struct UIElementSnapshot: Sendable, Equatable {
     public var context: [String]
     /// For menu items: the menu titles above it, outermost first: ["File", "New"].
     public var menuPath: [String]
+    /// "Where the cursor is": the focused element when it is not a field of
+    /// its own — a spreadsheet's selected cell, a code editor, a canvas, a
+    /// terminal. Typing goes there as keystrokes, as a person's would.
+    public var cursor: Bool
 
     public init(key: Int, role: String, subrole: String = "", roleDescription: String = "", title: String = "",
                 description: String = "", value: String = "", placeholder: String = "", help: String = "",
                 identifier: String = "", enabled: Bool = true, focused: Bool = false, selected: Bool = false,
                 frame: ScreenRect? = nil, actions: [String] = [], valueSettable: Bool = false, context: [String] = [],
-                menuPath: [String] = []) {
+                menuPath: [String] = [], cursor: Bool = false) {
         self.key = key
         self.role = role
         self.subrole = subrole
@@ -73,7 +77,18 @@ public struct UIElementSnapshot: Sendable, Equatable {
         self.valueSettable = valueSettable
         self.context = context
         self.menuPath = menuPath
+        self.cursor = cursor
     }
+
+    /// Words read from the pixels of an app that exposes no accessibility
+    /// tree (a canvas, a game, a remote desktop): pressed at the place they
+    /// were read, after reading that place again.
+    public static let visualTextRole = "AXVisualText"
+
+    public var isVisual: Bool { role == Self.visualTextRole }
+    /// An item of a menu that is open right now: a pop-up button's list, a
+    /// context menu. Not the menu bar.
+    public var isOpenMenuItem: Bool { role == "AXMenuItem" && menuPath.isEmpty }
 
     public var isSecure: Bool { role == "AXSecureTextField" || subrole == "AXSecureTextField" }
     public var isMenuItem: Bool { role == "AXMenuItem" || role == "AXMenuBarItem" }
@@ -92,18 +107,26 @@ public enum ElementClassifier {
     /// act on. Secure fields are never offered, for anything.
     public static func kind(of element: UIElementSnapshot) -> CandidateKind? {
         if element.isSecure { return nil }
+        if element.cursor { return .text }
+        if element.isVisual { return .press }
         if textRoles.contains(element.role) || element.subrole == "AXSearchField" {
             return .text
         }
         if element.role == "AXWebArea", element.valueSettable { return .text }
         if scrollRoles.contains(element.role) { return .scroll }
         if pressRoles.contains(element.role) { return .press }
-        if element.actions.contains("AXPress") || element.actions.contains("AXPick") { return .press }
+        if element.actions.contains("AXPress") || element.actions.contains("AXPick") || element.actions.contains("AXOpen") {
+            return .press
+        }
         return nil
     }
 
     /// The words a person would use for the element's type.
     public static func roleName(_ element: UIElementSnapshot) -> String {
+        if element.cursor {
+            return ["AXCell", "AXTable", "AXGrid"].contains(element.role) ? "cell" : "cursor"
+        }
+        if element.isVisual { return "text on screen" }
         if element.subrole == "AXSearchField" { return "search field" }
         switch element.role {
         case "AXButton": return element.subrole == "AXCloseButton" ? "close button" : "button"
@@ -131,6 +154,7 @@ public enum ElementClassifier {
     /// The element's name: its title, then its description, then (for
     /// fields) its placeholder, then its help, then what it shows.
     public static func label(of element: UIElementSnapshot) -> String {
+        if element.cursor || element.isVisual { return clean(element.title) }
         if element.isMenuItem, !element.title.isEmpty {
             return (element.menuPath + [element.title]).joined(separator: " › ")
         }
@@ -149,6 +173,8 @@ public enum ElementClassifier {
 
     /// Where the element is, in a few words: the nearest labelled ancestor.
     public static func place(of element: UIElementSnapshot) -> String {
+        if element.isVisual { return "read from the screen" }
+        if element.isOpenMenuItem { return "open menu" }
         if element.isMenuItem { return "menu bar" }
         return element.context.last.map { clean($0) } ?? ""
     }

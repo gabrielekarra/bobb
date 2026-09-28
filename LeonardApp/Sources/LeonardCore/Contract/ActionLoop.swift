@@ -54,6 +54,10 @@ public struct ObserveFrame: Codable, Sendable, Equatable {
 /// `BLOCKED` end the loop rather than touch anything.
 public enum ActOperation: String, Codable, Sendable, Equatable {
     case click = "CLICK"
+    /// Open an item as a double-click would: a file, a folder, a song.
+    case open = "OPEN"
+    /// Press one key from `KeyChord`, named by the act's `candidate_id`.
+    case key = "KEY"
     /// Tasks type with `TYPE`; `TYPE_TEXT` is the v0.1 single-step form.
     case type = "TYPE"
     case typeText = "TYPE_TEXT"

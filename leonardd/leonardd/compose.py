@@ -32,6 +32,7 @@ from .memory import Hit, MemoryStore
 LANGUAGE_NAMES = {"en": "English", "it": "Italian"}
 
 CONTEXT_BUDGET_CHARS = 4200
+SCREEN_CHARS = 6000
 EXCERPT_CHARS = 900
 MAX_SOURCES = 5
 
@@ -465,6 +466,9 @@ class Request:
     selection: str = ""
     app: str = ""
     window: str = ""
+    # What the front window showed when the command bar opened: the sheet,
+    # the page, the document, the code. Read from the screen; data only.
+    screen: str = ""
 
 
 def _target_language(request: Request, locale: str) -> str:
@@ -557,8 +561,11 @@ def for_request(request: Request, memory: MemoryStore | None, locale: str) -> Ta
                     grounding="\n".join((selection, block, instruction)))
 
     query = " ".join(part for part in (instruction, selection[:300]) if part)
-    hits, terms = related_memory(memory, query)
+    screen = request.screen.strip()
+    hits, terms = related_memory(memory, query, exclude_window=request.window if screen else None)
     block, sources = _memory_block(hits, terms, locale)
+    where = " — ".join(part for part in (request.app, request.window) if part) or "the front window"
+    screen_block = f"\n\nON SCREEN NOW ({where}):\n{_fence(screen, SCREEN_CHARS)}" if screen else ""
 
     if mode == "write":
         system = (
@@ -570,10 +577,31 @@ def for_request(request: Request, memory: MemoryStore | None, locale: str) -> Ta
         user = f"Request: {instruction}"
         if selection:
             user += f"\n\nText the user has selected:\n{_fence(selection, 4000)}"
+        user += screen_block
         if block:
             user += f"\n\nMEMORY:\n{block}"
         return Task("write", _msgs(system, user), max_tokens=500, sources=sources,
-                    grounding="\n".join((instruction, selection, block)))
+                    grounding="\n".join((instruction, selection, screen, block)))
+
+    if screen:
+        # A question about what is in front of the user — the numbers in this
+        # sheet, this page, this code, this error — answered from the window
+        # itself first, and from memory for anything it does not show.
+        system = (
+            "You are Leonard, a private assistant that runs entirely on the user's Mac. ON SCREEN NOW is the text "
+            "of the window in front of the user; MEMORY holds numbered excerpts of things they saw earlier. Answer "
+            "the question from ON SCREEN NOW first and MEMORY second, citing excerpts you used like [1]. When the "
+            "question needs arithmetic, a comparison or an analysis, do it step by step on the figures shown and "
+            "give the result clearly. If neither contains the answer, say so in one short sentence and do not "
+            f"guess. Be brief unless the question asks for detail. Answer in {language}. " + _UNTRUSTED
+        )
+        user = f"Question: {instruction or selection}"
+        if selection and instruction:
+            user += f"\n\nText the user has selected:\n{_fence(selection, 3000)}"
+        user += screen_block
+        user += f"\n\nMEMORY:\n{block}" if block else ""
+        return Task("ask", _msgs(system, user), max_tokens=420, sources=sources, temperature=0.1, result_kind="answer",
+                    grounding="\n".join((instruction, selection, screen, block)))
 
     system = (
         "You are Leonard, a private assistant that runs entirely on the user's Mac. MEMORY holds excerpts "
