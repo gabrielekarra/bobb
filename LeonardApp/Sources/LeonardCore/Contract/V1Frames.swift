@@ -341,6 +341,16 @@ public struct LearnedKind: Codable, Sendable, Equatable, Identifiable {
         case kind, approved, dismissed, expired, floor, learning
         case approvalRate = "approval_rate"
     }
+
+    public init(kind: String, approved: Int, dismissed: Int, expired: Int, approvalRate: Double, floor: Double, learning: Bool) {
+        self.kind = kind
+        self.approved = approved
+        self.dismissed = dismissed
+        self.expired = expired
+        self.approvalRate = approvalRate
+        self.floor = floor
+        self.learning = learning
+    }
 }
 
 public struct MutedSender: Codable, Sendable, Equatable, Identifiable {
