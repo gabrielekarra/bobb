@@ -213,8 +213,8 @@ struct SettingsView: View {
     private var modelTab: some View {
         Form {
             Section {
-                LabeledContent("Model", value: downloader.manifest.id)
-                LabeledContent(L10n.t(.licenseEdition), value: downloader.manifest.license)
+                LabeledContent(L10n.t(.settingsModelName), value: downloader.manifest.id)
+                LabeledContent(L10n.t(.settingsModelLicense), value: downloader.manifest.license)
                 LabeledContent(L10n.t(.settingsModelLocation)) {
                     Button(L10n.t(.settingsModelReveal)) {
                         NSWorkspace.shared.activateFileViewerSelecting([downloader.installDirectory])

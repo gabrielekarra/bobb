@@ -2,22 +2,29 @@
 
 | Milestone | Goal | State |
 |---|---|---|
-| v0.1 "It sees" | AX sensors, event bus, menu bar, overlay, Mind, unix-socket contract | in progress |
-| v0.2 "It decides" | Typed decisions on a resident local model, confidence floor, audit store | in progress |
-| v0.3 "It anticipates" | Background preparation, the Mail.app magic moment end to end | next |
-| v0.4 "It learns" | Calibration on real accept/dismiss data, per-user floor | |
-| v0.5 "It remembers" | Projects, people, long-term memory, explainable recall | |
-| v1.0 "It is a companion" | Broader sensors, permission engine, onboarding, distribution | |
+| v0.1 "It sees" | AX sensors, event bus, menu bar, overlay, Mind, unix-socket contract | done |
+| v0.2 "It decides" | Typed decisions on a resident local model, confidence floor, audit store | done |
+| v0.3 "It anticipates" | Background preparation, the Mail.app moment end to end | done in 1.0 |
+| v0.4 "It learns" | Per-user floor from real accept/dismiss data, muted senders | done in 1.0 (per kind) |
+| v0.5 "It remembers" | Screen memory, grounded and cited answers | done in 1.0 (text memory, Ask) |
+| **1.0 "A product"** | Onboarding, one verified download, command bar, drafts with variants and fact check, settings, licensing, bundled runtime, signed DMG, website, fulfillment | **built and green; release waits on [LAUNCH.md](LAUNCH.md)** |
+| 1.1 "Fits in" | Outlook for Mac lens; managed-preference policies for firms (memory off, retention) | next |
+| 1.2 "Knows you" | First personal specialist distilled from the audit log (`specialist/`), shown in Mind with its latency and agreement | |
+| 1.3 "Does it" | `observe`/`act` driving other apps, with the permission engine and a visible undo | |
 
-## v0.1 + v0.2 definition of done
+## How the next milestones are decided
 
-A user works normally on a Mac. Without opening Leonard or asking it anything,
-Leonard notices a message that needs a reply, decides the interruption is
-justified, and offers to prepare a draft at a moment that feels right. Every
-decision it did not surface is visible in Mind with the reason it stayed quiet.
+Leonard has no telemetry, so the order after 1.0 is set by support mail,
+refund reasons and the design partners in [`BUSINESS.md`](BUSINESS.md).
+Every milestone keeps the rules in [`VISION.md`](VISION.md): local by
+architecture, silence as a measured outcome, never send on the user's behalf
+without a visible, explicit action.
 
-Measured, on a fanless M4 with 24 GB:
+## Definition of done for any release
 
-- event to decision, end to end, under 250 ms after warm-up
-- screen path: frames skipped without missing an event
-- abstain curve: accuracy against coverage at floors 0.5 / 0.6 / 0.7
+- CI green on macOS and Linux; the DMG builds and the bundled engine passes
+  its smoke test.
+- The real-Mac checklist in [`LAUNCH.md`](LAUNCH.md#1-qa-pass-on-a-real-mac)
+  passes on the release candidate.
+- Any number quoted in the release notes has a JSON file under
+  `leonardd/results/` behind it.

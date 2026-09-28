@@ -46,7 +46,14 @@
   const cfg = window.LEONARD;
   document.querySelectorAll("[data-plan]").forEach(a => {
     const url = cfg.checkout[a.dataset.plan];
-    a.href = url || ("mailto:" + cfg.salesEmail + "?subject=Leonard%20" + a.dataset.plan);
+    if (url) {
+      // The license email is written in the buyer's language (tools/license/worker).
+      const checkout = new URL(url);
+      checkout.searchParams.set("checkout[custom][lang]", lang);
+      a.href = checkout.toString();
+    } else {
+      a.href = "mailto:" + cfg.salesEmail + "?subject=Leonard%20" + a.dataset.plan;
+    }
   });
   const plan = params.get("plan");
   if (plan && document.getElementById(plan)) document.getElementById(plan).scrollIntoView();

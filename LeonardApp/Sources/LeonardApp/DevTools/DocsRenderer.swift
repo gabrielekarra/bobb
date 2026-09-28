@@ -140,7 +140,7 @@ private struct Fixtures {
         session.text = it ? "La fattura INV-2041 di Atlas Cloud è di **312,40 €** e scade il **30 settembre** [1]. Giulia ha scritto che è già approvata per il pagamento [2]."
                            : "Atlas Cloud's invoice INV-2041 is **€312.40**, due on **30 September** [1]. Giulia said it's already approved for payment [2]."
         session.sources = [
-            SourceRef(n: 1, id: 41, app: "Mail", window: "Fattura Atlas Cloud INV-2041", ts: now - 86400 * 2, lastSeen: now - 86400 * 2),
+            SourceRef(n: 1, id: 41, app: "Mail", window: it ? "Fattura Atlas Cloud INV-2041" : "Atlas Cloud invoice INV-2041", ts: now - 7200, lastSeen: now - 7200),
             SourceRef(n: 2, id: 77, app: "Slack", window: "#amministrazione", ts: now - 3600 * 5, lastSeen: now - 3600 * 5),
         ]
         return session
@@ -176,11 +176,12 @@ private struct Fixtures {
     }
 
     func decision(id: String, event: String, action: DecisionAction, confidence: Double, suggestion: Suggestion? = nil,
-                  explanation: String? = nil, abstained: Bool = false, readouts: [Readout] = [], latency: Double = 612) -> DecisionFrame {
+                  explanation: String? = nil, abstained: Bool = false, readouts: [Readout] = [], latency: Double = 612,
+                  why: String = "message_type=personal_request p=0.93, urgency=3 p=0.83, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60") -> DecisionFrame {
         DecisionFrame(
             ts: now - 300, id: id, eventId: event, action: action, confidence: confidence, schemaMass: 0.99, latencyMs: latency,
             hypotheses: [Hypothesis(intent: "reply_to_email", p: confidence)], readouts: readouts, suggestion: suggestion,
-            why: "message_type=personal_request p=0.93, urgency=3 p=0.83, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60",
+            why: why,
             abstained: abstained, explanation: explanation, floor: 0.60
         )
     }
@@ -200,8 +201,10 @@ private struct Fixtures {
 
         let messageType = Readout(q: "message_type", value: .string("personal_request"), p: 0.93, schemaMass: 0.99,
                                   probabilities: ["personal_request": 0.93, "personal_no_ask": 0.04, "transactional": 0.02, "broadcast": 0.01])
-        let urgency = Readout(q: "urgency", value: .number(3), p: 0.55, schemaMass: 0.99,
-                              probabilities: ["0": 0.03, "1": 0.04, "2": 0.10, "3": 0.55, "4": 0.28])
+        let urgency = Readout(q: "urgency", value: .number(3), p: 0.83, schemaMass: 0.99,
+                              probabilities: ["0": 0.01, "1": 0.02, "2": 0.08, "3": 0.83, "4": 0.06])
+        let weekUrgency = Readout(q: "urgency", value: .number(2), p: 0.55, schemaMass: 0.99,
+                                  probabilities: ["0": 0.04, "1": 0.12, "2": 0.55, "3": 0.26, "4": 0.03])
 
         func add(_ kind: EventKind, _ app: String, _ fields: [String: JSONValue], _ decision: DecisionFrame) {
             state.recordEvent(EventFrame(ts: now - 300, id: decision.eventId, kind: kind, app: app, payload: EventPayload(typing: false, idle: false, fields: fields)))
@@ -214,7 +217,8 @@ private struct Fixtures {
             decision(id: "dec_2", event: "evt_2", action: .wait, confidence: 0.54,
                      explanation: it ? "Dana Whitfield ti chiede qualcosa (entro la settimana). Leonard era sicuro al 54%, sotto la tua soglia del 60%: è rimasto in silenzio."
                                      : "Dana Whitfield is asking you for something (this week). Leonard was 54% sure, below your 60% threshold, so it stayed quiet.",
-                     abstained: true, readouts: [messageType, urgency], latency: 641))
+                     abstained: true, readouts: [messageType, weekUrgency], latency: 641,
+                     why: "message_type=personal_request p=0.93, urgency=2 p=0.55, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60"))
         add(.mailOpened, "Mail", ["sender": "Marco Rossi <marco@studiorossi.it>", "subject": "Preventivo revisione", "thread_len": 2],
             decision(id: "dec_1", event: "evt_1", action: .suggest, confidence: 0.83, suggestion: suggestion, explanation: explanation,
                      readouts: [messageType, urgency], latency: 604))

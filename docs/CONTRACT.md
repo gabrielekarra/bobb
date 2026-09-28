@@ -1,4 +1,4 @@
-# Leonard IPC contract v0.1
+# Leonard IPC contract, protocol 1
 
 The Swift app and `leonardd` are separate processes on one machine. This file
 is the only thing either side may assume about the other.
@@ -11,6 +11,104 @@ directions, full duplex.
 
 `leonardd` binds no TCP port and opens no outbound socket. That is a property
 of the build, not a setting: a test asserts it (`tests/test_no_network.py`).
+
+## Protocol 1 (Leonard 1.0)
+
+Protocol 1 keeps every v0.1 frame below and adds the frames Leonard 1.0 is
+built on. Both sides still ignore unknown frame types and unknown fields, so
+an older app and a newer daemon degrade instead of breaking. The canonical
+examples are the fixture files both test suites parse:
+`LeonardApp/Tests/LeonardCoreTests/Fixtures/daemon_frames.jsonl` (written by
+the real daemon, `leonardd/tools/export_contract_fixtures.py`) and
+`app_frames.jsonl` (written by the Swift encoders, replayed by
+`leonardd/tests/test_contract_fixtures.py`). If this document and the
+fixtures disagree, the fixtures win and this document is the bug.
+
+### Lifecycle
+
+The daemon binds the socket before the model is loaded, so the app can
+connect immediately and show honest progress.
+
+| `status.state` | Meaning | App shows |
+|---|---|---|
+| `loading` | Model is being read into memory. | "Starting…" |
+| `model_missing` | No verified checkpoint on disk. | The one-time download |
+| `error` | Loading failed; `detail` says why. | Retry, diagnostics |
+| `ready` | Followed at once by a `ready` frame. | Normal operation |
+
+`hello` now carries `locale` (`en` or `it`); the daemon answers with `ready`
+when loaded, otherwise `status`. `ready` carries `protocol: 1`, `version`,
+and `features`, the list of capabilities the app may use. `reload` asks a
+daemon in `model_missing`/`error` to try again, after a download.
+
+`settings` (app → daemon) replaces the daemon's settings wholesale and is
+echoed back (daemon → app) as the stored truth: `floor`, `locale`,
+`proactive_kinds`, `quiet_hours` (`{"start":"22:00","end":"08:00"}` or
+`null`), `adaptive`, `memory_enabled`, `memory_retention_days`,
+`history_retention_days`, `extra_protected_apps`.
+
+### Decisions, v1 fields
+
+`decision` gains `explanation` (one plain sentence in the user's language,
+shown in the overlay and in Mind) and `floor` (the effective floor for this
+event after personal adaptation). `suggestion` gains `cta`, the label for the
+primary button. `suggestion` is now present for `prepare` as well as
+`suggest`, so a prepared item can be opened later from "For you".
+
+`dismiss` gains an optional `reason`: `user` (pressed Not now) or `timeout`
+(the overlay expired unseen). Only `user` teaches the personalizer that the
+user does not want this; a timeout is not a "no". A missing reason counts as
+`user`, which is what v0.1 meant.
+
+### Streaming preparation
+
+After `approve`, preparation streams: zero or more `prepared.delta`
+(`decision_id`, `text`) followed by exactly one `prepared`. `prepared.result`
+for a reply carries `kind`, `body`, `to`, `subject`, `message_id`,
+`sources` (screen-memory rows the draft relied on, cited in the text as
+`[1]`, `[2]`) and `unsupported` (figures, dates and names in the draft that
+appear in neither the message nor the sources; the app highlights them for
+checking). `regenerate` (`decision_id`, optional `instruction`, for example
+"decline politely") prepares again and streams the same way.
+
+### Ask
+
+`ask` (`id`, `prompt`, `mode`, `selection`, `app`, `window`) is the command
+bar. `mode` is one of `ask`, `write`, `reply`, `rewrite`, `translate`,
+`summarize`, `explain`, `compute`; a mode that needs a selection and has
+none falls back to `write` or `ask`. The daemon streams `answer.delta`
+(`request_id`, `text`) and ends with one `answer` (`ok`, `text`, `mode`,
+`result_kind`, `sources`, `unsupported`, `first_token_ms`, `cancelled`).
+`cancel` (`request_id`) stops generation within one token.
+
+### Screen memory
+
+| App → daemon | Reply | |
+|---|---|---|
+| `memory.observe` | `memory.observed` | Text the app read on screen. Replies only when the frame has an `id`: `outcome` is `stored` (new row), `merged` (same text seen again), `grew` (the same window gained text) or `refused` (protected app or nothing worth keeping), with the number of `redactions`. Nothing is stored while memory is off. |
+| `memory.search` | `memory.results` | Full-text search with recency. |
+| `memory.recent` | `memory.results` | Newest rows. |
+| `memory.stats` | `memory.stats` | Rows, bytes, per-app counts. |
+| `memory.delete` | `memory.deleted` | `scope`: `row` (`row_id`), `app` (`app`), `range` (`since`, `until`), `query` (`query`) or `all`. |
+| `history.delete` | `history.deleted` | Every recorded decision and everything learned from it. |
+
+Protected apps are filtered twice: by the app before reading and by the
+daemon before storing.
+
+### Learning
+
+`stats` returns decision counts, memory stats and the learning snapshot:
+per-kind approval rate and learned floor, and muted senders.
+`learning.mute` (`sender`) mutes a sender outright; `learning.forget`
+(`rule_id`, `sender:news@example.com`)
+undoes a learned or manual sender rule, and evidence before that moment
+stops counting.
+
+### Requests and errors
+
+Frames that expect one reply carry `id`; the reply carries it back as
+`request_id`, and so does an `error` caused by that request.
+
 
 ## Frames
 
@@ -406,8 +504,11 @@ answer is behavioural data too.
 2. Every `decision` is written to the audit store before it is sent.
 3. `schema_mass` is reported, never hidden inside renormalization. A readout
    below `0.5` is treated as a failed readout and forces `action: "wait"`.
-4. The daemon never initiates a frame except `trace`, `decision`, `prepared`,
-   `error`, and `ready`.
+4. The daemon never initiates a frame except `trace`, `decision`,
+   `prepared.delta`, `prepared`, `status`, `ready`, `settings` and `error`.
+   Everything else is a reply to a request.
 5. Body text of an email appears in `event.payload` and in the audit store and
    nowhere else. It is never logged to stdout, never written to a crash
    report, never sent to a provider other than the resident local model.
+   Screen memory holds text only, after redaction, and never leaves the
+   Mac.

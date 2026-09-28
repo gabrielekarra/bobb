@@ -107,6 +107,8 @@ def main(argv: list[str] | None = None) -> None:
     i.add_argument("--edition", choices=EDITIONS, default="personal")
     i.add_argument("--seats", type=int, default=1)
     i.add_argument("--update-years", type=int, default=1)
+    i.add_argument("--id", help="license id; reuse lic_ls_<order> to re-issue the worker's exact key")
+    i.add_argument("--issued", type=dt.date.fromisoformat, help="issue date, YYYY-MM-DD (default: today)")
     v = sub.add_parser("verify")
     v.add_argument("--public", required=True)
     v.add_argument("key")
@@ -118,7 +120,7 @@ def main(argv: list[str] | None = None) -> None:
         print(keygen(args.out))
     elif args.command == "issue":
         print(issue(load_private(args.key), name=args.name, email=args.email, edition=args.edition,
-                    seats=args.seats, update_years=args.update_years))
+                    seats=args.seats, update_years=args.update_years, issued=args.issued, license_id=args.id))
     elif args.command == "verify":
         print(json.dumps(verify(args.key, args.public), indent=2, ensure_ascii=False))
     elif args.command == "public":

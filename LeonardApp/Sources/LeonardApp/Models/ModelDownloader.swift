@@ -106,16 +106,47 @@ final class ModelDownloader {
         }
     }
 
+    /// Downloads one file. A dropped connection is retried with backoff and,
+    /// when the server allows it, resumed from the bytes already received, so
+    /// a hiccup at 1.5 GB does not start the model over.
     private func fetch(_ url: URL, progress: @escaping @MainActor (Int64) -> Void) async throws -> URL {
         let delegate = DownloadProgress(progress: progress)
-        let (location, response) = try await session.download(from: url, delegate: delegate)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw DownloadError.http((response as? HTTPURLResponse)?.statusCode ?? 0)
+        var resumeData: Data?
+        var attempt = 0
+        while true {
+            do {
+                let result: (URL, URLResponse)
+                if let resumeData {
+                    result = try await session.download(resumeFrom: resumeData, delegate: delegate)
+                } else {
+                    result = try await session.download(from: url, delegate: delegate)
+                }
+                let (location, response) = result
+                guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                    throw DownloadError.http((response as? HTTPURLResponse)?.statusCode ?? 0)
+                }
+                // The system deletes `location` when this returns; keep it.
+                let kept = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                try FileManager.default.moveItem(at: location, to: kept)
+                return kept
+            } catch let error as URLError where attempt < Self.maxRetries && Self.isTransient(error) {
+                attempt += 1
+                resumeData = error.downloadTaskResumeData
+                try await Task.sleep(for: .seconds(Double(min(30, 1 << attempt))))
+            }
         }
-        // The system deletes `location` when this returns; keep it.
-        let kept = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.moveItem(at: location, to: kept)
-        return kept
+    }
+
+    private static let maxRetries = 6
+
+    private static func isTransient(_ error: URLError) -> Bool {
+        switch error.code {
+        case .networkConnectionLost, .notConnectedToInternet, .timedOut, .cannotConnectToHost,
+             .cannotFindHost, .dnsLookupFailed, .secureConnectionFailed:
+            true
+        default:
+            false
+        }
     }
 
     private func verifyStaged() async throws {

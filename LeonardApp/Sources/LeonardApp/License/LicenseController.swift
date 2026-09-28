@@ -28,11 +28,18 @@ final class LicenseController {
         self.licenseFile = licenseFile
         self.trialFile = trialFile
         self.verifier = Ed25519Verifier(publicKeyBase64: publicKey)
-        if let text = try? String(contentsOf: licenseFile, encoding: .utf8), let verifier,
+        if let text = (try? String(contentsOf: licenseFile, encoding: .utf8)) ?? Self.managedKey, let verifier,
            let payload = try? LicenseKey.verify(text, with: verifier) {
             license = payload
         }
         evaluate()
+    }
+
+    /// A key deployed by an administrator in a configuration profile
+    /// (managed preferences for the app's bundle id, key `LicenseKey`), used
+    /// when the user has not activated one themselves. docs/DEPLOYMENT.md.
+    static var managedKey: String? {
+        UserDefaults.standard.string(forKey: "LicenseKey")
     }
 
     var trialStart: Date {

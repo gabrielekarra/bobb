@@ -1,0 +1,52 @@
+# Publishes site/ to GitHub Pages when it changes on main.
+# One-time setup: Settings › Pages › Source: "GitHub Actions"; for a custom
+# domain, add it there and put the name in site/CNAME (docs/LAUNCH.md).
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check links
+        run: |
+          python3 - <<'EOF'
+          import pathlib, re, sys
+          root = pathlib.Path("site")
+          bad = []
+          for page in root.rglob("*.html"):
+              for ref in re.findall(r'(?:href|src)="([^"#?]+)', page.read_text()):
+                  if re.match(r"^(https?:|mailto:|data:)", ref):
+                      continue
+                  target = (page.parent / ref).resolve()
+                  if target.is_dir():
+                      target = target / "index.html"
+                  if not target.exists():
+                      bad.append(f"{page}: {ref}")
+          print("\n".join(bad) or "all local links resolve")
+          sys.exit(1 if bad else 0)
+          EOF
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -76,7 +76,7 @@ public enum L10n {
              settingsDeleteHistory, settingsDeleteHistoryConfirm, settingsNetworkTitle, settingsNetworkBody,
              settingsPermissions, settingsAccessibility, settingsAutomation, settingsGranted, settingsNotGranted,
              settingsOpenSystemSettings, settingsModelInstalled, settingsModelMissing, settingsModelVerify,
-             settingsModelVerifying, settingsModelOK, settingsModelCorrupt, settingsModelLocation,
+             settingsModelVerifying, settingsModelOK, settingsModelCorrupt, settingsModelLocation, settingsModelName, settingsModelLicense,
              settingsModelReveal, settingsDaemonRestart, settingsExportDiagnostics, settingsCheckUpdates,
              settingsVersion, settingsBuiltWithLlama, settingsThirdParty
         // license
@@ -261,6 +261,8 @@ public enum L10n {
         .settingsModelOK: ("Every file matches its published checksum.", "Ogni file corrisponde al checksum pubblicato."),
         .settingsModelCorrupt: ("Some files are damaged. Download the model again.", "Alcuni file sono danneggiati. Scarica di nuovo il modello."),
         .settingsModelLocation: ("Location", "Posizione"),
+        .settingsModelName: ("Model", "Modello"),
+        .settingsModelLicense: ("License", "Licenza"),
         .settingsModelReveal: ("Show in Finder", "Mostra nel Finder"),
         .settingsDaemonRestart: ("Restart engine", "Riavvia il motore"),
         .settingsExportDiagnostics: ("Export diagnostics…", "Esporta diagnostica…"),

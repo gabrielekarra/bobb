@@ -1,0 +1,108 @@
+# Builds, signs, notarizes and publishes Leonard when a version tag is pushed:
+#
+#   echo 1.0.1 > VERSION && git commit -am "Leonard 1.0.1" && git tag v1.0.1 && git push --tags
+#
+# A release is never ad-hoc signed: without the secrets below the job stops
+# before building. See docs/LAUNCH.md for how to create each one.
+#
+#   DEVELOPER_ID_P12            base64 of the "Developer ID Application" .p12
+#   DEVELOPER_ID_P12_PASSWORD   its export password
+#   DEVELOPER_ID_APPLICATION    the identity name, "Developer ID Application: … (TEAMID)"
+#   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   notarization (app-specific password)
+#   LEONARD_LICENSE_PUBLIC_KEY  production license public key (base64url)
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Signed, notarized Leonard.dmg
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Check secrets and version
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          PUBLIC_KEY: ${{ secrets.LEONARD_LICENSE_PUBLIC_KEY }}
+        run: |
+          missing=""
+          [ -n "$P12" ] || missing="$missing DEVELOPER_ID_P12"
+          [ -n "$IDENTITY" ] || missing="$missing DEVELOPER_ID_APPLICATION"
+          [ -n "$APPLE_ID" ] || missing="$missing APPLE_ID"
+          [ -n "$PUBLIC_KEY" ] || missing="$missing LEONARD_LICENSE_PUBLIC_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Release secrets missing:$missing (see docs/LAUNCH.md)"
+            exit 1
+          fi
+          if [ "$PUBLIC_KEY" = "pKVQLNy-XRirFvGnkNLtDBOHwpeMoz81bSN3RwGKy08" ]; then
+            echo "::error::LEONARD_LICENSE_PUBLIC_KEY is the development key; generate a production key"
+            exit 1
+          fi
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$(cat VERSION)" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match VERSION $(cat VERSION)"
+            exit 1
+          fi
+
+      - name: Select newest Xcode
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+
+      - name: Import signing certificate
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Package, sign, notarize
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          LEONARD_LICENSE_PUBLIC_KEY: ${{ secrets.LEONARD_LICENSE_PUBLIC_KEY }}
+        run: scripts/package.sh --release
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(cat VERSION)"
+          NOTES="$(awk -v v="## $VERSION" '$0 ~ "^## " { p = index($0, v) == 1; next } p' CHANGELOG.md)"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/Leonard-$VERSION.dmg" "dist/Leonard-$VERSION.dmg.sha256" \
+            --title "Leonard $VERSION" --notes "$NOTES"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Leonard-release
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true

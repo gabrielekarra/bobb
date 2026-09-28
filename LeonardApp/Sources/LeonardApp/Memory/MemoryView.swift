@@ -74,7 +74,7 @@ struct MemoryView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let stats = model.stats {
-                Text(L10n.t(.memoryRows, ["count": "\(stats.rows)"]))
+                Text(L10n.t(.memoryRows, ["count": stats.rows.formatted()]))
                     .font(.system(size: 13, weight: .semibold))
                 if let bytes = stats.bytes {
                     Text(ModelInstallation.formatBytes(Int64(bytes)))

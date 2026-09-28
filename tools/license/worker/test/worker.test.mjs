@@ -55,6 +55,18 @@ test("keys issued in JavaScript verify with the Python tool", async () => {
   assert.equal(payload.edition, "pro");
 });
 
+test("the Python tool re-issues the worker's exact key from the order", async () => {
+  const key = await importSigningKey(DEV_SEED, DEV_PUBLIC);
+  const order = { id: "lic_ls_98765", name: "Studio Rossi è", email: "m@x.it", edition: "pro", seats: 3, issued: "2026-09-28" };
+  const { key: fromWorker } = await issue(key, order);
+  const fromTool = execFileSync(join(toolDir, ".venv", "bin", "python"), [
+    join(toolDir, "license_tool.py"), "issue", "--key", join(toolDir, "dev-signing.key"),
+    "--name", order.name, "--email", order.email, "--edition", "pro", "--seats", "3",
+    "--id", order.id, "--issued", order.issued,
+  ], { encoding: "utf8" }).trim();
+  assert.equal(fromTool, fromWorker);
+});
+
 test("signatures are deterministic, so a retried webhook re-sends the same key", async () => {
   const key = await importSigningKey(DEV_SEED, DEV_PUBLIC);
   const order = { id: "lic_ls_1", name: "A", email: "a@b.c", edition: "personal", seats: 2, issued: "2026-09-28" };
