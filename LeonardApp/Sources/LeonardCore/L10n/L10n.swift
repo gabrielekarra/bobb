@@ -111,6 +111,11 @@ public enum L10n {
         case promiseDone, promiseTomorrow, promiseNotAPromise, promiseTo, promiseToDue, promiseOverdue, promiseToday,
              promiseTomorrowDue, settingsCalendar, settingsCalendarAllow, settingsMeetingPrep,
              settingsMeetingPrepHint, settingsTrackPromises, settingsTrackPromisesHint
+        // voice
+        case voiceListening, voiceTalk, voiceNotAllowed, voiceNoMicrophone, voiceUnavailable, voiceNotOnDevice,
+             settingsTalkHotkey
+        // ocr
+        case settingsReadImages, settingsReadImagesHint
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -431,6 +436,17 @@ public enum L10n {
         .settingsMeetingPrepHint: ("Ten minutes before a meeting with other people, Leonard offers what you know about it: what you saw, what you promised them. Reads your calendar on this Mac; never changes it.", "Dieci minuti prima di un incontro con altre persone, Leonard ti propone ciò che sai: cosa hai visto, cosa hai promesso. Legge il calendario su questo Mac; non lo modifica mai."),
         .settingsTrackPromises: ("Keep track of what I promise", "Tieni traccia di ciò che prometto"),
         .settingsTrackPromisesHint: ("Leonard reads the mail you send (Mail's Sent mailbox, on this Mac) and keeps the promises in it — “I'll send it by Friday” — until you mark them done.", "Leonard legge la posta che invii (la cartella Inviati di Mail, su questo Mac) e tiene le promesse che contiene — “te lo mando venerdì” — finché non le segni come fatte."),
+
+        .voiceListening: ("Listening…", "Ti ascolto…"),
+        .voiceTalk: ("Talk", "Parla"),
+        .voiceNotAllowed: ("Speech recognition is not allowed for Leonard. You can allow it in System Settings › Privacy & Security.", "Il riconoscimento vocale non è consentito a Leonard. Puoi consentirlo in Impostazioni di Sistema › Privacy e sicurezza."),
+        .voiceNoMicrophone: ("Leonard can't use the microphone. You can allow it in System Settings › Privacy & Security › Microphone.", "Leonard non può usare il microfono. Puoi consentirlo in Impostazioni di Sistema › Privacy e sicurezza › Microfono."),
+        .voiceUnavailable: ("Speech recognition isn't available right now.", "Il riconoscimento vocale non è disponibile in questo momento."),
+        .voiceNotOnDevice: ("On-device dictation for this language isn't installed, and Leonard never sends your voice anywhere. Turn on Dictation in System Settings › Keyboard to download it.", "La dettatura sul dispositivo per questa lingua non è installata, e Leonard non invia mai la tua voce altrove. Attiva la Dettatura in Impostazioni di Sistema › Tastiera per scaricarla."),
+        .settingsTalkHotkey: ("Talk to Leonard", "Parla con Leonard"),
+
+        .settingsReadImages: ("Also read text in images", "Leggi anche il testo nelle immagini"),
+        .settingsReadImagesHint: ("For windows that show text as pixels — a scanned PDF, a remote desktop — Leonard can recognize the words on this Mac. Only the text is kept, never the image. Needs the Screen Recording permission.", "Per le finestre che mostrano il testo come immagine — un PDF scansionato, un desktop remoto — Leonard può riconoscere le parole su questo Mac. Conserva solo il testo, mai l'immagine. Richiede il permesso Registrazione schermo."),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

@@ -80,6 +80,13 @@ struct SettingsView: View {
                         .padding(.vertical, 3)
                         .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
                 }
+                LabeledContent(L10n.t(.settingsTalkHotkey)) {
+                    Text(state.settings.talkHotkey.display)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+                }
                 hint(L10n.t(.settingsHotkeyHint))
             }
             Section(L10n.t(.settingsPermissions)) {
@@ -217,6 +224,15 @@ struct SettingsView: View {
             Section {
                 Toggle(L10n.t(.settingsMemoryEnabled), isOn: binding(\.memoryEnabled))
                 hint(L10n.t(.settingsMemoryEnabledHint))
+                Toggle(L10n.t(.settingsReadImages), isOn: Binding(
+                    get: { state.settings.readImages },
+                    set: { value in
+                        if value && !ScreenTextRecognizer.isAllowed { ScreenTextRecognizer.requestPermission() }
+                        coordinator.updateSettings { $0.readImages = value }
+                    }
+                ))
+                .disabled(!state.settings.memoryEnabled)
+                hint(L10n.t(.settingsReadImagesHint))
                 Picker(L10n.t(.settingsMemoryRetention), selection: binding(\.memoryRetentionDays)) {
                     ForEach(LeonardSettings.retentionChoices, id: \.self) { Text(L10n.t(.settingsDays, ["count": "\($0)"])).tag($0) }
                 }

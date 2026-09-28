@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sentMail: SentMailSensor!
     private(set) var calendar: CalendarSensor!
     private var hotkey: GlobalHotkey!
+    private var talkHotkey: GlobalHotkey!
 
     private var statusItemController: StatusItemController!
     private var overlayController: OverlayController!
@@ -99,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         hotkey = GlobalHotkey { [weak self] in self?.openCommandBar() }
         hotkey.register(settings.hotkey)
+        talkHotkey = GlobalHotkey { [weak self] in self?.commandBar.listen() }
+        talkHotkey.register(settings.talkHotkey)
 
         supervisor.start()
         coordinator.start()
@@ -128,6 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func settingsChanged(_ settings: LeonardSettings) {
         try? settingsStore.save(settings)
         hotkey.register(settings.hotkey)
+        talkHotkey.register(settings.talkHotkey)
         screenSensor.updateProtectedApps(settings.extraProtectedApps)
         if Self.needsScreenSensor(settings) {
             screenSensor.start()
@@ -139,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func syncSensors(_ settings: LeonardSettings) {
+        screenSensor.readImages = settings.readImages && settings.memoryEnabled
         if settings.watching && settings.trackPromises { sentMail.start() } else { sentMail.stop() }
         if settings.watching && (settings.meetingPrep || settings.memoryEnabled) { calendar.start() } else { calendar.stop() }
     }

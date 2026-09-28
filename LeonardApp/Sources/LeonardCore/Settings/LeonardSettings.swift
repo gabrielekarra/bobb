@@ -23,10 +23,14 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     public var quietTo: Int = 8
     public var overlaySeconds: Int = 14
     public var memoryEnabled: Bool = true
+    /// Read the words in windows that expose no text (needs Screen Recording).
+    public var readImages: Bool = false
     public var memoryRetentionDays: Int = 30
     public var historyRetentionDays: Int = 90
     public var extraProtectedApps: [String] = []
     public var hotkey: Hotkey = .default
+    /// Opens the command bar already listening.
+    public var talkHotkey: Hotkey = .talk
     public var launchAtLogin: Bool = true
     public var onboardingCompleted: Bool = false
     public var watching: Bool = true
@@ -69,8 +73,8 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case language, floor, adaptive, mailProactive, chatProactive, meetingPrep, trackPromises, toneCheck, quietHoursEnabled, quietFrom, quietTo,
-             overlaySeconds, memoryEnabled, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
-             hotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules
+             overlaySeconds, memoryEnabled, readImages, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
+             hotkey, talkHotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,10 +96,12 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
         if let v = read(.quietTo, Int.self), (0...23).contains(v) { s.quietTo = v }
         if let v = read(.overlaySeconds, Int.self), (4...120).contains(v) { s.overlaySeconds = v }
         if let v = read(.memoryEnabled, Bool.self) { s.memoryEnabled = v }
+        if let v = read(.readImages, Bool.self) { s.readImages = v }
         if let v = read(.memoryRetentionDays, Int.self), (1...3650).contains(v) { s.memoryRetentionDays = v }
         if let v = read(.historyRetentionDays, Int.self), (1...3650).contains(v) { s.historyRetentionDays = v }
         if let v = read(.extraProtectedApps, [String].self) { s.extraProtectedApps = v }
         if let v = read(.hotkey, Hotkey.self) { s.hotkey = v }
+        if let v = read(.talkHotkey, Hotkey.self) { s.talkHotkey = v }
         if let v = read(.launchAtLogin, Bool.self) { s.launchAtLogin = v }
         if let v = read(.onboardingCompleted, Bool.self) { s.onboardingCompleted = v }
         if let v = read(.watching, Bool.self) { s.watching = v }
@@ -125,6 +131,8 @@ public struct Hotkey: Codable, Sendable, Equatable {
     public static let control: UInt32 = 1 << 12
 
     public static let `default` = Hotkey(keyCode: 49, modifiers: option)
+    /// ⌥⇧Space: the same key, with Shift, to talk instead of type.
+    public static let talk = Hotkey(keyCode: 49, modifiers: option | shift)
 
     public var display: String {
         var out = ""

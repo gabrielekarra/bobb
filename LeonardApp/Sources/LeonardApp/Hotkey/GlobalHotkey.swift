@@ -11,9 +11,15 @@ final class GlobalHotkey {
     private var handlerRef: EventHandlerRef?
     private let action: @MainActor () -> Void
     private static let signature: OSType = 0x4C45_4F4E  // 'LEON'
+    private static var nextId: UInt32 = 1
+    /// Each shortcut has its own id, so several can be registered and each
+    /// handler answers only its own.
+    private let id: UInt32
 
     init(action: @escaping @MainActor () -> Void) {
         self.action = action
+        self.id = Self.nextId
+        Self.nextId += 1
         installHandler()
     }
 
@@ -22,7 +28,7 @@ final class GlobalHotkey {
     @discardableResult
     func register(_ hotkey: Hotkey) -> Bool {
         unregister()
-        let id = EventHotKeyID(signature: Self.signature, id: 1)
+        let id = EventHotKeyID(signature: Self.signature, id: self.id)
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(hotkey.keyCode, hotkey.modifiers, id, GetApplicationEventTarget(), 0, &ref)
         guard status == OSStatus(noErr) else { return false }
@@ -38,10 +44,15 @@ final class GlobalHotkey {
     private func installHandler() {
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let context = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
-            guard let userData else { return OSStatus(eventNotHandledErr) }
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
+            guard let userData, let event else { return OSStatus(eventNotHandledErr) }
+            var pressed = EventHotKeyID()
+            let status = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                           nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed)
             let hotkey = Unmanaged<GlobalHotkey>.fromOpaque(userData).takeUnretainedValue()
             // Carbon dispatches application-target events on the main thread.
+            let mine = MainActor.assumeIsolated { status == OSStatus(noErr) && pressed.id == hotkey.id }
+            guard mine else { return OSStatus(eventNotHandledErr) }
             MainActor.assumeIsolated { hotkey.action() }
             return OSStatus(noErr)
         }, 1, &eventType, context, &handlerRef)

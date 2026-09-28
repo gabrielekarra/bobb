@@ -136,10 +136,12 @@ struct CommandInput: NSViewRepresentable {
 struct CommandBarView: View {
     @Bindable var state: AppState
     @Bindable var model: CommandBarModel
+    var speech: SpeechInput?
     let submit: () -> Void
     let close: () -> Void
     let apply: (String) -> Void
     let stop: () -> Void
+    var toggleVoice: () -> Void = {}
 
     private var ask: AskSession { state.ask }
 
@@ -153,6 +155,22 @@ struct CommandBarView: View {
                 .padding(.bottom, 10)
             if let selection = model.selection {
                 selectionPreview(selection)
+            }
+            if let speech {
+                if speech.isListening {
+                    Label(L10n.t(.voiceListening), systemImage: "waveform")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.attention)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 10)
+                } else if case .unavailable(let reason) = speech.phase {
+                    Label(reason, systemImage: "mic.slash")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 10)
+                }
             }
             if ask.hasAnswer || ask.streaming {
                 Divider()
@@ -182,6 +200,18 @@ struct CommandBarView: View {
             if ask.streaming {
                 Button(L10n.t(.askStop), action: stop)
                     .buttonStyle(QuietButtonStyle())
+            }
+            if let speech {
+                Button(action: toggleVoice) {
+                    Image(systemName: speech.isListening ? "waveform" : "mic")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(speech.isListening ? Theme.attention : Color.secondary)
+                        .frame(width: 26, height: 26)
+                        .background(speech.isListening ? Theme.attention.opacity(0.15) : Color.clear, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(L10n.t(.voiceTalk))
+                .keyboardShortcut("d", modifiers: .command)
             }
         }
     }
@@ -334,11 +364,27 @@ final class CommandBarController {
     private var sizeObservation: NSKeyValueObservation?
     /// Starts a task; returns why it cannot, in the user's words, or nil.
     var startTask: ((String) -> String?)?
+    let speech = SpeechInput()
 
     init(state: AppState, coordinator: LeonardCoordinator) {
         self.state = state
         self.coordinator = coordinator
         observeRouting()
+        speech.onTranscript = { [weak self] text in self?.model.input = text }
+        speech.onFinish = { [weak self] text in
+            self?.model.input = text
+            self?.submit()
+        }
+    }
+
+    /// Opens the bar already listening: talk instead of type.
+    func listen() {
+        if panel?.isVisible != true { show(selection: nil) }
+        speech.start(language: L10n.code)
+    }
+
+    private func toggleVoice() {
+        speech.toggle(language: L10n.code)
     }
 
     /// A request the daemon judged to be something to do becomes a task.
@@ -384,11 +430,12 @@ final class CommandBarController {
         if !state.ask.streaming { state.ask = AskSession() }
         if panel == nil {
             let view = CommandBarView(
-                state: state, model: model,
+                state: state, model: model, speech: speech,
                 submit: { [weak self] in self?.submit() },
                 close: { [weak self] in self?.close() },
                 apply: { [weak self] text in self?.apply(text) },
-                stop: { [weak self] in self?.coordinator.cancelAsk() }
+                stop: { [weak self] in self?.coordinator.cancelAsk() },
+                toggleVoice: { [weak self] in self?.toggleVoice() }
             )
             let hosting = NSHostingView(rootView: view)
             hosting.sizingOptions = [.intrinsicContentSize]
@@ -470,6 +517,7 @@ final class CommandBarController {
     }
 
     func close() {
+        speech.cancel()
         panel?.orderOut(nil)
     }
 }

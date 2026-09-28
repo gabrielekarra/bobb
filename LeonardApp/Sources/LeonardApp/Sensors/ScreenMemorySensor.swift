@@ -19,6 +19,9 @@ final class ScreenMemorySensor {
     var policy: ScreenMemoryPolicy
     var interval: TimeInterval = 6
     var idleAfter: TimeInterval = 60
+    /// Read text from pixels when a window exposes almost none (Settings).
+    var readImages = false
+    private var lastRecognized: [String: Date] = [:]
 
     private var timer: Timer?
     private var activation: NSObjectProtocol?
@@ -72,15 +75,35 @@ final class ScreenMemorySensor {
         let pid = front.processIdentifier
         reading = true
         Task { [weak self] in
-            let text = await Self.read(pid: pid, appName: name, bundleId: bundleId)
+            var text = await Self.read(pid: pid, appName: name, bundleId: bundleId)
             guard let self else { return }
+            var source = "screen"
+            if (text?.text.count ?? 0) < 80, let recognized = await self.recognize(pid: pid, app: name, bundleId: bundleId, window: text?.window) {
+                text = recognized
+                source = "ocr"
+            }
             self.reading = false
             guard let text else { return }
             self.onWindowText?(text)
-            if let frame = self.policy.frame(app: text.app, bundleId: text.bundleId, window: text.window, text: text.text, url: text.url) {
+            if var frame = self.policy.frame(app: text.app, bundleId: text.bundleId, window: text.window, text: text.text, url: text.url) {
+                frame.source = source
                 self.onFrame?(frame)
             }
         }
+    }
+
+    /// Text from the window's pixels, at most once a minute and a half per
+    /// window, when the accessibility tree had almost nothing to say.
+    private func recognize(pid: pid_t, app: String, bundleId: String?, window: String?) async -> WindowText? {
+        guard readImages, ScreenTextRecognizer.isAllowed else { return nil }
+        let title = window ?? AX.element(AX.application(pid), "AXFocusedWindow").flatMap { AX.string($0, "AXTitle") } ?? ""
+        guard policy.mayRead(bundleId: bundleId, appName: app, windowTitle: title) else { return nil }
+        let key = "\(bundleId ?? app)|\(title)"
+        if let last = lastRecognized[key], Date().timeIntervalSince(last) < 90 { return nil }
+        lastRecognized[key] = Date()
+        if lastRecognized.count > 300 { lastRecognized.removeAll() }
+        guard let text = await ScreenTextRecognizer.read(pid: pid, windowTitle: title), text.count >= 40 else { return nil }
+        return WindowText(app: app, bundleId: bundleId, window: title, text: text, url: nil, truncated: false)
     }
 
     private nonisolated static func read(pid: pid_t, appName: String, bundleId: String?) async -> WindowText? {
