@@ -7,7 +7,7 @@ optional for selling; the order is the fastest path to a first sale.
 
 | # | Step | Needs | Unlocks |
 |---|---|---|---|
-| 1 | QA pass on a real Mac | An Apple-silicon Mac, a Mail account | Confidence the 1.0 build does what the site says |
+| 1 | QA pass on a real Mac | An Apple-silicon Mac, a Mail account | Confidence the build does what it promises |
 | 2 | Decide name, domain and bundle id | ~€20/year | Every URL and email in the product |
 | 3 | Legal entity | Partita IVA (ditta individuale or S.r.l.) | Selling, the legal pages |
 | 4 | Apple Developer Program | $99/year | A DMG that opens without warnings |
@@ -15,8 +15,7 @@ optional for selling; the order is the fastest path to a first sale.
 | 6 | Lemon Squeezy store | Identity and bank details | Checkout, invoicing, EU VAT |
 | 7 | Email + license worker | Resend and Cloudflare accounts (free tiers) | Keys emailed automatically after payment |
 | 8 | First release | Steps 4–5 as GitHub secrets | A signed, notarized DMG |
-| 9 | Site live | GitHub Pages or Cloudflare Pages | Download and buy pages |
-| 10 | Test purchase | Lemon Squeezy test mode | Proof the whole chain works |
+| 9 | Test purchase | Lemon Squeezy test mode | Proof the whole chain works |
 
 ## 1. QA pass on a real Mac
 
@@ -69,7 +68,7 @@ trademark search for "Leonard" in class 9 at EUIPO and USPTO).
 - **Domain.** If it is not `leonard.app`, replace it everywhere:
   `grep -rl "leonard\.app" --exclude-dir=.build --exclude-dir=node_modules .`
   (app URLs in `LeonardApp/Sources/LeonardApp/App/AppPaths.swift`, emails in
-  the site and the worker).
+  the worker).
 - **Bundle id.** Decide it **before the first public release** and never
   change it afterwards: macOS ties the user's Accessibility and Automation
   permissions, login item and settings to it. It lives in
@@ -84,11 +83,9 @@ forfettario is the cheapest start; an S.r.l. separates liability. Ask a
 commercialista, who will also tell you how Lemon Squeezy's payouts are
 booked (they are the merchant of record: you invoice them, not the buyers).
 
-Then fill the placeholders in bold in `site/privacy.html`, `site/terms.html`,
-`site/it/privacy.html` and `site/it/termini.html`: legal entity, reseller
-name, hosting provider and the court's city. Have a lawyer read the terms
-once; they were written for this product, not copied, but they are not
-legal advice.
+Publish a privacy policy and terms of sale wherever the product is sold (the
+store's product page is enough to start): Leonard sends nothing anywhere, so
+the policy only has to cover orders and support mail.
 
 ## 4. Apple Developer Program
 
@@ -132,12 +129,12 @@ alternative; the worker would need a different payload parser.
    Turn off Lemon Squeezy's own license keys; Leonard's keys come from the
    worker.
 2. Note each product's **variant id** (the product's page, or the API).
-3. Copy each product's **checkout link** into `site/assets/config.js`
-   (`checkout.personal`, `checkout.pro`). The buy page adds the buyer's
-   language to it, so the license email arrives in Italian or English.
+3. Use each product's **checkout link** wherever you sell. Adding
+   `checkout[custom][lang]=it` to the link makes the license email arrive in
+   Italian.
 4. Settings › Webhooks › add `https://<worker>/webhook`, event
    `order_created`, and a signing secret you generate (keep it for step 7).
-5. Enable the 30-day refund promise the site makes, in your own process: a
+5. Honour a 30-day refund in your own process: a
    refund does not revoke the key (keys are checked offline, by design).
 
 The Firm edition (5+ seats, €119 per seat) is sold by email: issue its key
@@ -192,28 +189,14 @@ the hardened runtime, notarizes and staples the DMG, checks it with
 `CHANGELOG.md` section as notes. It refuses to run without the secrets, with
 the development public key, or when the tag and `VERSION` disagree.
 
-Later releases: add a section to `CHANGELOG.md` and to
-`site/releases/index.html`, bump `VERSION`, tag. A license covers every
+Later releases: add a section to `CHANGELOG.md`, bump `VERSION`, tag. A license covers every
 version released within a year of purchase; the app reads the build date,
 so nothing else is needed.
 
-## 9. Site
+## 9. Test purchase
 
-`site/` is static HTML with no third-party requests. In `site/assets/config.js`
-set `downloadURL` (the GitHub release asset,
-`https://github.com/<owner>/<repo>/releases/download/v1.0.0/Leonard-1.0.0.dmg`,
-works if the repository is public; otherwise host the DMG on Cloudflare R2)
-and `downloadSHA256` from the `.sha256` file.
-
-GitHub Pages: Settings › Pages › Source: **GitHub Actions**. Every push to
-`main` that touches `site/` deploys through `.github/workflows/site.yml`,
-which first checks every local link. For the custom domain, add it in the
-Pages settings and a file `site/CNAME` containing the domain.
-
-## 10. Test purchase
-
-With Lemon Squeezy in test mode, buy Personal from the live site with a test
-card. Within a minute an email arrives with a key; paste it into a release
+With Lemon Squeezy in test mode, buy Personal through the checkout link with
+a test card. Within a minute an email arrives with a key; paste it into a release
 build: Settings › License shows "Personal, 2 Macs, updates until …". Then
 switch the store to live mode.
 

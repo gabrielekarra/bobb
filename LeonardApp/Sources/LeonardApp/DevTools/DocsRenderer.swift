@@ -19,6 +19,11 @@ func renderDocsScreenshots() {
     }
     try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
+    for dark in [false, true] {
+        render(MarkSheet(), size: nil, appearance: NSAppearance(named: dark ? .darkAqua : .aqua),
+               to: output.appendingPathComponent("mark\(dark ? "-dark" : "").png"))
+    }
+
     for language in ["en", "it"] {
         L10n.code = language
         for dark in [false, true] {
@@ -224,5 +229,31 @@ private struct Fixtures {
                      readouts: [messageType, urgency], latency: 604))
         state.pendingOverlay = nil
         return state
+    }
+}
+
+/// Every state of the mark, at menu bar size and larger, beside the app icon:
+/// a visual check that the glasses read at 16 pt and that the eyes carry state.
+private struct MarkSheet: View {
+    private let states: [(String, Glasses.Eyes, Double)] = [
+        ("watching", .up, 1), ("thinking", .look(CGVector(dx: 0.9, dy: -0.6)), 1),
+        ("speaking", .look(CGVector(dx: -0.4, dy: 0.9)), 1), ("paused", .closed, 0.6),
+        ("starting", .up, 0.55), ("offline", .none, 0.45),
+    ]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 28) {
+            LeonardAppIcon(size: 128)
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(states.enumerated()), id: \.offset) { _, item in
+                    HStack(spacing: 18) {
+                        LeonardMark(size: 20.6, eyes: item.1).opacity(item.2)
+                        LeonardMark(size: 44, eyes: item.1).opacity(item.2)
+                        Text(item.0).font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(24)
     }
 }

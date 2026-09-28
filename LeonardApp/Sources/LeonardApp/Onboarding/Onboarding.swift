@@ -60,7 +60,7 @@ struct OnboardingView: View {
 
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 18) {
-            LeonardMark(size: 44)
+            LeonardAppIcon(size: 64)
             Text(L10n.t(.onbWelcomeTitle))
                 .font(.system(size: 30, weight: .bold))
             Text(L10n.t(.onbWelcomeBody))

@@ -9,14 +9,14 @@ it says nothing, and shows you why in Mind. The language model runs on your
 Mac. Nothing you read or write ever leaves it.
 
 <p align="center">
-  <img src="site/assets/img/overlay-en.png" width="360" alt="Leonard's card: Marco Rossi is waiting for your reply">
+  <img src="docs/images/overlay-en.png" width="360" alt="Leonard's card: Marco Rossi is waiting for your reply">
   &nbsp;
-  <img src="site/assets/img/draft-en.png" width="420" alt="A draft reply with sources, variants, and Reply in Mail">
+  <img src="docs/images/draft-en.png" width="420" alt="A draft reply with sources, variants, and Reply in Mail">
 </p>
 
 Built for people whose inbox is confidential: lawyers, accountants,
 doctors, consultants, founders — anyone who cannot paste client mail into a
-cloud chatbot. [leonard.app](site/index.html) · [Italiano](site/it/index.html)
+cloud chatbot.
 
 ## What it does
 
@@ -30,7 +30,7 @@ cloud chatbot. [leonard.app](site/index.html) · [Italiano](site/it/index.html)
 | **Learns by watching** | Answer or ignore its suggestions and Leonard adjusts how often it speaks, per kind of message; dismiss a sender three times and it stops. Everything it learned is listed and can be undone. |
 
 <p align="center">
-  <img src="site/assets/img/ask-en.png" width="520" alt="Ask Leonard answering from screen memory, with sources">
+  <img src="docs/images/ask-en.png" width="520" alt="Ask Leonard answering from screen memory, with sources">
 </p>
 
 ## Private by architecture, not by policy
@@ -68,7 +68,6 @@ later, 16 GB of memory recommended, 1.8 GB for the model.
 | [`LeonardApp/`](LeonardApp) | The Mac app (Swift 6, SwiftUI + AppKit). `LeonardCore` is platform-independent and tested on Linux too. |
 | [`leonardd/`](leonardd) | The on-device engine (Python, MLX): typed decisions, drafting, screen memory, learning. |
 | [`specialist/`](specialist) | Research: distilling personal specialists from the engine's decisions. |
-| [`site/`](site) | The website, in English and Italian, with legal pages. Screenshots are rendered by CI from the real views. |
 | [`tools/license/`](tools/license) | License key tool and the fulfillment worker that emails keys after payment. |
 | [`scripts/`](scripts) | `package.sh` builds the self-contained, signed, notarized DMG. |
 | [`docs/`](docs) | Architecture, protocol, decisions, launch checklist. |

@@ -39,7 +39,7 @@ the obvious cloud tools. They already pay for software and value time at
 well over €100 an hour; saving ten minutes a day pays for Personal in a
 month.
 
-**Where we launch:** Italy first, then the EU. The product, the site, the
+**Where we launch:** Italy first, then the EU. The product, the
 emails and the license flow are fully bilingual (Italian, English); Italian
 professionals are underserved by US-first AI tools, GDPR makes the privacy
 argument concrete, and the founder can sell to them in their language.
@@ -98,7 +98,7 @@ because firms buy per head and want one invoice.
 **Unit economics (per sale, before VAT; Lemon Squeezy fee assumed 5% +
 €0.50):** Personal nets about €74.55, Pro about €141.05. Other costs are
 fixed and small: Apple Developer Program ($99/year), a domain, and free
-tiers for the site, the license worker and email.
+tiers for the license worker and email.
 
 ## How people hear about it
 
@@ -126,7 +126,7 @@ business itself sees:
 
 | Question | Signal |
 |---|---|
-| Is the site converting? | Downloads (release asset counts or server logs) against visits from the host's aggregate stats |
+| Are people trying it? | Downloads (release asset counts) |
 | Is the trial converting? | Sales against downloads, weekly |
 | Are buyers happy? | Refund rate and reasons (asked, optional), support email themes |
 | Which edition wins? | Lemon Squeezy reports |

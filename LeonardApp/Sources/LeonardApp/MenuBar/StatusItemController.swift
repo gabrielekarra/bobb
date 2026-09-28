@@ -20,8 +20,8 @@ final class StatusItemController {
         self.state = state
         self.makeActions = makeActions
 
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        iconView = StatusIconView(frame: NSRect(x: 0, y: 0, width: 22, height: 22))
+        statusItem = NSStatusBar.system.statusItem(withLength: 28)
+        iconView = StatusIconView(frame: NSRect(x: 0, y: 0, width: 28, height: 22))
         popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true

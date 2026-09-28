@@ -24,19 +24,6 @@ enum Theme {
 
 /// The small round mark used across the app: Leonard's ring, the same glyph
 /// as the menu bar icon.
-struct LeonardMark: View {
-    var size: CGFloat = 18
-    var color: Color = Theme.accent
-
-    var body: some View {
-        ZStack {
-            Circle().stroke(color.opacity(0.35), lineWidth: size * 0.12)
-            Circle().fill(color).frame(width: size * 0.5, height: size * 0.5)
-        }
-        .frame(width: size, height: size)
-    }
-}
-
 struct Pill: View {
     let text: String
     var color: Color = .secondary

@@ -310,7 +310,7 @@ struct SettingsView: View {
     private var about: some View {
         VStack(spacing: 14) {
             Spacer()
-            LeonardMark(size: 54)
+            LeonardAppIcon(size: 72)
             Text("Leonard").font(.system(size: 24, weight: .bold))
             Text(L10n.t(.settingsVersion, ["version": "\(BuildInfo.version) (\(BuildInfo.build))"]))
                 .foregroundStyle(.secondary)

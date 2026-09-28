@@ -126,7 +126,7 @@ about 200 MB; the model is downloaded once at setup.
 ## Selling
 
 ```
-buyer ── site/buy ──▶ Lemon Squeezy checkout ── order_created webhook ──▶
+buyer ── Lemon Squeezy checkout ── order_created webhook ──▶
     tools/license/worker (Cloudflare): verify HMAC → sign Ed25519 key → email (Resend)
 buyer pastes key ──▶ Leonard verifies offline with the public key in Info.plist
 ```

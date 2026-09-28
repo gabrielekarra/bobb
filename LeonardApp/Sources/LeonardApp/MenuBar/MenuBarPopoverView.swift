@@ -32,7 +32,7 @@ struct MenuBarPopoverView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            LeonardMark(size: 18, color: markColor)
+            LeonardMark(size: 24, color: markColor, eyes: markEyes)
             VStack(alignment: .leading, spacing: 1) {
                 Text(statusTitle)
                     .font(.system(size: 13, weight: .semibold))
@@ -78,7 +78,16 @@ struct MenuBarPopoverView: View {
         switch state.activityState {
         case .disconnected, .paused: .secondary
         case .starting, .setupNeeded, .suggesting, .waitingForYou: Theme.attention
-        case .watching, .thinking: Theme.accent
+        case .watching, .thinking: .primary
+        }
+    }
+
+    private var markEyes: Glasses.Eyes {
+        switch state.activityState {
+        case .paused: .closed
+        case .disconnected: .none
+        case .suggesting, .waitingForYou: .look(CGVector(dx: -0.4, dy: 0.9))
+        default: .up
         }
     }
 

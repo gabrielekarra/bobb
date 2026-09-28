@@ -14,7 +14,7 @@ struct OverlayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 10) {
-                LeonardMark(size: 16, color: Theme.attention)
+                LeonardMark(size: 22, color: Theme.attention, eyes: .look(CGVector(dx: -0.4, dy: 0.9)))
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(suggestion.title)

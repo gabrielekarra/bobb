@@ -82,7 +82,7 @@ struct DraftView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            LeonardMark(size: 16)
+            LeonardMark(size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(session?.title ?? L10n.t(.draftTitle))
                     .font(.system(size: 13, weight: .semibold))

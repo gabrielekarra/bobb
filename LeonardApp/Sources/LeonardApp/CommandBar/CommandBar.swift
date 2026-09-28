@@ -164,7 +164,7 @@ struct CommandBarView: View {
 
     private var inputRow: some View {
         HStack(spacing: 12) {
-            LeonardMark(size: 20)
+            LeonardMark(size: 26)
             CommandInput(
                 model: model,
                 placeholder: model.selection == nil ? L10n.t(.askPlaceholder) : L10n.t(.askPlaceholderSelection),
