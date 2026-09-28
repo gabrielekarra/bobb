@@ -118,6 +118,11 @@ public enum L10n {
         case settingsReadImages, settingsReadImagesHint
         // showme
         case taskShowMe, taskWatching, taskWatchDone, taskLearned
+        // onboarding2
+        case onbFeatureMessages, onbFeatureDo, onbFeatureMemory, onbFeatureVoice, onbCalendarWhy, onbTryDo,
+             onbTryVoice
+        // procedures
+        case settingsProcedures, settingsProceduresEmpty, settingsProcedureShown, settingsProcedureDone
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
              relMinutesAgo, relJustNow, relHoursAgo
@@ -454,6 +459,19 @@ public enum L10n {
         .taskWatching: ("Do it yourself: Leonard is watching and will remember how. Press Done when you've finished.", "Fallo tu: Leonard guarda e si ricorderà come si fa. Premi Fatto quando hai finito."),
         .taskWatchDone: ("Done", "Fatto"),
         .taskLearned: ("Learned. Next time Leonard will do it this way.", "Imparato. La prossima volta Leonard farà così."),
+
+        .onbFeatureMessages: ("Knows which messages need you — in Mail and in your chat apps — and drafts the reply.", "Sa quali messaggi richiedono te — in Mail e nelle app di chat — e scrive la risposta."),
+        .onbFeatureDo: ("Does things for you in any app: “put on my Focus playlist”, “make a sheet with these totals”.", "Fa le cose per te in qualsiasi app: “metti la mia playlist Focus”, “crea un foglio con questi totali”."),
+        .onbFeatureMemory: ("Remembers what you saw and what you promised, and learns how you work.", "Ricorda cosa hai visto e cosa hai promesso, e impara come lavori."),
+        .onbFeatureVoice: ("Type with {hotkey}, or talk with {talk}.", "Scrivi con {hotkey}, oppure parla con {talk}."),
+        .onbCalendarWhy: ("Optional. Lets Leonard brief you before meetings and answer questions about your schedule. It never changes your calendar.", "Facoltativo. Permette a Leonard di prepararti agli incontri e rispondere su impegni e orari. Non modifica mai il calendario."),
+        .onbTryDo: ("Or tell it what to do: “Put on my Focus playlist on Spotify”.", "Oppure digli cosa fare: “Metti la mia playlist Focus su Spotify”."),
+        .onbTryVoice: ("Or press {talk} and just say it.", "Oppure premi {talk} e dillo a voce."),
+
+        .settingsProcedures: ("What Leonard learned to do", "Cosa ha imparato a fare Leonard"),
+        .settingsProceduresEmpty: ("Nothing yet. Tasks that work, and the ones you show it, are kept here.", "Ancora niente. I compiti riusciti, e quelli che gli mostri, restano qui."),
+        .settingsProcedureShown: ("You showed it · {count} steps", "Gliel'hai mostrato tu · {count} passi"),
+        .settingsProcedureDone: ("Learned from a task · {count} steps", "Imparato da un compito · {count} passi"),
 
         .genericCancel: ("Cancel", "Annulla"),
         .genericDelete: ("Delete", "Elimina"),

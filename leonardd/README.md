@@ -29,6 +29,12 @@ measured. 1.0 changed these things, each with tests in `tests/`:
 | Learning | `learning.py` | Per-kind Beta(2,2) approval estimate moves a personal floor within [0.40, 0.90] after 6 answers; three explicit dismissals from one sender mute it; every rule is visible and undoable. Timeouts are not dismissals. |
 | Settings | `settings.py` | Floor, language, which event kinds may interrupt, quiet hours, protected apps, retention; applied live. |
 | Lifecycle | `__main__.py` | `--parent-pid` watchdog, single-instance lock (exit 3), log file, data dir. |
+| Tasks | `agent.py` | Doing a job in any app (ADR-007): a plan, then per step one prefill answering the operation and a typed target question per kind (press, text, scroll, app), each with "none of these"; text only for TYPE; a Bool for "press Return after"; blocks below the floor, on "none", on a step that changes nothing, after 30 steps. `route_request` tells a question from a job. |
+| Tier 0 | `specialist.py` | The personal specialist (ADR-008): hashed-feature logistic regression trained on the Mac from explicit, implicit and teacher labels, validated on the user's newest answers before it may decide, deciding alone only a confident "this can wait", with 5% shadow checks. |
+| Chats | `intents.py`, `compose.py` | `message.opened` judged on the mail questions; a chat-sized reply. |
+| Promises | `commitments.py` | One Bool readout (does this sent message promise something?), then the promise phrased by the text model and its due date parsed by code (EN/IT). |
+| Meetings | `intents.py`, `compose.py` | `calendar.upcoming`: one Bool (worth preparing?), and a cited brief that includes open promises to the attendees. |
+| Procedures | `procedures.py` | Tasks that ended done and user demonstrations, matched to new requests: a guide in every step's context, and the plan itself when the match is close. |
 
 ### Judgement A/B, 1.0 against v0.1
 

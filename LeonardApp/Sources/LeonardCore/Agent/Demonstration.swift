@@ -80,3 +80,54 @@ public struct ProcedureRecordFrame: Codable, Sendable, Equatable {
         self.steps = steps
     }
 }
+
+/// A way of doing something that Leonard learned, as the daemon lists it.
+public struct LearnedProcedure: Codable, Sendable, Equatable, Identifiable {
+    public var id: String
+    public var ts: Double
+    public var goal: String
+    public var steps: [ProcedureStep]
+    public var source: String
+    public var uses: Int
+
+    public init(id: String, ts: Double, goal: String, steps: [ProcedureStep], source: String, uses: Int = 0) {
+        self.id = id
+        self.ts = ts
+        self.goal = goal
+        self.steps = steps
+        self.source = source
+        self.uses = uses
+    }
+}
+
+public struct ProceduresFrame: Codable, Sendable, Equatable {
+    public var ts: Double
+    public var requestId: String?
+    public var items: [LearnedProcedure]
+
+    enum CodingKeys: String, CodingKey {
+        case ts, items
+        case requestId = "request_id"
+    }
+
+    public init(ts: Double, requestId: String?, items: [LearnedProcedure]) {
+        self.ts = ts
+        self.requestId = requestId
+        self.items = items
+    }
+}
+
+public struct ProcedureDeleteFrame: Codable, Sendable, Equatable {
+    public var id: String
+    public var procedureId: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case procedureId = "procedure_id"
+    }
+
+    public init(id: String = RequestFrame.newID(), procedureId: String) {
+        self.id = id
+        self.procedureId = procedureId
+    }
+}

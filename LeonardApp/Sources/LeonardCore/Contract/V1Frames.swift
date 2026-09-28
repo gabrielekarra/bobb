@@ -692,6 +692,7 @@ extension IncomingFrame {
         case .taskPlan(let f): f.requestId
         case .tasksResults(let f): f.requestId
         case .commitments(let f): f.requestId
+        case .procedures(let f): f.requestId
         default: nil
         }
     }

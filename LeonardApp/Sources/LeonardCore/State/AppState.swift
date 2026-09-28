@@ -106,6 +106,8 @@ public final class AppState {
     public var recentTasks: [TaskRecord] = []
     /// Open promises the user made, from the mail they sent.
     public var commitments: [Commitment] = []
+    /// Ways of doing things Leonard learned, for Settings.
+    public var procedures: [LearnedProcedure] = []
 
     /// The promises worth a line under "For you".
     public func promisesDue(now: Date = Date()) -> [Commitment] {

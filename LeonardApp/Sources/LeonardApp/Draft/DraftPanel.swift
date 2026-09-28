@@ -196,7 +196,8 @@ struct DraftView: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)
                     .disabled(editor.text.isEmpty || session?.streaming == true)
-            } else {
+            } else if session?.result?.resultKind != "brief" && session?.actionId != "prepare_meeting" {
+                // A meeting brief is for reading; there is nowhere to put it.
                 Button(L10n.t(.draftInsert)) { insert(editor.text) }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)

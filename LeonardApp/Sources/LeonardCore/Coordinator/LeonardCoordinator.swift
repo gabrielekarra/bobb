@@ -134,6 +134,8 @@ public final class LeonardCoordinator {
             if !state.commitments.contains(where: { $0.id == found.item.id }) { state.commitments.append(found.item) }
         case .commitments(let list):
             state.commitments = list.items
+        case .procedures(let list):
+            state.procedures = list.items
         case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .unknown:
             break
         }
@@ -305,6 +307,17 @@ public final class LeonardCoordinator {
     /// Keeps what the user showed Leonard as a procedure.
     public func recordProcedure(_ frame: ProcedureRecordFrame) {
         Task { await client.send(.procedureRecord(frame)) }
+    }
+
+    public func refreshProcedures() async {
+        let id = RequestFrame.newID()
+        _ = await request(.proceduresList(RequestFrame(id: id)), id: id)
+    }
+
+    public func forgetProcedure(_ id: String) {
+        state.procedures.removeAll { $0.id == id }
+        let frame = ProcedureDeleteFrame(procedureId: id)
+        Task { _ = await request(.procedureDelete(frame), id: frame.id) }
     }
 
     public func refreshTasks() async {

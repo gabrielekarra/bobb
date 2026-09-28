@@ -9,7 +9,7 @@ What an administrator can do:
 | Step | How | Without it |
 |---|---|---|
 | Install the app | Deploy `Leonard.app` from the notarized DMG | User drags it to Applications |
-| Grant Accessibility and Mail automation | PPPC configuration profile | User approves two prompts |
+| Grant Accessibility, Mail automation, Calendar | PPPC configuration profile | User approves the prompts |
 | License every seat | Managed preference `LicenseKey` | User pastes the key |
 | Pre-install the model | Copy the verified folder | 1.8 GB download per Mac |
 
@@ -65,6 +65,12 @@ with the Team ID in the app's signature
 ```
 
 Onboarding then shows both permissions as already allowed.
+
+Calendar access can be granted the same way (service `Calendar`, same
+identifier and requirement) if the firm wants meeting briefs without a
+prompt. The microphone (for talking to Leonard) and Screen Recording (only
+for the optional "read text in images") cannot be pre-approved by MDM: macOS
+asks the user the first time, which is the point.
 
 ## 3. Licensing every seat
 

@@ -1,24 +1,33 @@
 # Roadmap
 
-| Milestone | Goal | State |
+VISION.md describes one product, not phases. This is where each part of it
+stands.
+
+| Part of the product | VISION rule | State in 1.0 |
 |---|---|---|
-| v0.1 "It sees" | AX sensors, event bus, menu bar, overlay, Mind, unix-socket contract | done |
-| v0.2 "It decides" | Typed decisions on a resident local model, confidence floor, audit store | done |
-| v0.3 "It anticipates" | Background preparation, the Mail.app moment end to end | done in 1.0 |
-| v0.4 "It learns" | Per-user floor from real accept/dismiss data, muted senders | done in 1.0 (per kind) |
-| v0.5 "It remembers" | Screen memory, grounded and cited answers | done in 1.0 (text memory, Ask) |
-| **1.0 "A product"** | Onboarding, one verified download, command bar, drafts with variants and fact check, settings, licensing, bundled runtime, signed DMG, website, fulfillment | **built and green; release waits on [LAUNCH.md](LAUNCH.md)** |
-| 1.1 "Fits in" | Outlook for Mac lens; managed-preference policies for firms (memory off, retention) | next |
-| 1.2 "Knows you" | First personal specialist distilled from the audit log (`specialist/`), shown in Mind with its latency and agreement | |
-| 1.3 "Does it" | `observe`/`act` driving other apps, with the permission engine and a visible undo | |
+| Menu bar presence, overlay, Mind | 7 | shipped |
+| Typed attention decisions, calibrated, with a floor you control | — | shipped, mail and chats |
+| Drafts grounded in what you saw, with checks | 5 (text model) | shipped, mail and chats |
+| Screen memory, text only, redacted, cited in answers | 2 | shipped, plus opt-in OCR |
+| Doing any job in any app, from outside, under a permission engine | 1, 4, 6 | shipped (ADR-007) |
+| Voice | 7 | shipped, on-device only |
+| Calendar: briefs before meetings, schedule in memory | — | shipped (EventKit, read-only) |
+| People and what you owe them | — | shipped: promises from sent mail |
+| Learning by watching: personal floor, muted senders | 3 | shipped |
+| Learning by watching: personal specialist (tier 0) | 3, 5 | shipped (ADR-008) |
+| Learning by watching: procedures from tasks and demonstrations | 3 | shipped |
+| Byte-level transformer specialist (`specialist/`) | 5 | research, next when data allows |
+| Outlook and web mail as first-class lenses | 6 | next; today via screen memory and chats |
+| A people view: everything about one person in one place | — | next |
+| Promises from chats as well as mail | — | next |
 
-## How the next milestones are decided
+## How the next steps are decided
 
-Leonard has no telemetry, so the order after 1.0 is set by support mail,
-refund reasons and the design partners in [`BUSINESS.md`](BUSINESS.md).
-Every milestone keeps the rules in [`VISION.md`](VISION.md): local by
-architecture, silence as a measured outcome, never send on the user's behalf
-without a visible, explicit action.
+Leonard has no telemetry, so the order is set by support mail, refund
+reasons and design partners ([`BUSINESS.md`](BUSINESS.md)). Every step keeps
+the rules in [`VISION.md`](VISION.md): local by architecture, silence as a
+measured outcome, never send on the user's behalf without a visible,
+explicit action.
 
 ## Definition of done for any release
 

@@ -273,7 +273,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showOnboarding() {
         if onboardingWindow == nil {
             let view = OnboardingView(
-                model: onboardingModel, permissions: permissions, downloader: downloader, hotkey: state.settings.hotkey,
+                model: onboardingModel, permissions: permissions, downloader: downloader, calendar: calendar,
+                hotkey: state.settings.hotkey,
                 startDownload: { [weak self] in self?.startDownload() },
                 finish: { [weak self] in self?.finishOnboarding() }
             )

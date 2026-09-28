@@ -28,6 +28,7 @@ struct OnboardingView: View {
     @Bindable var model: OnboardingModel
     @Bindable var permissions: Permissions
     @Bindable var downloader: ModelDownloader
+    var calendar: CalendarSensor?
     let hotkey: Hotkey
     let startDownload: () -> Void
     let finish: () -> Void
@@ -68,9 +69,10 @@ struct OnboardingView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 12) {
-                feature("envelope.badge", L10n.t(.settingsMailProactive))
-                feature("sparkle.magnifyingglass", L10n.t(.onbHotkeyTip, ["hotkey": hotkey.display]))
-                feature("brain", L10n.t(.mindFloorHint))
+                feature("envelope.badge", L10n.t(.onbFeatureMessages))
+                feature("cursorarrow.rays", L10n.t(.onbFeatureDo))
+                feature("brain.head.profile", L10n.t(.onbFeatureMemory))
+                feature("mic", L10n.t(.onbFeatureVoice, ["hotkey": hotkey.display, "talk": Hotkey.talk.display]))
             }
             .padding(.top, 8)
         }
@@ -108,6 +110,13 @@ struct OnboardingView: View {
                 icon: "envelope", title: L10n.t(.settingsAutomation), why: L10n.t(.onbAutomationWhy),
                 status: permissions.mailAutomation, request: { permissions.requestMailAutomation() }
             )
+            if let calendar {
+                permissionRow(
+                    icon: "calendar", title: L10n.t(.settingsCalendar), why: L10n.t(.onbCalendarWhy),
+                    status: calendar.access == .granted ? .granted : (calendar.access == .denied ? .denied : .notDetermined),
+                    request: { calendar.access == .denied ? Permissions.openCalendarSettings() : calendar.requestAccess() }
+                )
+            }
         }
         .onAppear { permissions.refresh() }
     }
@@ -204,11 +213,10 @@ struct OnboardingView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                Image(systemName: "keyboard")
-                    .foregroundStyle(Theme.accent)
-                Text(L10n.t(.onbTryIt, ["hotkey": hotkey.display]))
-                    .font(.system(size: 13, weight: .medium))
+            VStack(alignment: .leading, spacing: 10) {
+                feature("keyboard", L10n.t(.onbTryIt, ["hotkey": hotkey.display]))
+                feature("cursorarrow.rays", L10n.t(.onbTryDo))
+                feature("mic", L10n.t(.onbTryVoice, ["talk": Hotkey.talk.display]))
             }
             .padding(12)
             .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))

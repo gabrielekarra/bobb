@@ -110,6 +110,50 @@ Frames that expect one reply carry `id`; the reply carries it back as
 `request_id`, and so does an `error` caused by that request.
 
 
+### Tasks
+
+Features `tasks`. The full shape is in `leonardd/agent.py` and
+`LeonardCore/Contract/TaskFrames.swift`; the principle is ADR-007.
+
+| Frame | Direction | |
+|---|---|---|
+| `task.start` | app → daemon | `id`, `task_id`, `goal`, `app`, `window`, `apps` (installed app names). Replies `task.plan` with `steps` and `learned` (a procedure matched). |
+| `observe` with `task_id` | app → daemon | `step`, `app`, `window`, `digest`, `candidates` (`id`, `label`, `role`, `kind` = `press`/`text`/`scroll`, `enabled`, `focused`, `value`, `where`) and `apps` (`id`, `label`). Replies `act`. |
+| `act` | daemon → app | `operation` (`CLICK`, `TYPE`, `SCROLL_DOWN`, `SCROLL_UP`, `OPEN_APP`, `WAIT`, `DONE`, `BLOCKED`), `candidate_id` (one offered id or empty), `target_label`, `text` (only for `TYPE`), `submit` (press Return after), `confidence`, `abstained`, `why`. |
+| `task.step` | app → daemon | What happened: `operation`, `target`, `permission` (`allowed`/`asked`/`refused`), `outcome` (`ok`, `failed`, `denied`, `undone`, `user`), `digest`. |
+| `task.end` | app → daemon | `status`: `done`, `stopped`, `blocked`, `failed`. A done task becomes a procedure. |
+| `tasks.recent` | app → daemon | Replies `tasks.results`. |
+| `procedure.record` | app → daemon | A demonstration ("Show me how"): `goal`, `steps`. Replies `procedure.recorded`. |
+| `procedures.list`, `procedure.delete` | app → daemon | Reply `procedures`. |
+
+`ask` accepts `route: true`: the daemon asks one typed question (answer or
+do?) and, on a confident "do", replies `answer` with `result_kind: "task"`
+and the prompt as `text`; the app then starts a task.
+
+### Tier 0
+
+Every `decision` for mail and chat messages carries `tier`: `specialist`
+when the personal specialist decided alone, `general` when the resident
+model did, and `specialist_p` when a specialist exists. `stats` gains
+`specialist` (state, validation metrics, decisions made alone, their
+latency, agreement with the general model) and `tasks` (a summary).
+
+### New event kinds
+
+| kind | From | Judged by |
+|---|---|---|
+| `message.opened` | the conversation tracker, any chat app | the mail questions; reply is chat-sized |
+| `mail.sent` | the Sent mailbox | recorded silently; searched for a promise |
+| `calendar.upcoming` | EventKit, ten minutes before | one question: worth preparing? |
+
+### Promises
+
+Feature `commitments`. The daemon broadcasts `commitment` (`item`) when it
+finds a promise. `commitments.list` (`status`) replies `commitments`
+(`items`: `id`, `person`, `address`, `what`, `due_ts`, `subject`,
+`status`); `commitment.update` (`commitment_id`, `status` = `open`/`done`/
+`dismissed`, or `due_ts`) replies the same.
+
 ## Frames
 
 Every frame carries `t` (type) and `ts` (unix seconds, float). Unknown frame

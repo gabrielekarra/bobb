@@ -30,32 +30,47 @@ scripts/package.sh            # or download the Leonard-dmg artifact from CI
 open dist/Leonard-1.0.0.dmg
 ```
 
-1. **Onboarding.** Grant Accessibility and, when asked, Automation for Mail.
-   Download the model (1.8 GB; the progress bar and the checksum
-   verification must finish without errors). The menu bar icon settles.
-2. **Inbox radar.** Send yourself a message that asks for something ("can you
-   confirm the quote by Friday?"). Open it in Mail. The card appears once,
-   top right, with a one-line reason. "Draft reply" opens a real Mail reply
-   window with the draft pasted and **nothing sent**. Open a newsletter: no
-   card. Check both in Mind.
-3. **Variants and fact check.** In the draft panel try "Decline" and "Ask for
-   details". Put a figure in a draft that is not in the email: it is
-   highlighted.
-4. **Ask (⌥Space).** Ask about something you looked at in Safari a few
-   minutes ago; the answer cites it. Select a paragraph in TextEdit, choose
-   "Improve", press Replace: the text is replaced in place.
-5. **Memory.** Open the Memory window, search, delete one item, delete "last
-   hour". Open 1Password or Keychain Access: nothing from them appears.
-6. **Settings.** Switch the language to Italian and back; set quiet hours to
-   now and check that no card appears; add an app to the protected list.
-7. **License.** The trial shows 14 days. Issue a key with the *development*
-   key (`tools/license`, `issue --key dev-signing.key …`) and activate it in
-   a development build. A release build must reject that key.
-8. **Lifecycle.** Quit and relaunch; log out and in with "Open at login" on;
-   kill `leonardd` from Activity Monitor and watch it come back.
-9. **Speed.** On an idle Mac run `cd leonardd && uv run python -m
-   leonardd.bench` and keep the JSON. Only numbers from this run may appear
-   in marketing; see `leonardd/README.md` for why.
+1. **Onboarding.** Grant Accessibility, Automation for Mail and (optional)
+   Calendar. Download the model (1.8 GB; progress and checksum verification
+   finish without errors). The glasses in the menu bar settle, eyes up.
+2. **Mail.** Send yourself "can you confirm the quote by Friday?" and open
+   it: one card, with a one-line reason. "Draft reply" opens a real Mail
+   reply window with the draft and **nothing sent**. A newsletter: no card.
+   Try "Decline" and "Ask for details" in the draft panel.
+3. **Chats.** In Slack or WhatsApp, open a conversation where someone asks
+   you something: a card; "Draft reply" puts the text in the message box,
+   without pressing Return.
+4. **Ask (⌥Space).** Ask about something you looked at in Safari; the answer
+   cites it. Select a paragraph in TextEdit, "Improve", Replace.
+5. **Do (⌥Space).** "Put on my Focus playlist on Spotify" (or any app you
+   have): the task panel shows the plan and each step; the app is driven.
+   "Tell <a colleague> on Slack I'll be ten minutes late": Leonard stops and
+   asks before pressing Return in the message box. Press ⎋ mid-task: it
+   stops. Ask for something impossible: it blocks and offers "Show me how";
+   do it yourself, press Done, then ask again: the panel says it learned.
+6. **Voice (⌥⇧Space).** Say a question; the words appear and the answer
+   follows. With on-device dictation not installed, the bar says how to
+   install it and nothing is sent anywhere.
+7. **Promises.** Send a mail that says "I'll send you the contract
+   tomorrow". Within ten minutes it appears under "For you" with its date;
+   Done removes it.
+8. **Meetings.** Create a calendar event with an attendee starting in eleven
+   minutes: at about ten minutes, a card; "Brief me" cites what you saw.
+9. **Memory.** Search, delete one item, delete "last hour". Open 1Password or
+   Keychain Access: nothing from them appears, and a task refuses to act in
+   them. Turn on "Also read text in images", open a scanned PDF: its words
+   become searchable.
+10. **Mind.** Decisions, silences, tasks and steps are listed; after enough
+    answers, "Your specialist" reports its checks.
+11. **Settings.** Language switch; quiet hours; protected apps; "Ask me
+    before every step"; remove an "Always" rule.
+12. **License.** The trial shows 14 days. A key signed with the development
+    key activates a development build; a release build rejects it.
+13. **Lifecycle.** Quit and relaunch; log out and in with "Open at login";
+    kill `leonardd` in Activity Monitor and watch it come back.
+14. **Speed.** On an idle Mac run `cd leonardd && uv run python -m
+    leonardd.bench` and keep the JSON. Only numbers from this run may appear
+    in marketing; see `leonardd/README.md` for why.
 
 Anything that fails here is a bug to fix before step 8.
 

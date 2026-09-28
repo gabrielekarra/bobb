@@ -4,6 +4,18 @@ How Leonard learns one person's interruption preferences on their own machine.
 This is the part no one else has built, so it is the part most likely to be
 wrong. Written 2026-09-20.
 
+## What shipped in 1.0
+
+The first personal specialist is live, deliberately smaller than the design
+below: a logistic regression over hashed features, trained on the Mac in
+NumPy from explicit, implicit and teacher labels, turned on only after it
+beats or matches the resident model on the user's own newest answers, and
+allowed to decide only a confident "this can wait" (ADR-008,
+`leonardd/specialist.py`). The implicit labeller (a reply started, a
+message left unread within seconds) and the validation gate described here
+are in it. The transformer below is the next specialist, behind the same
+gate, when there is data to feed it.
+
 ## What we are fitting
 
 A replacement for the `interrupt` readout: given an event and its context,

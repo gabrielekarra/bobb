@@ -185,6 +185,25 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.radioGroup)
                 }
+                Section(L10n.t(.settingsProcedures)) {
+                    if state.procedures.isEmpty {
+                        hint(L10n.t(.settingsProceduresEmpty))
+                    }
+                    ForEach(state.procedures) { procedure in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(procedure.goal).font(.system(size: 12)).lineLimit(2)
+                                Text(L10n.t(procedure.source == "demonstration" ? .settingsProcedureShown : .settingsProcedureDone,
+                                            ["count": "\(procedure.steps.count)"]))
+                                    .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(L10n.t(.settingsRemove)) { coordinator.forgetProcedure(procedure.id) }
+                                .controlSize(.small)
+                        }
+                    }
+                }
+                .task { await coordinator.refreshProcedures() }
                 Section(L10n.t(.settingsAllowRules)) {
                     if state.settings.actionAllowRules.isEmpty {
                         hint(L10n.t(.settingsAllowRulesEmpty))

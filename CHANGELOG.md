@@ -2,39 +2,52 @@
 
 ## 1.0.0 — 2026-09-28
 
-The first release of Leonard as a product.
+The first release of Leonard: the assistant that knows when to stay quiet,
+and does the work when you ask. Everything runs on your Mac.
 
-**Inbox radar.** Leonard reads the message you open in Apple Mail and decides,
-with a calibrated confidence, whether it needs you. When it does, a small card
-appears top right — once — and "Draft reply" writes the answer in a real Mail
-reply window. Things worth doing but not worth an interruption wait quietly in
-the menu bar under "For you". Urgent automated notices (a security alert, an
-overdue invoice) get a summary instead of a reply.
+**Knows what needs you.** Leonard reads the message you open in Apple Mail
+and the conversation you open in Slack, WhatsApp, Messages, Teams, Telegram,
+Discord or Signal, and decides with a calibrated confidence whether someone
+is asking you for something. When they are, a small card appears once;
+newsletters, receipts and FYIs never get a word. Things worth doing but not
+worth an interruption wait under "For you".
 
-**Ask Leonard (⌥Space).** A command bar in every app. Ask about anything you
-have seen on screen and get an answer with its sources; or select text to
-improve, translate, summarize, explain or reply to it, and replace it in place.
+**Writes like you.** Replies in the message's language and register, grounded
+in what you have seen on screen, with sources; one click turns a draft into
+a yes, a polite no, a request for time or for details. Figures and dates that
+appear nowhere else are flagged. Drafts go into Mail's reply window or the
+chat's message box. Leonard never sends.
 
-**Drafts.** Written in the language and register of the email, using related
-context from your screen. One click turns a draft into an acceptance, a polite
-no, a request for time or a request for details. Dates and figures the model
-could not find in the email are flagged before you send anything.
+**Does it for you (⌥Space).** Ask for something to be done — "put on my Focus
+playlist", "make a sheet with these totals", "tell Giulia on Slack I'll be
+late" — and Leonard plans it and works your apps from outside, one checked
+step at a time: pressing, typing, scrolling, opening apps. It asks before
+anything that sends, pays, deletes or runs a command; ⎋ stops it; Undo takes
+the last step back. In Ask mode Leonard itself tells a question from a job.
 
-**Screen memory.** The text of what you read — never screenshots — searchable
-and deletable by item, app, hour, day or all at once. Password managers,
-Keychain, System Settings and private browser windows are never read; secrets
-are redacted before storage; forgotten after 30 days by default.
+**Talk to it (⌥⇧Space).** Speech is recognized on the Mac, never on a server.
 
-**Adaptive quiet.** Leonard learns from how you answer: a personal threshold
-per kind of event, and senders you always ignore are muted. Every rule is
-visible in Mind and can be undone.
+**Remembers.** The text of the windows you work in — and, if you allow it,
+the words in images — searchable and cited. The promises you make in the
+mail you send ("I'll send it by Friday"), with their dates, until you mark
+them done. Your calendar, for a brief ten minutes before meetings with other
+people: what you saw, what you promised them, one question worth asking.
 
-**Mind.** Every decision Leonard made, including the near-misses, with the
-confidence, the threshold and a one-sentence explanation.
+**Learns you, on your Mac.** Your answers set a personal threshold per kind
+of message and mute senders you always ignore. They also train a personal
+specialist that, once it has proved it agrees with you, decides the
+confident "this can wait" cases alone in under a millisecond. Tasks that
+worked, and the ones you show it with "Show me how", become the way it does
+them next time.
 
-**Private by architecture.** The engine binds no network socket and opens no
-connection, enforced by a test. The only download is the model, once, with
-your consent, verified by SHA-256.
+**Shows its work.** Mind lists every decision and every silence, every task
+and every step, what Leonard learned and how well its specialist agrees with
+you.
 
-**Also:** English and Italian throughout; 14-day trial; offline license keys;
-launch at login; diagnostics export with no content in it.
+**Private by architecture.** The engine that reads your screen cannot open a
+network connection. The only download is the model, which you start and
+which is verified by checksum. No account, no telemetry, offline license
+keys. Password managers, Keychain, System Settings and private windows are
+never read or operated; secure fields never.
+
+**Bilingual.** English and Italian throughout.
