@@ -43,6 +43,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .intents import is_stuck
 from .schema import Decision
 
 ACTIONS = ("ignore", "wait", "prepare", "suggest")
@@ -93,7 +94,7 @@ def _urgency_side_confidence(urgency: Decision) -> float:
     return surfacing if int(urgency.value) >= _URGENCY_SURFACE_TIER else 1.0 - surfacing
 
 
-def _mail_opened_action(readouts: dict[str, Decision], user_state: str) -> PolicyResult:
+def _mail_opened_action(readouts: dict[str, Decision], user_state: str, event: dict | None) -> PolicyResult:
     """mail.opened started with two more facts, `deadline_stated` and
     `sender_waiting_on_user`, each a `Bool` anchored as narrowly as
     `_URGENCY`'s own levels. Measured against `judgement_eval`'s fixture,
@@ -132,19 +133,21 @@ def _mail_opened_action(readouts: dict[str, Decision], user_state: str) -> Polic
     return PolicyResult("suggest", urgency_conf, ("urgency",))
 
 
-def _mail_composing_action(readouts: dict[str, Decision], user_state: str) -> PolicyResult:
-    stuck = readouts["stuck"]
-    tone = readouts["tone_risk"]
+def _mail_composing_action(readouts: dict[str, Decision], user_state: str, event: dict | None) -> PolicyResult:
+    """A hostile-sounding draft is worth an interruption before it is sent;
+    a paused draft is not. Being stuck is read off the payload's idle clock
+    (`intents.STUCK_AFTER_SECONDS`), not asked of the model, so the offer to
+    continue waits quietly in the menu bar as `prepare` instead of popping up
+    at someone who stopped to think."""
+    tone = readouts["tone"]
+    if tone.value == "curt_or_hostile":
+        return PolicyResult("suggest", tone.confidence, ("tone",))
+    if event is not None and is_stuck(event):
+        return PolicyResult("prepare", tone.confidence, ("tone",))
+    return PolicyResult("wait", tone.confidence, ("tone",))
 
-    if tone.value:
-        return PolicyResult("suggest", tone.confidence, ("tone_risk",))
-    if stuck.value:
-        return PolicyResult("suggest", stuck.confidence, ("stuck",))
-    basis = ("tone_risk", "stuck")
-    return PolicyResult("wait", _min_confidence(readouts, basis), basis)
 
-
-def _text_selected_action(readouts: dict[str, Decision], user_state: str) -> PolicyResult:
+def _text_selected_action(readouts: dict[str, Decision], user_state: str, event: dict | None) -> PolicyResult:
     actionable = readouts["actionable"]
     kind = readouts["action_kind"]
 
@@ -157,7 +160,7 @@ def _text_selected_action(readouts: dict[str, Decision], user_state: str) -> Pol
     return PolicyResult("suggest", _min_confidence(readouts, basis), basis)
 
 
-def _relevance_action(readouts: dict[str, Decision], user_state: str) -> PolicyResult:
+def _relevance_action(readouts: dict[str, Decision], user_state: str, event: dict | None) -> PolicyResult:
     relevant = readouts["relevant"]
     if relevant.value:
         return PolicyResult("suggest", relevant.confidence, ("relevant",))
@@ -173,17 +176,28 @@ _POLICIES = {
 }
 
 
-def _cap_by_user_state(result: PolicyResult, user_state: str) -> PolicyResult:
+def cap_by_user_state(result: PolicyResult, user_state: str) -> PolicyResult:
     if result.action == "suggest" and user_state in _EXPENSIVE_TO_INTERRUPT:
         return PolicyResult("prepare", result.confidence, result.basis)
     return result
 
 
-def decide_action(kind: str, readouts: dict[str, Decision], user_state: str) -> PolicyResult:
+def decide_action(
+    kind: str,
+    readouts: dict[str, Decision],
+    user_state: str,
+    event: dict | None = None,
+    *,
+    cap: bool = True,
+) -> PolicyResult:
+    """The action for these facts. `cap=False` returns what the facts alone
+    call for, before the user's state is weighed, so a caller can say *why*
+    a `suggest` became a `prepare`."""
     policy = _POLICIES.get(kind)
     if policy is None:
         raise KeyError(f"no policy defined for event kind {kind!r}")
-    return _cap_by_user_state(policy(readouts, user_state), user_state)
+    result = policy(readouts, user_state, event)
+    return cap_by_user_state(result, user_state) if cap else result
 
 
-__all__ = ["ACTIONS", "PolicyResult", "decide_action"]
+__all__ = ["ACTIONS", "PolicyResult", "decide_action", "cap_by_user_state"]

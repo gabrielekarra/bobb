@@ -1,7 +1,47 @@
 import Foundation
 #if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
 #endif
+
+/// The libc calls this file uses, named once so the same code builds on
+/// macOS (where the app ships) and on Linux (where `LeonardCore`'s tests
+/// also run).
+enum POSIX {
+    static let streamSocket: Int32 = {
+        #if canImport(Darwin)
+        return SOCK_STREAM
+        #else
+        return Int32(SOCK_STREAM.rawValue)
+        #endif
+    }()
+
+    @discardableResult
+    static func close(_ fd: Int32) -> Int32 {
+        #if canImport(Darwin)
+        return POSIX.close(fd)
+        #else
+        return Glibc.close(fd)
+        #endif
+    }
+
+    static func read(_ fd: Int32, _ buffer: UnsafeMutableRawPointer?, _ count: Int) -> Int {
+        #if canImport(Darwin)
+        return POSIX.read(fd, buffer, count)
+        #else
+        return Glibc.read(fd, buffer, count)
+        #endif
+    }
+
+    static func write(_ fd: Int32, _ buffer: UnsafeRawPointer?, _ count: Int) -> Int {
+        #if canImport(Darwin)
+        return POSIX.write(fd, buffer, count)
+        #else
+        return Glibc.write(fd, buffer, count)
+        #endif
+    }
+}
 
 struct SocketError: Error, CustomStringConvertible {
     let description: String
@@ -40,7 +80,7 @@ final class UnixSocketConnection: @unchecked Sendable {
             }
         }
 
-        let newFd = socket(AF_UNIX, SOCK_STREAM, 0)
+        let newFd = socket(AF_UNIX, POSIX.streamSocket, 0)
         guard newFd >= 0 else {
             throw SocketError(description: "socket() failed: \(String(cString: strerror(errno)))")
         }
@@ -52,7 +92,7 @@ final class UnixSocketConnection: @unchecked Sendable {
         }
         guard connectResult == 0 else {
             let message = String(cString: strerror(errno))
-            Darwin.close(newFd)
+            POSIX.close(newFd)
             throw SocketError(description: "connect() failed: \(message)")
         }
 
@@ -71,7 +111,7 @@ final class UnixSocketConnection: @unchecked Sendable {
             var chunk = [UInt8](repeating: 0, count: 4096)
             readLoop: while true {
                 let n = chunk.withUnsafeMutableBytes { raw -> Int in
-                    Darwin.read(fd, raw.baseAddress, raw.count)
+                    POSIX.read(fd, raw.baseAddress, raw.count)
                 }
                 if n > 0 {
                     buffer.append(contentsOf: chunk[0..<n])
@@ -101,7 +141,7 @@ final class UnixSocketConnection: @unchecked Sendable {
             guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return }
             var offset = 0
             while offset < raw.count {
-                let n = Darwin.write(fd, base.advanced(by: offset), raw.count - offset)
+                let n = POSIX.write(fd, base.advanced(by: offset), raw.count - offset)
                 if n > 0 {
                     offset += n
                 } else if n < 0 && errno == EINTR {
@@ -118,7 +158,7 @@ final class UnixSocketConnection: @unchecked Sendable {
         defer { closeLock.unlock() }
         guard !closed else { return }
         closed = true
-        Darwin.close(fd)
+        POSIX.close(fd)
     }
 
     deinit {

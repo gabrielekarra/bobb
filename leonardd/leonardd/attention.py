@@ -15,6 +15,16 @@ the runtime floor on top of the policy's own confidence — a low-confidence
 action is downgraded to `wait`, and a failed readout (`schema_mass` below
 `SCHEMA_MASS_FLOOR`) forces `wait` regardless of confidence, per the
 contract's invariant.
+
+Three things happen before any forward pass and cost nothing: an event kind
+the user has not made proactive is recorded and ignored; a sender the user
+has muted (see `learning.py`) is recorded and ignored; an event with no
+questions is recorded and ignored. Two happen after the policy: quiet hours
+cap a `suggest` to `prepare`, and the floor is the user's personal floor for
+that kind when adaptive quiet is on.
+
+Every decision carries `explanation`, one localized sentence a person can
+read in Mind, alongside the technical `why`.
 """
 
 from __future__ import annotations
@@ -23,17 +33,20 @@ import time
 import uuid
 from typing import Any
 
+from . import i18n
 from .decide import decide_many, prime
 from .engine import Cache, Engine
-from .intents import SYSTEM_PREFIX, intent_for
-from .policy import PolicyResult, decide_action
+from .intents import PREPARABLE_ACTIONS, SYSTEM_PREFIX, intent_for
+from .learning import Personalizer
+from .policy import PolicyResult, cap_by_user_state, decide_action
 from .schema import Decision
+from .settings import Settings
 
 DEFAULT_FLOOR = 0.60
 SCHEMA_MASS_FLOOR = 0.5
 
 _MEETING_APPS = frozenset(
-    {"zoom.us", "Zoom", "Microsoft Teams", "Teams", "FaceTime", "Google Meet", "Meet", "Webex"}
+    {"zoom.us", "Zoom", "Microsoft Teams", "Teams", "FaceTime", "Google Meet", "Meet", "Webex", "Slack Huddle"}
 )
 
 
@@ -68,8 +81,10 @@ class UserActivityTracker:
             return "typing"
         if self._idle or payload.get("idle") is True:
             return "idle"
+        if payload.get("in_call") is True:
+            return "meeting"
         app = event.get("app") or self._app
-        if app in _MEETING_APPS:
+        if app in _MEETING_APPS or self._app in _MEETING_APPS:
             return "meeting"
         if event.get("kind") == "mail.composing":
             return "typing"
@@ -95,82 +110,148 @@ def _value_str(d: Decision) -> str:
     return ("true" if d.value else "false") if d.kind == "bool" else str(d.value)
 
 
-def _why(readouts: dict[str, Decision], user_state: str, policy_result: PolicyResult) -> str:
-    parts = [f"{name} {_value_str(d)} a {d.confidence:.2f}" for name, d in readouts.items()]
-    parts.append(f"stato utente: {user_state}")
-    parts.append(
-        f"azione calcolata da policy.py: {policy_result.action} "
-        f"(base: {', '.join(policy_result.basis)})"
-    )
+def _why(readouts: dict[str, Decision], user_state: str, policy_result: PolicyResult, floor: float) -> str:
+    parts = [f"{name}={_value_str(d)} p={d.confidence:.2f}" for name, d in readouts.items()]
+    parts.append(f"user_state={user_state}")
+    parts.append(f"policy={policy_result.action} basis={'+'.join(policy_result.basis)}")
+    parts.append(f"floor={floor:.2f}")
     return ", ".join(parts)
 
 
-def _ignored_decision(event: dict, reason: str, latency_ms: float) -> dict:
-    return {
-        "t": "decision",
-        "ts": time.time(),
-        "id": _new_id("dec"),
-        "event_id": event.get("id", ""),
-        "action": "ignore",
-        "confidence": 1.0,
-        "schema_mass": 1.0,
-        "latency_ms": latency_ms,
-        "hypotheses": [],
-        "readouts": [],
-        "why": reason,
-    }
+def _local_hour(event: dict) -> int:
+    ts = event.get("ts")
+    ts = ts if isinstance(ts, (int, float)) and ts > 1e9 else time.time()
+    return time.localtime(ts).tm_hour
 
 
 class AttentionEngine:
-    """Holds the warm model, the primed cache, the runtime floor and the
-    session's user-activity estimate. One instance serves every event for
-    the lifetime of the daemon."""
+    """Holds the warm model, the primed cache, the user's settings, what it
+    has learned about them, and the session's user-activity estimate. One
+    instance serves every event for the lifetime of the daemon."""
 
-    def __init__(self, engine: Engine, *, floor: float = DEFAULT_FLOOR, system_prefix: str = SYSTEM_PREFIX):
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        floor: float = DEFAULT_FLOOR,
+        system_prefix: str = SYSTEM_PREFIX,
+        settings: Settings | None = None,
+        personalizer: Personalizer | None = None,
+        proactive_kinds: frozenset[str] | None = None,
+    ):
         self.engine = engine
-        self.floor = floor
+        base = settings or Settings()
+        if settings is None:
+            # Direct construction (tests, the bench) keeps the v0.1 meaning:
+            # every kind with questions is decided.
+            base = Settings(floor=floor, proactive_kinds=proactive_kinds or frozenset(_ALL_DECIDABLE_KINDS))
+        self.settings = base
+        self.personalizer = personalizer
         self.tracker = UserActivityTracker()
         self.primed: Cache = prime(engine, system_prefix)
+
+    @property
+    def floor(self) -> float:
+        return self.settings.floor
 
     def set_floor(self, floor: float) -> None:
         if not (0.0 <= floor <= 1.0):
             raise ValueError(f"floor must be in [0, 1], got {floor}")
-        self.floor = floor
+        from dataclasses import replace
+
+        self.settings = replace(self.settings, floor=floor)
+
+    def floor_for(self, kind: str) -> float:
+        if self.personalizer is not None and self.settings.adaptive:
+            return self.personalizer.personal_floor(kind, self.settings.floor)
+        return self.settings.floor
+
+    def _silent(self, event: dict, *, why: str, explanation: str, started: float) -> dict:
+        self.tracker.observe(event)
+        return {
+            "t": "decision",
+            "ts": time.time(),
+            "id": _new_id("dec"),
+            "event_id": event.get("id", ""),
+            "action": "ignore",
+            "confidence": 1.0,
+            "schema_mass": 1.0,
+            "latency_ms": (time.perf_counter() - started) * 1000,
+            "hypotheses": [],
+            "readouts": [],
+            "why": why,
+            "explanation": explanation,
+        }
 
     def decide_event(self, event: dict) -> dict:
         started = time.perf_counter()
+        locale = self.settings.locale
         kind = event.get("kind", "")
         intent = intent_for(kind)
         user_state = self.tracker.state(event)
 
-        readouts: dict[str, Decision] = {}
-        if intent.questions:
-            context = intent.context(event, user_state)
-            answers = decide_many(self.engine, context, intent.questions, primed=self.primed)
-            readouts = {d.name: d for d in answers}
+        if not intent.questions:
+            return self._silent(
+                event,
+                why=f"no decidable content ({kind or 'unknown kind'})",
+                explanation=i18n.t("outcome.recorded", locale),
+                started=started,
+            )
+        if kind not in self.settings.proactive_kinds:
+            return self._silent(
+                event,
+                why=f"proactive disabled for {kind}",
+                explanation=i18n.t("outcome.proactive_off", locale),
+                started=started,
+            )
+        muted = self.personalizer.muted_sender(event) if self.personalizer else None
+        if muted is not None:
+            return self._silent(
+                event,
+                why=f"sender muted ({muted.rule_id})",
+                explanation=i18n.t("outcome.muted", locale, count=muted.dismissed, sender=muted.sender),
+                started=started,
+            )
 
+        context = intent.context(event, user_state)
+        answers = decide_many(self.engine, context, intent.questions, primed=self.primed)
+        readouts = {d.name: d for d in answers}
         self.tracker.observe(event)
         latency_ms = (time.perf_counter() - started) * 1000
 
-        if not readouts:
-            return _ignored_decision(event, f"nessun contenuto decidibile ({kind or 'kind sconosciuto'})", latency_ms)
-
-        policy_result = decide_action(kind, readouts, user_state)
+        uncapped = decide_action(kind, readouts, user_state, event, cap=False)
+        policy_result = cap_by_user_state(uncapped, user_state)
         action = policy_result.action
         confidence = policy_result.confidence
         schema_mass = min(d.schema_mass for d in readouts.values())
+        floor = self.floor_for(kind)
 
-        abstained = False
-        if schema_mass < SCHEMA_MASS_FLOOR or confidence < self.floor:
-            action = "wait"
-            abstained = True
+        cap_reason = None
+        if uncapped.action == "suggest" and action == "prepare":
+            cap_reason = user_state
+        if action == "suggest" and self.settings.in_quiet_hours(_local_hour(event)):
+            action = "prepare"
+            cap_reason = "quiet_hours"
 
         hypotheses = sorted(intent.hypotheses(event, readouts), key=lambda h: h.p, reverse=True)
-
         suggestion = None
-        if action == "suggest":
-            suggestion = intent.suggestion(event, readouts, hypotheses)
+        if action in ("suggest", "prepare"):
+            suggestion = intent.suggestion(event, readouts, hypotheses, locale)
+            if suggestion is None or suggestion.get("action_id") not in PREPARABLE_ACTIONS:
+                suggestion = None
+                action = "wait"
 
+        abstained = False
+        failed_readout = schema_mass < SCHEMA_MASS_FLOOR
+        if failed_readout or confidence < floor:
+            if action != "ignore" or failed_readout:
+                action = "wait"
+                abstained = True
+                suggestion = None
+
+        explanation = self._explain(
+            intent, event, readouts, action, confidence, floor, abstained, failed_readout, cap_reason, locale
+        )
         ordered = [readouts[q.name] for q in intent.questions if q.name in readouts]
         decision: dict[str, Any] = {
             "t": "decision",
@@ -181,15 +262,49 @@ class AttentionEngine:
             "confidence": round(confidence, 6),
             "schema_mass": round(schema_mass, 6),
             "latency_ms": latency_ms,
+            "floor": round(floor, 6),
             "hypotheses": [{"intent": h.intent, "p": round(h.p, 6)} for h in hypotheses],
             "readouts": [_readout_frame(d) for d in ordered],
-            "why": _why(readouts, user_state, policy_result),
+            "why": _why(readouts, user_state, policy_result, floor),
+            "explanation": explanation,
         }
         if suggestion is not None:
             decision["suggestion"] = suggestion
         if abstained:
             decision["abstained"] = True
         return decision
+
+    def _explain(
+        self,
+        intent,
+        event: dict,
+        readouts: dict[str, Decision],
+        action: str,
+        confidence: float,
+        floor: float,
+        abstained: bool,
+        failed_readout: bool,
+        cap_reason: str | None,
+        locale: str,
+    ) -> str:
+        what = intent.explain(event, readouts, locale)
+        if failed_readout:
+            outcome = i18n.t("outcome.failed_readout", locale)
+        elif abstained:
+            outcome = i18n.t(
+                "outcome.abstained", locale, confidence=i18n.percent(confidence), floor=i18n.percent(floor)
+            )
+        elif action == "prepare" and cap_reason:
+            outcome = i18n.t(f"outcome.prepare.{cap_reason}", locale)
+        else:
+            outcome = i18n.t(f"outcome.{action}", locale)
+        sentence = f"{what} {outcome}"
+        if abs(floor - self.settings.floor) >= 0.005 and action != "ignore":
+            sentence += " " + i18n.t("outcome.personal_floor", locale, floor=i18n.percent(floor))
+        return sentence
+
+
+_ALL_DECIDABLE_KINDS = ("mail.opened", "mail.composing", "text.selected", "app.activated", "window.changed")
 
 
 __all__ = ["AttentionEngine", "UserActivityTracker", "DEFAULT_FLOOR", "SCHEMA_MASS_FLOOR"]

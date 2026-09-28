@@ -26,6 +26,10 @@ class Choice:
     name: str
     question: str
     options: tuple[str, ...]
+    # Ask a second time with the options in reverse order and average the two
+    # distributions. Costs one extra row in the same batched forward pass.
+    # See `decide.py` and `leonardd/README.md`, "Letter-order bias".
+    debias: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -51,6 +55,7 @@ class Score:
     rubric: str
     lo: int = 0
     hi: int = 4
+    debias: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -85,6 +90,10 @@ class Bool:
     @property
     def kind(self) -> str:
         return "bool"
+
+    @property
+    def debias(self) -> bool:
+        return False
 
     @property
     def labels(self) -> tuple[str, ...]:

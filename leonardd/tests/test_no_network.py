@@ -54,3 +54,27 @@ async def test_frame_gate_cycle_opens_no_non_unix_socket(tmp_path, monkeypatch):
         trace = await recv_frame(reader)
         assert trace["stage"] == "gate"
         writer.close()
+
+
+async def test_memory_and_ask_open_no_non_unix_socket(tmp_path, monkeypatch):
+    import leonardd.server as server_mod
+    from leonardd.generation import Generated
+    from leonardd.memory import MemoryStore
+
+    def fake_stream(engine, messages, *, max_tokens, on_delta=None, cancel=None, temperature=0.3, prefix=""):
+        on_delta("ok [1]")
+        return Generated("ok [1]", 1, 1.0, 1.0, False, "stop")
+
+    monkeypatch.setattr(server_mod, "supports_generation", lambda engine: True)
+    monkeypatch.setattr(server_mod, "stream_text", fake_stream)
+    async with running_server(tmp_path, monkeypatch) as server:
+        server.memory = MemoryStore(tmp_path / "memory.db")
+        reader, writer = await asyncio.open_unix_connection(str(server.socket_path))
+        await send_frame(writer, {"t": "memory.observe", "app": "Mail", "window": "w",
+                                  "text": "a message long enough to be remembered by leonard"})
+        await send_frame(writer, {"t": "ask", "id": "q", "prompt": "what message was remembered?"})
+        frames = [await recv_frame(reader) for _ in range(2)]
+        assert frames[-1]["t"] == "answer" and frames[-1]["ok"] is True
+        await send_frame(writer, {"t": "memory.search", "id": "s", "query": "message"})
+        assert (await recv_frame(reader))["t"] == "memory.results"
+        writer.close()

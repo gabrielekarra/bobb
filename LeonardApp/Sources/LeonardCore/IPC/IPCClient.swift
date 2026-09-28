@@ -35,6 +35,7 @@ public actor IPCClient {
     private var reconnectTask: Task<Void, Never>?
     private var attempt = 0
     private var stopped = false
+    private var locale: String?
 
     private var state: ConnectionState = .disconnected {
         didSet { stateContinuation.yield(state) }
@@ -73,12 +74,28 @@ public actor IPCClient {
         sendOrDisconnect(.event(event))
     }
 
+    /// Any frame. Returns false when there is no live connection, so a
+    /// caller waiting on a reply can fail fast instead of timing out.
+    @discardableResult
+    public func send(_ frame: OutgoingFrame) -> Bool {
+        guard connection != nil else { return false }
+        sendOrDisconnect(frame)
+        return connection != nil
+    }
+
+    /// The UI language sent in every `hello` from now on.
+    public func setLocale(_ locale: String) {
+        self.locale = locale
+    }
+
+    public var isConnected: Bool { connection != nil }
+
     public func sendApprove(decisionId: String) {
         sendOrDisconnect(.approve(DecisionResponseFrame(decisionId: decisionId)))
     }
 
-    public func sendDismiss(decisionId: String) {
-        sendOrDisconnect(.dismiss(DecisionResponseFrame(decisionId: decisionId)))
+    public func sendDismiss(decisionId: String, reason: DismissReason? = nil) {
+        sendOrDisconnect(.dismiss(DecisionResponseFrame(decisionId: decisionId, reason: reason)))
     }
 
     public func sendPolicy(floor: Double) {
@@ -109,7 +126,7 @@ public actor IPCClient {
             readerTask = Task { [weak self] in
                 await self?.readLoop(conn)
             }
-            try conn.write(try OutgoingFrame.hello(HelloFrame()).encoded())
+            try conn.write(try OutgoingFrame.hello(HelloFrame(locale: locale)).encoded())
         } catch {
             connection = nil
             scheduleReconnect()

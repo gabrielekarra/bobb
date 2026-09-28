@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import LeonardCore
 
 /// Everything Leonard can observe about desktop activity with **no**
 /// Accessibility permission: which app is frontmost, from `NSWorkspace`,
