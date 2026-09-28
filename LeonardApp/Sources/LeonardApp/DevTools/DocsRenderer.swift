@@ -66,7 +66,19 @@ func renderDocsScreenshots() {
 
 @MainActor
 private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?, background: NSColor = .windowBackgroundColor, to url: URL) {
-    let hosting = NSHostingView(rootView: view)
+    // Resolve dynamic colors against the requested appearance, not the
+    // renderer process's own: an off-screen window otherwise paints a light
+    // background under dark-mode text.
+    let dark = appearance?.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    var resolved = background
+    if background != .clear, let appearance {
+        appearance.performAsCurrentDrawingAppearance {
+            resolved = background.usingColorSpace(.sRGB) ?? background
+        }
+    }
+    let hosting = NSHostingView(rootView: view
+        .environment(\.colorScheme, dark ? .dark : .light)
+        .background(background == .clear ? Color.clear : Color(nsColor: resolved)))
     hosting.appearance = appearance
     let fitting = size ?? hosting.fittingSize
     hosting.frame = NSRect(origin: .zero, size: fitting)
@@ -75,7 +87,7 @@ private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?
     window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
     window.appearance = appearance
     window.contentView = hosting
-    window.backgroundColor = background
+    window.backgroundColor = resolved
     window.isOpaque = background != .clear
     window.orderFrontRegardless()
 

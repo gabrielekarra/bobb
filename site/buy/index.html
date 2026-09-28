@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buy Leonard</title>
+  <link rel="icon" href="../assets/img/favicon-64.png">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../assets/config.js"></script>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../assets/img/icon-256.png" alt="">Leonard</a>
+  <span class="spacer"></span>
+</div></header>
+<main class="doc">
+  <h1 data-en="Buy Leonard" data-it="Acquista Leonard">Buy Leonard</h1>
+  <p class="lede" data-en="Pay once, keep it forever. Your license key arrives by email within minutes and works offline." data-it="Paghi una volta, è tuo per sempre. La chiave di licenza arriva via email in pochi minuti e funziona offline.">Pay once, keep it forever.</p>
+  <div class="plans" style="grid-template-columns:1fr 1fr">
+    <div class="plan" id="personal">
+      <h3>Personal</h3>
+      <div class="price">€79</div>
+      <p class="muted" data-en="One person, up to 2 Macs, 1 year of updates." data-it="Una persona, fino a 2 Mac, 1 anno di aggiornamenti.">One person, up to 2 Macs, 1 year of updates.</p>
+      <a class="btn btn-ghost" data-plan="personal" href="#" data-en="Buy Personal" data-it="Acquista Personal">Buy Personal</a>
+    </div>
+    <div class="plan featured" id="pro">
+      <h3>Pro</h3>
+      <div class="price">€149</div>
+      <p class="muted" data-en="Up to 3 Macs, priority support, VAT invoice, 1 year of updates." data-it="Fino a 3 Mac, supporto prioritario, fattura con IVA, 1 anno di aggiornamenti.">Up to 3 Macs, priority support, VAT invoice.</p>
+      <a class="btn btn-primary" data-plan="pro" href="#" data-en="Buy Pro" data-it="Acquista Pro">Buy Pro</a>
+    </div>
+  </div>
+  <h2 data-en="After you buy" data-it="Dopo l'acquisto">After you buy</h2>
+  <ol>
+    <li data-en="Your key arrives by email: it starts with LEONARD-." data-it="La chiave arriva via email: inizia con LEONARD-.">Your key arrives by email: it starts with LEONARD-.</li>
+    <li data-en="In Leonard, open Settings › License and paste it." data-it="In Leonard, apri Impostazioni › Licenza e incollala.">In Leonard, open Settings › License and paste it.</li>
+    <li data-en="That's all. The key is checked on your Mac; nothing is sent to us." data-it="Fatto. La chiave viene verificata sul tuo Mac; niente viene inviato a noi.">That's all. The key is checked on your Mac; nothing is sent to us.</li>
+  </ol>
+  <p class="muted" data-en="Payments are handled by our reseller, who is the merchant of record and takes care of VAT. 30-day money-back guarantee." data-it="I pagamenti sono gestiti dal nostro rivenditore, che è il merchant of record e si occupa dell'IVA. Rimborso garantito entro 30 giorni.">Payments are handled by our reseller, the merchant of record. 30-day money-back guarantee.</p>
+</main>
+<script>
+  const params = new URLSearchParams(location.search);
+  const lang = params.get("lang") === "it" || navigator.language.startsWith("it") ? "it" : "en";
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-" + lang + "]").forEach(el => { el.textContent = el.dataset[lang]; });
+  const cfg = window.LEONARD;
+  document.querySelectorAll("[data-plan]").forEach(a => {
+    const url = cfg.checkout[a.dataset.plan];
+    a.href = url || ("mailto:" + cfg.salesEmail + "?subject=Leonard%20" + a.dataset.plan);
+  });
+  const plan = params.get("plan");
+  if (plan && document.getElementById(plan)) document.getElementById(plan).scrollIntoView();
+</script>
+</body>
+</html>

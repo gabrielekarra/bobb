@@ -26,7 +26,9 @@ final class MemoryBrowserModel {
             let found = await coordinator.searchMemory(query, app: app)
             let counted = await coordinator.memoryStats()
             if Task.isCancelled { return }
-            self.results = found?.results ?? []
+            // A failed request (the engine restarting) keeps what is on
+            // screen rather than blanking it.
+            if let found { self.results = found.results }
             if let counted { self.stats = counted }
             loading = false
         }
@@ -151,10 +153,16 @@ struct MemoryView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(model.results) { hit in
-                    row(hit)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(model.results) { hit in
+                            row(hit)
+                                .padding(.horizontal, 14)
+                            Divider().padding(.leading, 14)
+                        }
+                    }
+                    .padding(.vertical, 6)
                 }
-                .listStyle(.inset)
             }
             Divider()
             HStack {

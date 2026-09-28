@@ -90,7 +90,7 @@ public enum L10n {
              onbDownload, onbDownloading, onbVerifying, onbModelReady, onbModelFailed, onbRetry,
              onbModelOffline, onbReadyTitle, onbReadyBody, onbTryIt, onbHotkeyTip
         // chart and audit
-        case chartTitle, chartWouldSurface, chartSilent, chartNearMiss, auditTitle, auditSearch, auditSelect, auditRawEvent,
+        case chartTitle, chartWouldSurface, chartSilent, chartNearMiss, chartThreshold, readoutMass, readoutCloseTo, auditTitle, auditSearch, auditSelect, auditRawEvent,
              auditOpen
         // misc
         case genericCancel, genericDelete, genericOK, genericClose, genericError, relToday, relYesterday, relDaysAgo,
@@ -319,6 +319,9 @@ public enum L10n {
         .chartWouldSurface: ("would reach you", "ti arriverebbe"),
         .chartSilent: ("silent", "silenzio"),
         .chartNearMiss: ("near miss", "quasi emerso"),
+        .chartThreshold: ("threshold {value}", "soglia {value}"),
+        .readoutMass: ("mass {value}", "massa {value}"),
+        .readoutCloseTo: ("close to “{label}” ({p})", "vicino a “{label}” ({p})"),
         .auditTitle: ("Decision history", "Storico delle decisioni"),
         .auditSearch: ("Search by app, outcome, reason…", "Cerca per app, esito, motivo…"),
         .auditSelect: ("Select a decision", "Seleziona una decisione"),

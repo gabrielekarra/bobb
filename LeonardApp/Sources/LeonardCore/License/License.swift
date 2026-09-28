@@ -48,7 +48,7 @@ public struct LicensePayload: Codable, Sendable, Equatable {
         switch edition {
         case "personal": "Personal"
         case "pro": "Pro"
-        case "team": "Team"
+        case "team": L10n.code == "it" ? "Studio" : "Firm"
         default: edition.capitalized
         }
     }

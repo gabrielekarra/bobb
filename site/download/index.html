@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Download Leonard for Mac</title>
+  <link rel="icon" href="../assets/img/favicon-64.png">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../assets/config.js"></script>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="../assets/img/icon-256.png" alt="">Leonard</a>
+  <span class="spacer"></span>
+</div></header>
+<main class="doc">
+  <img src="../assets/img/icon-256.png" alt="" width="88" height="88" style="margin-bottom:18px">
+  <h1 data-en="Download Leonard" data-it="Scarica Leonard">Download Leonard</h1>
+  <p class="lede" data-en="Every feature, free for 14 days. No account, no card." data-it="Tutte le funzioni, gratis per 14 giorni. Nessun account, nessuna carta.">Every feature, free for 14 days. No account, no card.</p>
+  <p><a id="dl" class="btn btn-primary" href="#"><span data-en="Download for Mac" data-it="Scarica per Mac">Download for Mac</span> <small id="ver"></small></a></p>
+  <p id="unavailable" class="muted" hidden data-en="The public download opens soon. Write to us and we'll send you the build today." data-it="Il download pubblico apre a breve. Scrivici e ti mandiamo la build oggi stesso.">The public download opens soon.</p>
+
+  <h2 data-en="Requirements" data-it="Requisiti">Requirements</h2>
+  <ul>
+    <li data-en="A Mac with Apple silicon (M1 or later)" data-it="Un Mac con Apple silicon (M1 o successivi)">A Mac with Apple silicon (M1 or later)</li>
+    <li data-en="macOS 14 Sonoma or later" data-it="macOS 14 Sonoma o successivi">macOS 14 Sonoma or later</li>
+    <li data-en="16 GB of memory recommended; about 4 GB of free disk" data-it="16 GB di memoria consigliati; circa 4 GB di disco libero">16 GB of memory recommended; about 4 GB of free disk</li>
+  </ul>
+
+  <h2 data-en="Install" data-it="Installazione">Install</h2>
+  <ol>
+    <li data-en="Open the DMG and drag Leonard to Applications." data-it="Apri il DMG e trascina Leonard in Applicazioni.">Open the DMG and drag Leonard to Applications.</li>
+    <li data-en="Open Leonard. It appears in the menu bar, not the Dock." data-it="Apri Leonard. Compare nella barra dei menu, non nel Dock.">Open Leonard. It appears in the menu bar, not the Dock.</li>
+    <li data-en="Follow the five-step setup: two permissions and a one-time 1.8 GB model download." data-it="Segui la configurazione in cinque passi: due permessi e un download del modello da 1,8 GB, una volta sola.">Follow the five-step setup: two permissions and a one-time 1.8 GB model download.</li>
+  </ol>
+
+  <h2 data-en="Verify your download" data-it="Verifica il download">Verify your download</h2>
+  <p data-en="Leonard is signed and notarized by Apple. You can also check the file yourself:" data-it="Leonard è firmato e notarizzato da Apple. Puoi anche verificare il file tu stesso:">Leonard is signed and notarized by Apple. You can also check the file yourself:</p>
+  <p><code>shasum -a 256 ~/Downloads/Leonard-<span class="v"></span>.dmg</code></p>
+  <p class="muted" id="sha"></p>
+</main>
+<script>
+  const params = new URLSearchParams(location.search);
+  const lang = params.get("lang") === "it" || navigator.language.startsWith("it") ? "it" : "en";
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-" + lang + "]").forEach(el => { el.textContent = el.dataset[lang]; });
+  const cfg = window.LEONARD;
+  document.getElementById("ver").textContent = "v" + cfg.version;
+  document.querySelectorAll(".v").forEach(el => el.textContent = cfg.version);
+  const dl = document.getElementById("dl");
+  if (cfg.downloadURL) { dl.href = cfg.downloadURL; } else {
+    dl.href = "mailto:" + cfg.supportEmail + "?subject=Leonard%20" + cfg.version;
+    document.getElementById("unavailable").hidden = false;
+  }
+  if (cfg.downloadSHA256) document.getElementById("sha").textContent = "SHA-256: " + cfg.downloadSHA256;
+</script>
+</body>
+</html>

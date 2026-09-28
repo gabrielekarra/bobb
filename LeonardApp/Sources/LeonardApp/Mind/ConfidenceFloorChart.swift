@@ -46,11 +46,11 @@ struct ConfidenceFloorChart: View {
                     .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
             } else {
                 Chart {
-                    RuleMark(y: .value("Soglia", floor))
+                    RuleMark(y: .value("Threshold", floor))
                         .foregroundStyle(.secondary)
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                         .annotation(position: .top, alignment: .leading) {
-                            Text("soglia \(String(format: "%.2f", floor))")
+                            Text(L10n.t(.chartThreshold, ["value": String(format: "%.2f", floor)]))
                                 .font(.system(size: 8.5, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy — Leonard</title>
+  <link rel="icon" href="../assets/img/favicon-64.png">
+  <link rel="alternate" hreflang="en" href="../privacy.html">
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="./"><img src="../assets/img/icon-256.png" alt="">Leonard</a>
+  <a class="lang spacer" href="../privacy.html">English</a>
+</div></header>
+<main class="doc">
+  <h1>Informativa sulla privacy</h1>
+  <p class="updated">Ultimo aggiornamento: 28 settembre 2026</p>
+
+  <p><strong>In breve:</strong> Leonard gira sul tuo Mac e non invia nulla a noi né a nessun altro. Non vediamo mai la tua posta, il tuo schermo, i tuoi documenti, le tue domande o ciò che Leonard scrive. Questo sito non usa cookie né strumenti di analisi. Gli unici dati personali che trattiamo sono quelli che ci dai quando acquisti una licenza o scrivi al supporto.</p>
+
+  <h2>Chi siamo</h2>
+  <p>Il titolare del trattamento è <strong>[ragione sociale, sede legale, partita IVA]</strong> («noi»). Contatto: <a href="mailto:privacy@leonard.app">privacy@leonard.app</a>.</p>
+
+  <h2>L'app</h2>
+  <p>Leonard legge il testo della finestra davanti a te, la mail che apri in Mail e le bozze che scrivi, per decidere se aiutarti e per farlo. Tutto questo viene elaborato sul tuo Mac da un modello linguistico che gira sul tuo Mac, e conservato solo sul tuo Mac, in <code>~/Library/Application Support/Leonard</code>. Non viene mai trasmesso a noi né a terzi.</p>
+  <ul>
+    <li><strong>Nessun account, nessuna telemetria, nessun invio di crash report.</strong> L'app non ci comunica che la usi, come o quando.</li>
+    <li><strong>Nessun accesso alla rete nel motore.</strong> Il componente che legge lo schermo ed esegue il modello non può aprire connessioni di rete; lo garantisce un test automatico nella nostra build.</li>
+    <li><strong>L'unico download.</strong> Durante la configurazione, e solo quando premi il pulsante, l'app scarica il modello linguistico da Hugging Face (huggingface.co). Come qualsiasi server web, Hugging Face riceve il tuo indirizzo IP per quella richiesta. I file vengono verificati sul tuo Mac con i checksum pubblicati.</li>
+    <li><strong>Cosa non viene mai letto.</strong> Password manager, Accesso Portachiavi, Impostazioni di Sistema e ogni app che aggiungi all'elenco protetto non vengono mai letti. Le finestre private dei browser vengono saltate. I campi password protetti non vengono mai letti in nessuna app.</li>
+    <li><strong>Cosa viene oscurato.</strong> Il testo che somiglia a numeri di carta, chiavi private, token API, codici monouso e righe «password:» viene sostituito prima di essere salvato.</li>
+    <li><strong>Conservazione ed eliminazione.</strong> La memoria dello schermo viene dimenticata dopo 30 giorni e lo storico delle decisioni dopo 90, per impostazione predefinita; entrambi sono configurabili. Puoi eliminare qualsiasi elemento, un'app, l'ultima ora, oggi o tutto, dalla finestra Memoria e dalle Impostazioni.</li>
+    <li><strong>Le licenze si verificano offline.</strong> La chiave viene verificata sul tuo Mac con una chiave pubblica inclusa nell'app. Niente viene inviato per convalidarla.</li>
+    <li><strong>La diagnostica la invii tu.</strong> «Esporta diagnostica» crea sul tuo Mac un file zip con i log (tempi e tipi di errore, mai contenuti), le impostazioni e informazioni di sistema di base. Niente viene inviato se non ce lo mandi tu via email.</li>
+  </ul>
+
+  <h2>Acquisti</h2>
+  <p>Gli ordini sono gestiti dal nostro rivenditore, <strong>[Lemon Squeezy / Paddle]</strong>, che opera come merchant of record e si occupa di pagamento, fatturazione e IVA secondo la propria informativa. Per emettere e consegnare la licenza riceviamo nome, indirizzo email, paese, edizione acquistata e un identificativo d'ordine. Li usiamo per consegnare e, se serve, riemettere la chiave, per l'assistenza e i rimborsi e per adempiere agli obblighi fiscali e contabili. Base giuridica: esecuzione di un contratto e obbligo legale (art. 6(1)(b) e (c) GDPR). Conserviamo i dati degli ordini per 10 anni come richiesto dalla normativa fiscale italiana, e nient'altro su di te.</p>
+
+  <h2>Assistenza</h2>
+  <p>Se ci scrivi, usiamo il tuo messaggio e il tuo indirizzo per risponderti (legittimo interesse, art. 6(1)(f) GDPR) ed eliminiamo le conversazioni 24 mesi dopo la loro chiusura.</p>
+
+  <h2>Questo sito</h2>
+  <p>Questo sito non imposta cookie, non carica font, script o tracciatori di terze parti e non usa strumenti di analisi. Il nostro fornitore di hosting, <strong>[GitHub Pages / Cloudflare]</strong>, tratta i normali log del server (come gli indirizzi IP) per erogare e proteggere il sito, secondo la propria informativa.</p>
+
+  <h2>I tuoi diritti</h2>
+  <p>Puoi chiederci accesso, rettifica o cancellazione dei dati personali che trattiamo su di te, limitarne od opporti al trattamento e riceverli in formato portabile, scrivendo a <a href="mailto:privacy@leonard.app">privacy@leonard.app</a>. Puoi anche proporre reclamo al Garante per la protezione dei dati personali.</p>
+
+  <h2>Modifiche</h2>
+  <p>Se questa informativa cambia, aggiorneremo questa pagina e la data qui sopra. Se una modifica comportasse dati in uscita dal tuo Mac, sarebbe un prodotto diverso, e lo diremmo chiaramente prima.</p>
+</main>
+<footer><div class="wrap"><span>© 2026 Leonard</span><nav><a href="./">Home</a><a href="termini.html">Termini</a></nav></div></footer>
+</body>
+</html>
