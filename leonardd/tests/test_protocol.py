@@ -50,11 +50,17 @@ async def test_approve_after_suggest_triggers_prepared(tmp_path, monkeypatch):
         writer.close()
 
 
-async def test_approve_of_draft_reply_calls_the_draft_module_when_supported(tmp_path, monkeypatch):
+async def test_approve_of_draft_reply_streams_a_generated_draft(tmp_path, monkeypatch):
     import leonardd.server as server_mod
+    from leonardd.generation import Generated
+
+    def fake_stream(engine, messages, *, max_tokens, on_delta=None, cancel=None, temperature=0.3, prefix=""):
+        for piece in ("Ciao, ", "confermo ", "per venerdi."):
+            on_delta(piece)
+        return Generated("Ciao, confermo per venerdi.", 3, 5.0, 1.0, False, "stop")
 
     monkeypatch.setattr(server_mod, "supports_generation", lambda engine: True)
-    monkeypatch.setattr(server_mod, "draft_reply", lambda engine, event: "Ciao, confermo per venerdi.")
+    monkeypatch.setattr(server_mod, "stream_text", fake_stream)
 
     async with running_server(tmp_path, monkeypatch) as server:
         reader, writer = await asyncio.open_unix_connection(str(server.socket_path))
@@ -64,8 +70,14 @@ async def test_approve_of_draft_reply_calls_the_draft_module_when_supported(tmp_
         assert decision["suggestion"]["action_id"] == "draft_reply"
 
         await send_frame(writer, {"t": "approve", "ts": 0.0, "decision_id": decision["id"]})
+        deltas = [await recv_frame(reader) for _ in range(3)]
+        assert [d["t"] for d in deltas] == ["prepared.delta"] * 3
+        assert "".join(d["text"] for d in deltas) == "Ciao, confermo per venerdi."
         prepared = await recv_frame(reader)
-        assert prepared["result"] == {"kind": "text", "body": "Ciao, confermo per venerdi."}
+        assert prepared["t"] == "prepared"
+        assert prepared["result"]["kind"] == "reply"
+        assert prepared["result"]["body"] == "Ciao, confermo per venerdi."
+        assert prepared["result"]["to"] == "Marco Rossi <marco@example.com>"
         writer.close()
 
 

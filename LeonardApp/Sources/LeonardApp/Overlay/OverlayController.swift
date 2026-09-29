@@ -16,7 +16,7 @@ final class OverlayController {
     private var panel: OverlayPanel?
     private var dismissTimer: Timer?
     private var currentDecision: DecisionFrame?
-    private let autoDismissInterval: TimeInterval = 14
+    private var autoDismissInterval: TimeInterval { TimeInterval(state.settings.overlaySeconds) }
 
     init(state: AppState, coordinator: LeonardCoordinator) {
         self.state = state
@@ -49,9 +49,10 @@ final class OverlayController {
 
         let hosting = NSHostingView(rootView: OverlayView(
             suggestion: suggestion,
+            explanation: decision.explanation,
             onPrepare: { [weak self] in self?.approveCurrent() },
             onDismiss: { [weak self] in self?.dismissCurrent() }
-        ))
+        ).tint(Theme.accent))
         let size = hosting.intrinsicContentSize
         hosting.frame = NSRect(origin: .zero, size: size)
 
@@ -87,19 +88,21 @@ final class OverlayController {
         hide()
     }
 
-    /// Called by the overlay's own "Ignora" button and by the popover.
+    /// Called by the overlay's own "Ignore" button and by the popover.
     func dismissCurrent() {
-        respondDismissAndHide()
+        respondDismissAndHide(reason: .user)
     }
 
+    /// Nobody answered. The suggestion stays in "For you" and the daemon
+    /// learns only a little from it: the user may simply not have looked.
     private func timedOut() {
-        respondDismissAndHide()
+        respondDismissAndHide(reason: .timeout)
     }
 
-    private func respondDismissAndHide() {
+    private func respondDismissAndHide(reason: DismissReason) {
         dismissTimer?.invalidate()
         if let decision = currentDecision {
-            coordinator.dismiss(decision)
+            coordinator.dismiss(decision, reason: reason)
         }
         hide()
     }

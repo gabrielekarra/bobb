@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  daemon:
+    name: leonardd (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync
+        working-directory: leonardd
+        run: |
+          uv sync --frozen
+          # Linux has no Metal; the CPU build of MLX lets the model-free suite import.
+          uv pip install "mlx[cpu]==$(uv run --no-sync python -c 'import importlib.metadata as m; print(m.version("mlx"))')"
+      - name: Test
+        working-directory: leonardd
+        run: uv run --no-sync pytest -q -m "not slow"
+
+  specialist:
+    name: specialist (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Test
+        working-directory: specialist
+        run: |
+          uv sync --frozen
+          uv run --no-sync pytest -q
+
+  core-linux:
+    name: LeonardCore (Swift, Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        working-directory: LeonardApp
+        run: |
+          apt-get update -qq && apt-get install -y -qq libsqlite3-dev sqlite3 > /dev/null
+          swift test -j 1
+
+  license-tools:
+    name: License tools (Python + worker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test
+        working-directory: tools/license
+        run: |
+          uv sync
+          uv run pytest -q
+      - name: Test fulfillment worker
+        working-directory: tools/license/worker
+        run: npm test
+
+  app:
+    name: LeonardApp (Swift, macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+          xcodebuild -version
+          swift --version
+      - name: Build
+        working-directory: LeonardApp
+        run: |
+          set -o pipefail
+          swift build -Xswiftc -continue-building-after-errors 2>&1 | tee build.log || {
+            echo "::group::errors"; grep -E "error:" build.log | sort -u | head -150; echo "::endgroup::"; exit 1; }
+      - name: Test
+        working-directory: LeonardApp
+        run: swift test -j 1
+
+  package:
+    name: Leonard.dmg (bundle, daemon smoke test, DMG)
+    runs-on: macos-latest
+    needs: [app, daemon]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - name: Select newest Xcode
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$NEWEST" ]; then sudo xcode-select -s "$NEWEST"; fi
+      - name: Package (ad-hoc signed)
+        run: scripts/package.sh
+      - name: Render screenshots of the real views
+        run: |
+          dist/Leonard.app/Contents/MacOS/LeonardApp --render-docs dist/screenshots || true
+          ls -la dist/screenshots || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Leonard-dmg
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: dist/screenshots
+          if-no-files-found: ignore
+          retention-days: 14

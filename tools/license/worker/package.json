@@ -1,0 +1,9 @@
+{
+  "name": "leonard-licenses",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "deploy": "wrangler deploy"
+  }
+}

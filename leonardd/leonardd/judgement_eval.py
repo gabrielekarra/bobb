@@ -452,8 +452,10 @@ def _letter_bias_check(engine, primed) -> dict:
     }
 
 
-def run() -> dict:
-    engine = ResidentMLX(MODEL_ID)
+def run(engine=None) -> dict:
+    """Evaluate on `engine`, the resident MLX model by default.
+    `tools/reference_eval.py` passes the CPU reference engine instead."""
+    engine = engine if engine is not None else ResidentMLX(MODEL_ID)
     attention = AttentionEngine(engine, floor=0.0)
 
     per_event = []
@@ -557,6 +559,7 @@ def run() -> dict:
     return {
         "ts": time.time(),
         "model": MODEL_ID,
+        "engine": getattr(engine, "name", MODEL_ID),
         "n_events": len(per_event),
         "per_event": per_event,
         "reply_needed_accuracy_via_message_type": round(reply_needed_accuracy, 3),

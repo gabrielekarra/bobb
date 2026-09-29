@@ -1,23 +1,39 @@
 # Roadmap
 
-| Milestone | Goal | State |
+VISION.md describes one product, not phases. This is where each part of it
+stands.
+
+| Part of the product | VISION rule | State in 1.0 |
 |---|---|---|
-| v0.1 "It sees" | AX sensors, event bus, menu bar, overlay, Mind, unix-socket contract | in progress |
-| v0.2 "It decides" | Typed decisions on a resident local model, confidence floor, audit store | in progress |
-| v0.3 "It anticipates" | Background preparation, the Mail.app magic moment end to end | next |
-| v0.4 "It learns" | Calibration on real accept/dismiss data, per-user floor | |
-| v0.5 "It remembers" | Projects, people, long-term memory, explainable recall | |
-| v1.0 "It is a companion" | Broader sensors, permission engine, onboarding, distribution | |
+| Menu bar presence, overlay, Mind | 7 | shipped |
+| Typed attention decisions, calibrated, with a floor you control | — | shipped, mail and chats |
+| Drafts grounded in what you saw, with checks | 5 (text model) | shipped, mail and chats |
+| Screen memory, text only, redacted, cited in answers | 2 | shipped, plus opt-in OCR |
+| Doing any job in any app, from outside, under a permission engine | 1, 4, 6 | shipped (ADR-007) |
+| Voice | 7 | shipped, on-device only |
+| Calendar: briefs before meetings, schedule in memory | — | shipped (EventKit, read-only) |
+| People and what you owe them | — | shipped: promises from sent mail |
+| Learning by watching: personal floor, muted senders | 3 | shipped |
+| Learning by watching: personal specialist (tier 0) | 3, 5 | shipped (ADR-008) |
+| Learning by watching: procedures from tasks and demonstrations | 3 | shipped |
+| Byte-level transformer specialist (`specialist/`) | 5 | research, next when data allows |
+| Outlook and web mail as first-class lenses | 6 | next; today via screen memory and chats |
+| A people view: everything about one person in one place | — | next |
+| Promises from chats as well as mail | — | next |
 
-## v0.1 + v0.2 definition of done
+## How the next steps are decided
 
-A user works normally on a Mac. Without opening Leonard or asking it anything,
-Leonard notices a message that needs a reply, decides the interruption is
-justified, and offers to prepare a draft at a moment that feels right. Every
-decision it did not surface is visible in Mind with the reason it stayed quiet.
+Leonard has no telemetry, so the order is set by support mail, refund
+reasons and design partners ([`BUSINESS.md`](BUSINESS.md)). Every step keeps
+the rules in [`VISION.md`](VISION.md): local by architecture, silence as a
+measured outcome, never send on the user's behalf without a visible,
+explicit action.
 
-Measured, on a fanless M4 with 24 GB:
+## Definition of done for any release
 
-- event to decision, end to end, under 250 ms after warm-up
-- screen path: frames skipped without missing an event
-- abstain curve: accuracy against coverage at floors 0.5 / 0.6 / 0.7
+- CI green on macOS and Linux; the DMG builds and the bundled engine passes
+  its smoke test.
+- The real-Mac checklist in [`LAUNCH.md`](LAUNCH.md#1-qa-pass-on-a-real-mac)
+  passes on the release candidate.
+- Any number quoted in the release notes has a JSON file under
+  `leonardd/results/` behind it.

@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from fake_engine import TrivialEngine
 
@@ -148,7 +150,10 @@ def test_expensive_user_state_caps_suggest_to_prepare(monkeypatch):
     decision = engine.decide_event(event)
 
     assert decision["action"] == "prepare"
-    assert "suggestion" not in decision
+    # A prepared item waits in the menu bar instead of interrupting, so it
+    # carries the same suggestion the overlay would have shown.
+    assert decision["suggestion"]["action_id"] == "draft_reply"
+    assert "stavi scrivendo" in decision["explanation"].lower() or "typing" in decision["explanation"].lower()
 
 
 def test_exactly_one_decision_per_event_for_idle_kind():
@@ -184,3 +189,104 @@ def test_invalid_floor_is_rejected():
     engine = AttentionEngine(TrivialEngine(), floor=0.60)
     with pytest.raises(ValueError):
         engine.set_floor(1.5)
+
+
+# ---------------------------------------------------------------- v1: settings, learning, explanations
+
+
+def _engine_with(settings, personalizer=None):
+    return AttentionEngine(TrivialEngine(), settings=settings, personalizer=personalizer)
+
+
+def test_kinds_that_are_not_proactive_cost_no_forward_pass(monkeypatch):
+    from leonardd.settings import Settings
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("a non-proactive kind must not reach the model")
+
+    monkeypatch.setattr(attention_mod, "decide_many", fail_if_called)
+    engine = _engine_with(Settings())  # defaults: mail.opened and mail.composing only
+    decision = engine.decide_event({"t": "event", "id": "e", "kind": "app.activated", "app": "Safari", "payload": {}})
+    assert decision["action"] == "ignore"
+    assert "proactive" in decision["why"]
+
+
+def test_a_muted_sender_is_ignored_without_asking_the_model(monkeypatch, tmp_path):
+    from leonardd.audit import open_db
+    from leonardd.learning import Personalizer
+    from leonardd.settings import Settings
+
+    monkeypatch.setattr(attention_mod, "decide_many", lambda *a, **k: (_ for _ in ()).throw(AssertionError()))
+    personalizer = Personalizer(open_db(tmp_path / "a.db"))
+    personalizer.mute("marco@example.com")
+    decision = _engine_with(Settings(locale="it"), personalizer).decide_event(_mail_event())
+    assert decision["action"] == "ignore"
+    assert "marco@example.com" in decision["explanation"]
+
+
+def test_quiet_hours_turn_a_suggestion_into_a_prepared_item(monkeypatch):
+    from leonardd.settings import Settings
+
+    _scripted(monkeypatch, urgency_p=0.9)
+    engine = _engine_with(Settings(quiet_hours=(0, 23)))
+    event = _mail_event()
+    event["ts"] = time.mktime((2026, 9, 28, 12, 0, 0, 0, 0, -1))
+    decision = engine.decide_event(event)
+    assert decision["action"] == "prepare"
+    assert decision["suggestion"]["action_id"] == "draft_reply"
+    assert "quiet" in decision["explanation"].lower()
+
+
+def test_explanations_follow_the_locale(monkeypatch):
+    from leonardd.settings import Settings
+
+    _scripted(monkeypatch, urgency_p=0.9)
+    en = _engine_with(Settings(locale="en")).decide_event(_mail_event())
+    _scripted(monkeypatch, urgency_p=0.9)
+    it = _engine_with(Settings(locale="it")).decide_event(_mail_event())
+    assert en["explanation"].startswith("Marco Rossi is asking you for something")
+    assert it["explanation"].startswith("Marco Rossi ti chiede qualcosa")
+    assert en["suggestion"]["title"] == "Marco Rossi is waiting for your reply"
+    assert it["suggestion"]["cta"] == "Prepara risposta"
+
+
+def test_abstention_explains_the_threshold(monkeypatch):
+    from leonardd.settings import Settings
+
+    _scripted(monkeypatch, urgency_p=0.55)
+    decision = _engine_with(Settings(locale="en", floor=0.6)).decide_event(_mail_event())
+    assert decision["abstained"] is True
+    assert "55%" in decision["explanation"] and "60%" in decision["explanation"]
+
+
+def test_transactional_urgent_notice_offers_a_summary_not_a_reply(monkeypatch):
+    from leonardd.settings import Settings
+
+    _scripted(monkeypatch, message_type="transactional", urgency_p=0.9)
+    decision = _engine_with(Settings()).decide_event(_mail_event())
+    assert decision["action"] == "suggest"
+    assert decision["suggestion"]["action_id"] == "summarize_notice"
+
+
+def test_personal_floor_applies_when_adaptive(monkeypatch, tmp_path):
+    from leonardd.audit import open_db, record_decision, record_response
+    from leonardd.learning import Personalizer
+    from leonardd.settings import Settings
+
+    conn = open_db(tmp_path / "a.db")
+    for i in range(12):
+        record_decision(
+            conn,
+            {"id": f"d{i}", "event_id": f"e{i}", "ts": time.time() - 100, "action": "suggest", "confidence": 0.8,
+             "schema_mass": 1.0, "latency_ms": 1.0, "hypotheses": [], "readouts": []},
+            {"kind": "mail.opened", "payload": {"sender": f"p{i}@x.com"}},
+            floor=0.6, model="m",
+        )
+        record_response(conn, f"d{i}", "dismiss", reason="user")
+    personalizer = Personalizer(conn)
+    _scripted(monkeypatch, urgency_p=0.7)
+    adaptive = _engine_with(Settings(floor=0.6), personalizer).decide_event(_mail_event())
+    assert adaptive["floor"] > 0.7 and adaptive["action"] == "wait" and adaptive["abstained"] is True
+    _scripted(monkeypatch, urgency_p=0.7)
+    fixed = _engine_with(Settings(floor=0.6, adaptive=False), personalizer).decide_event(_mail_event())
+    assert fixed["action"] == "suggest"

@@ -2,62 +2,109 @@ import AppKit
 import SwiftUI
 import LeonardCore
 
-/// Renders `OverlayView` and `MindView` to PNG using fixture data, for
-/// `LeonardApp/docs/`. Draws the real production views directly into an
-/// off-screen bitmap (`NSView.cacheDisplay`) rather than capturing the
-/// display, so it needs no Screen Recording grant. The window it renders
-/// from is parked off every physical screen and never activated. Invoked
-/// only via `LeonardApp --render-docs`.
+/// Renders the real production views to PNG with fixture data, in English
+/// and Italian, for the docs and the website. Draws into an off-screen
+/// bitmap (`NSView.cacheDisplay`), so it needs no Screen Recording grant;
+/// the window it renders from is parked off every screen and never
+/// activated. Invoked only via `LeonardApp --render-docs [output-dir]`.
 @MainActor
 func renderDocsScreenshots() {
-    let docsDir = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appendingPathComponent("docs")
-    try? FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)
+    let output: URL
+    if let dir = AppPaths.argument("--render-docs") {
+        output = URL(fileURLWithPath: dir, isDirectory: true)
+    } else {
+        output = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("docs")
+    }
+    try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
-    renderOverlay(into: docsDir)
-    renderMind(into: docsDir)
+    for dark in [false, true] {
+        render(MarkSheet(), size: nil, appearance: NSAppearance(named: dark ? .darkAqua : .aqua),
+               to: output.appendingPathComponent("mark\(dark ? "-dark" : "").png"))
+    }
+
+    for language in ["en", "it"] {
+        L10n.code = language
+        for dark in [false, true] {
+            let suffix = "\(language)\(dark ? "-dark" : "")"
+            let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let fixtures = Fixtures(language: language)
+            let state = fixtures.state()
+            let client = IPCClient(socketPath: "/tmp/leonard-docs-render.sock")
+            let coordinator = LeonardCoordinator(state: state, client: client, eventSource: MockEventSource(scenario: []))
+
+            render(OverlayView(suggestion: fixtures.suggestion, explanation: fixtures.explanation, onPrepare: {}, onDismiss: {}).tint(Theme.accent),
+                   size: nil, appearance: appearance, background: .clear, to: output.appendingPathComponent("overlay-\(suffix).png"))
+
+            render(MenuBarPopoverView(state: state, actions: .empty).background(.regularMaterial),
+                   size: nil, appearance: appearance, to: output.appendingPathComponent("menu-\(suffix).png"))
+
+            let bar = CommandBarModel()
+            bar.selection = nil
+            bar.input = fixtures.question
+            state.ask = fixtures.answer
+            render(CommandBarView(state: state, model: bar, submit: {}, close: {}, apply: { _ in }, stop: {}),
+                   size: nil, appearance: appearance, background: .clear, to: output.appendingPathComponent("ask-\(suffix).png"))
+
+            state.draft = fixtures.draft
+            let editor = DraftEditor()
+            editor.sync(with: state.draft)
+            render(DraftView(state: state, editor: editor, coordinator: coordinator, close: {}, replyInMail: { _, _ in }, insert: { _ in })
+                .background(.regularMaterial),
+                   size: nil, appearance: appearance, to: output.appendingPathComponent("draft-\(suffix).png"))
+
+            render(MindView(state: state, coordinator: coordinator, uiState: MindUIState(expandedIDs: ["evt_2"])),
+                   size: NSSize(width: 1040, height: 860), appearance: appearance, to: output.appendingPathComponent("mind-\(suffix).png"))
+
+            let noActions = TaskActions(stop: {}, allow: { _ in }, undo: {}, close: {})
+            for (name, task) in fixtures.tasks {
+                state.task = task
+                render(TaskView(state: state, actions: noActions).background(.regularMaterial),
+                       size: nil, appearance: appearance, to: output.appendingPathComponent("task-\(name)-\(suffix).png"))
+            }
+            state.task = nil
+
+            let memory = MemoryBrowserModel()
+            memory.results = fixtures.memoryHits
+            memory.stats = MemoryStatsFrame(rows: 1284, bytes: 9_400_000, apps: [
+                AppMemoryCount(app: "Mail", rows: 512), AppMemoryCount(app: "Safari", rows: 388),
+                AppMemoryCount(app: "Slack", rows: 241), AppMemoryCount(app: "Pages", rows: 143),
+            ])
+            render(MemoryView(state: state, model: memory, coordinator: coordinator),
+                   size: NSSize(width: 900, height: 560), appearance: appearance, to: output.appendingPathComponent("memory-\(suffix).png"))
+        }
+    }
 }
 
 @MainActor
-private func renderOverlay(into docsDir: URL) {
-    let suggestion = Suggestion(
-        title: "Vuoi che prepari una risposta a Marco Rossi?",
-        actionId: "draft_reply",
-        detail: "3 messaggi nel thread, ultimo di 2 giorni fa"
-    )
-    let view = OverlayView(suggestion: suggestion, onPrepare: {}, onDismiss: {})
-    let hosting = NSHostingView(rootView: view)
-    let size = hosting.intrinsicContentSize
-    render(hosting, size: size, to: docsDir.appendingPathComponent("overlay.png"))
-}
-
-@MainActor
-private func renderMind(into docsDir: URL) {
-    let state = fixtureState()
-    let client = IPCClient(socketPath: "/tmp/leonard-docs-render.sock")
-    let coordinator = LeonardCoordinator(state: state, client: client, eventSource: WorkspaceEventSource())
-    let view = MindView(state: state, coordinator: coordinator, uiState: MindUIState(expandedIDs: ["evt_2"]))
-    let hosting = NSHostingView(rootView: view)
-    render(hosting, size: NSSize(width: 1040, height: 920), to: docsDir.appendingPathComponent("mind.png"))
-}
-
-@MainActor
-private func render(_ hosting: NSView, size: NSSize, to url: URL) {
-    hosting.frame = NSRect(origin: .zero, size: size)
+private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?, background: NSColor = .windowBackgroundColor, to url: URL) {
+    // Resolve dynamic colors against the requested appearance, not the
+    // renderer process's own: an off-screen window otherwise paints a light
+    // background under dark-mode text.
+    let dark = appearance?.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    var resolved = background
+    if background != .clear, let appearance {
+        appearance.performAsCurrentDrawingAppearance {
+            resolved = background.usingColorSpace(.sRGB) ?? background
+        }
+    }
+    let hosting = NSHostingView(rootView: view
+        .environment(\.colorScheme, dark ? .dark : .light)
+        .background(background == .clear ? Color.clear : Color(nsColor: resolved)))
+    hosting.appearance = appearance
+    let fitting = size ?? hosting.fittingSize
+    hosting.frame = NSRect(origin: .zero, size: fitting)
 
     let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
     window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
-    window.appearance = NSAppearance(named: .aqua)
-    hosting.appearance = NSAppearance(named: .aqua)
+    window.appearance = appearance
     window.contentView = hosting
-    window.backgroundColor = .windowBackgroundColor
+    window.backgroundColor = resolved
+    window.isOpaque = background != .clear
     window.orderFrontRegardless()
 
-    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
     hosting.layoutSubtreeIfNeeded()
 
     guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
@@ -78,76 +125,186 @@ private func render(_ hosting: NSView, size: NSSize, to url: URL) {
     window.orderOut(nil)
 }
 
+/// A plausible morning, in either language.
 @MainActor
-private func fixtureState() -> AppState {
-    let state = AppState()
-    state.connection = .ready(ReadyFrame(ts: Date().timeIntervalSince1970, model: "mlx-community/Llama-3.2-3B-Instruct-4bit", primeMs: 477.0, decideMs: 149.8, floor: 0.60))
-    state.floor = 0.60
+private struct Fixtures {
+    let language: String
+    var it: Bool { language == "it" }
+    let now = Date().timeIntervalSince1970
 
-    func add(kind: EventKind, app: String, payload: [String: JSONValue], decision: DecisionFrame, traces: [TraceFrame] = []) {
-        let event = EventFrame(id: decision.eventId, kind: kind, app: app, payload: EventPayload(typing: false, idle: false, fields: payload))
-        state.recordEvent(event)
-        for trace in traces { state.recordTrace(trace) }
-        state.recordDecision(decision)
+    var suggestion: Suggestion {
+        it ? Suggestion(title: "Marco Rossi aspetta una tua risposta", actionId: "draft_reply",
+                        detail: "Preventivo revisione — mi confermi entro venerdì? · oggi o domani", cta: "Prepara risposta")
+           : Suggestion(title: "Marco Rossi is waiting for your reply", actionId: "draft_reply",
+                        detail: "Quote revision — can you confirm by Friday? · today or tomorrow", cta: "Draft reply")
     }
 
-    add(
-        kind: .mailOpened, app: "Mail",
-        payload: ["sender": "Marco Rossi <marco@example.com>", "subject": "Preventivo revisione", "thread_len": 3, "unread": true],
-        decision: DecisionFrame(
-            ts: Date().timeIntervalSince1970, id: "dec_1", eventId: "evt_1", action: .suggest, confidence: 0.83,
-            schemaMass: 0.997, latencyMs: 142.1,
-            hypotheses: [Hypothesis(intent: "reply_to_email", p: 0.88), Hypothesis(intent: "look_for_attachment", p: 0.41)],
-            readouts: [
-                Readout(q: "reply_needed", value: .bool(true), p: 0.91, schemaMass: 1.0, probabilities: ["true": 0.91, "false": 0.09], rawProbabilities: ["true": 0.91, "false": 0.09]),
-                Readout(q: "urgency", value: .number(3), p: 0.74, schemaMass: 0.99, probabilities: ["0": 0.02, "1": 0.05, "2": 0.11, "3": 0.74, "4": 0.08], rawProbabilities: [:]),
-                Readout(q: "interrupt", value: .string("suggest"), p: 0.83, schemaMass: 0.99, probabilities: ["ignore": 0.03, "wait": 0.09, "prepare": 0.05, "suggest": 0.83], rawProbabilities: [:]),
-            ],
-            suggestion: Suggestion(title: "Vuoi che prepari una risposta a Marco?", actionId: "draft_reply", detail: "3 messaggi nel thread, ultimo di 2 giorni fa"),
-            why: "reply_needed true a 0.91, costo di interruzione basso (non sta scrivendo)"
-        ),
-        traces: [TraceFrame(ts: 1, eventId: "evt_1", stage: .gate, rawStage: "gate", detail: "skip 0.0014 < 0.005", ms: 0.4),
-                 TraceFrame(ts: 1, eventId: "evt_1", stage: .attention, rawStage: "attention", detail: "suggest", ms: 142.1)]
-    )
+    var explanation: String {
+        it ? "Marco Rossi ti chiede qualcosa (oggi o domani). Merita la tua attenzione adesso."
+           : "Marco Rossi is asking you for something (today or tomorrow). Worth your attention now."
+    }
 
-    add(
-        kind: .mailOpened, app: "Mail",
-        payload: ["sender": "Ada Lovelace <ada@example.com>", "subject": "Aggiornamento breve", "thread_len": 1, "unread": true],
-        decision: DecisionFrame(
-            ts: Date().timeIntervalSince1970, id: "dec_2", eventId: "evt_2", action: .wait, confidence: 0.57,
-            schemaMass: 0.991, latencyMs: 118.4,
-            hypotheses: [Hypothesis(intent: "reply_to_email", p: 0.52)],
-            readouts: [
-                Readout(q: "reply_needed", value: .bool(true), p: 0.58, schemaMass: 0.99, probabilities: ["true": 0.58, "false": 0.42], rawProbabilities: [:]),
-                Readout(q: "interrupt", value: .string("wait"), p: 0.57, schemaMass: 0.99, probabilities: ["ignore": 0.1, "wait": 0.57, "prepare": 0.08, "suggest": 0.25], rawProbabilities: [:]),
-            ],
-            why: "reply_needed true a 0.58, confidenza sotto la soglia", abstained: true
+    var question: String { it ? "Quando scade la fattura di Atlas e quanto è?" : "When is the Atlas invoice due, and how much is it?" }
+
+    var answer: AskSession {
+        var session = AskSession()
+        session.requestId = "ask_fixture"
+        session.prompt = question
+        session.text = it ? "La fattura INV-2041 di Atlas Cloud è di **312,40 €** e scade il **30 settembre** [1]. Giulia ha scritto che è già approvata per il pagamento [2]."
+                           : "Atlas Cloud's invoice INV-2041 is **€312.40**, due on **30 September** [1]. Giulia said it's already approved for payment [2]."
+        session.sources = [
+            SourceRef(n: 1, id: 41, app: "Mail", window: it ? "Fattura Atlas Cloud INV-2041" : "Atlas Cloud invoice INV-2041", ts: now - 7200, lastSeen: now - 7200),
+            SourceRef(n: 2, id: 77, app: "Slack", window: "#amministrazione", ts: now - 3600 * 5, lastSeen: now - 3600 * 5),
+        ]
+        return session
+    }
+
+    var draft: DraftSession {
+        var session = DraftSession(decision: decision(id: "dec_1", event: "evt_1", action: .suggest, confidence: 0.83, suggestion: suggestion))
+        session.streaming = false
+        session.text = it
+            ? "Ciao Marco,\n\nconfermo il preventivo di 4.800 euro: Giulia ha approvato il budget ieri, quindi possiamo procedere e bloccare la disponibilità del team.\n\nA presto,\nGabriele"
+            : "Hi Marco,\n\nconfirming the €4,800 quote: Giulia approved the budget yesterday, so we can go ahead and book the team.\n\nBest,\nGabriele"
+        session.result = PreparedFrame(
+            ts: now, decisionId: "dec_1", actionId: "draft_reply",
+            result: .object([
+                "kind": .string("reply"), "body": .string(session.text), "message_id": .string("<m1@studiorossi.it>"),
+                "sources": .array([.object(["n": .number(1), "id": .number(7), "app": .string("Slack"), "window": .string("#studio-rossi"),
+                                            "ts": .number(now - 86400), "last_seen": .number(now - 86400)])]),
+            ]),
+            latencyMs: 2100
         )
-    )
+        return session
+    }
 
-    add(
-        kind: .appActivated, app: "Safari",
-        payload: ["previous_app": "Mail", "title": "Documentazione fattura elettronica"],
-        decision: DecisionFrame(ts: Date().timeIntervalSince1970, id: "dec_3", eventId: "evt_3", action: .ignore, confidence: 0.94, schemaMass: 0.99, latencyMs: 9.2, why: "cambio app di routine")
-    )
+    var memoryHits: [MemoryHit] {
+        [
+            MemoryHit(id: 41, ts: now - 7200, lastSeen: now - 7200, app: "Mail", window: it ? "Fattura Atlas Cloud INV-2041" : "Atlas Cloud invoice INV-2041",
+                      snippet: it ? "La fattura INV-2041 di 312,40 € scade il 30 settembre. Paga dal pannello di fatturazione." : "Invoice INV-2041 for €312.40 is due on 30 September. Pay from the billing dashboard."),
+            MemoryHit(id: 77, ts: now - 18000, lastSeen: now - 18000, app: "Slack", window: "#amministrazione",
+                      snippet: it ? "Giulia: la fattura Atlas è approvata, la paghiamo questa settimana." : "Giulia: the Atlas invoice is approved, we'll pay it this week."),
+            MemoryHit(id: 12, ts: now - 86400 * 3, lastSeen: now - 86400 * 3, app: "Safari", window: it ? "Contratto quadro — Google Docs" : "Master agreement — Google Docs",
+                      snippet: it ? "Clausola 7: vesting di 4 anni con cliff di 12 mesi per i fondatori." : "Clause 7: four-year vesting with a twelve-month cliff for founders."),
+        ]
+    }
 
-    add(
-        kind: .mailComposing, app: "Mail",
-        payload: ["to": "marco@example.com", "subject": "Re: Preventivo revisione", "idle_seconds": 14],
-        decision: DecisionFrame(
-            ts: Date().timeIntervalSince1970, id: "dec_4", eventId: "evt_4", action: .prepare, confidence: 0.71,
-            schemaMass: 0.98, latencyMs: 96.0,
-            hypotheses: [Hypothesis(intent: "continue_draft", p: 0.71)],
-            readouts: [Readout(q: "stuck", value: .bool(true), p: 0.71, schemaMass: 0.98, probabilities: ["true": 0.71, "false": 0.29], rawProbabilities: [:])],
-            why: "pausa nella bozza"
+    var tasks: [(String, TaskRunState)] {
+        let goal = it ? "Metti la mia playlist Focus su Spotify e manda a Giulia su Slack che arrivo tra dieci minuti"
+                      : "Put on my Focus playlist on Spotify and tell Giulia on Slack I'll be ten minutes late"
+        var running = TaskRunState(id: "task_1", goal: goal)
+        running.plan = it ? ["Apri Spotify", "Cerca “Focus”", "Avvia la playlist", "Apri Slack", "Scrivi a Giulia"]
+                          : ["Open Spotify", "Search for “Focus”", "Play the playlist", "Open Slack", "Message Giulia"]
+        running.steps = [
+            TaskStepLine(id: 1, operation: .openApp, target: "Spotify", app: "Finder", outcome: .ok),
+            TaskStepLine(id: 2, operation: .type, target: it ? "Cosa vuoi ascoltare?" : "What do you want to play?", text: "Focus", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 3, operation: .click, target: "Focus Flow", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 4, operation: .openApp, target: "Slack", app: "Spotify", outcome: .ok),
+            TaskStepLine(id: 5, operation: .click, target: "Giulia Bianchi", app: "Slack"),
+        ]
+        running.phase = .acting
+
+        var asking = running
+        asking.steps[4].outcome = .ok
+        asking.phase = .waitingForPermission(PermissionRequest(
+            operation: .type, label: it ? "Messaggio a Giulia Bianchi" : "Message Giulia Bianchi", role: "text area", app: "Slack",
+            reason: "sendsMessage", text: it ? "Ciao Giulia, arrivo tra dieci minuti." : "Hi Giulia, I'll be there in ten minutes."
+        ))
+
+        var done = asking
+        done.steps.append(TaskStepLine(id: 6, operation: .type, target: it ? "Messaggio a Giulia Bianchi" : "Message Giulia Bianchi",
+                                       app: "Slack", outcome: .ok))
+        done.phase = .finished(.done, detail: "")
+        done.canUndo = true
+        return [("acting", running), ("asking", asking), ("done", done)]
+    }
+
+    func decision(id: String, event: String, action: DecisionAction, confidence: Double, suggestion: Suggestion? = nil,
+                  explanation: String? = nil, abstained: Bool = false, readouts: [Readout] = [], latency: Double = 612,
+                  why: String = "message_type=personal_request p=0.93, urgency=3 p=0.83, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60",
+                  tier: String = "general") -> DecisionFrame {
+        DecisionFrame(
+            ts: now - 300, id: id, eventId: event, action: action, confidence: confidence, schemaMass: 0.99, latencyMs: latency,
+            hypotheses: [Hypothesis(intent: "reply_to_email", p: confidence)], readouts: readouts, suggestion: suggestion,
+            why: why,
+            abstained: abstained, explanation: explanation, floor: 0.60, tier: tier
         )
-    )
+    }
 
-    add(
-        kind: .mailArrived, app: "Mail",
-        payload: ["sender": "newsletter@example.com", "subject": "Novità di settembre"],
-        decision: DecisionFrame(ts: Date().timeIntervalSince1970, id: "dec_5", eventId: "evt_5", action: .ignore, confidence: 0.99, schemaMass: 0.999, latencyMs: 3.1, why: "evento di apprendimento")
-    )
+    func state() -> AppState {
+        let state = AppState()
+        state.connection = .ready(ReadyFrame(ts: now, model: "mlx-community/Llama-3.2-3B-Instruct-4bit", primeMs: 477, decideMs: 612, floor: 0.6, protocolVersion: 1))
+        state.settings.onboardingCompleted = true
+        state.entitlement = .licensed(LicensePayload(id: "lic", name: "Studio Rossi", email: "", edition: "pro", seats: 3, issued: "2026-09-28", updatesUntil: "2027-09-28"))
+        state.stats = StatsFrame(
+            ts: now,
+            decisions: DecisionSummary(decisions: 412, suggested: 9, prepared: 14, abstained: 31, approved: 7, dismissed: 2, expired: 0, silent: 403, meanDecisionMs: 598),
+            learning: LearningSnapshot(baseFloor: 0.6, kinds: [], mutedSenders: [
+                MutedSender(ruleId: "sender:news@techmeme.com", sender: "news@techmeme.com", dismissed: 3, since: now - 86400 * 4, manual: false),
+            ]),
+            specialist: SpecialistSnapshot(
+                state: "active",
+                metrics: .init(trainedAt: now - 3600, examples: 412, personalLabels: 96, validation: 24, accuracy: 0.92,
+                               teacherAccuracy: 0.79, quietPrecision: 1.0, quietCoverage: 0.41, trainMs: 180, enabled: true, reason: "active"),
+                decisions: 412, decidedAlone: 131, aloneMs: 0.4, generalMs: 610, agreementWithGeneral: 0.9, compared: 281
+            )
+        )
 
-    return state
+        let messageType = Readout(q: "message_type", value: .string("personal_request"), p: 0.93, schemaMass: 0.99,
+                                  probabilities: ["personal_request": 0.93, "personal_no_ask": 0.04, "transactional": 0.02, "broadcast": 0.01])
+        let urgency = Readout(q: "urgency", value: .number(3), p: 0.83, schemaMass: 0.99,
+                              probabilities: ["0": 0.01, "1": 0.02, "2": 0.08, "3": 0.83, "4": 0.06])
+        let weekUrgency = Readout(q: "urgency", value: .number(2), p: 0.55, schemaMass: 0.99,
+                                  probabilities: ["0": 0.04, "1": 0.12, "2": 0.55, "3": 0.26, "4": 0.03])
+
+        func add(_ kind: EventKind, _ app: String, _ fields: [String: JSONValue], _ decision: DecisionFrame) {
+            state.recordEvent(EventFrame(ts: now - 300, id: decision.eventId, kind: kind, app: app, payload: EventPayload(typing: false, idle: false, fields: fields)))
+            state.recordDecision(decision)
+        }
+        add(.mailOpened, "Mail", ["sender": "Techmeme <news@techmeme.com>", "subject": "Techmeme Daily"],
+            decision(id: "dec_0", event: "evt_0", action: .ignore, confidence: 0.98,
+                     explanation: it ? "Leonard ha imparato da te che messaggi così possono aspettare, quindi è rimasto in silenzio senza interpellare il modello."
+                                     : "Leonard has learned from you that messages like this can wait, so it stayed quiet without asking the model.",
+                     latency: 0.4, why: "personal specialist: p_surface=0.021 <= 0.08", tier: "specialist"))
+        add(.mailOpened, "Mail", ["sender": "Dana Whitfield <dana@apexsearch.co>", "subject": "Quick chat?"],
+            decision(id: "dec_2", event: "evt_2", action: .wait, confidence: 0.54,
+                     explanation: it ? "Dana Whitfield ti chiede qualcosa (entro la settimana). Leonard era sicuro al 54%, sotto la tua soglia del 60%: è rimasto in silenzio."
+                                     : "Dana Whitfield is asking you for something (this week). Leonard was 54% sure, below your 60% threshold, so it stayed quiet.",
+                     abstained: true, readouts: [messageType, weekUrgency], latency: 641,
+                     why: "message_type=personal_request p=0.93, urgency=2 p=0.55, user_state=reading, policy=suggest basis=urgency+message_type, floor=0.60"))
+        add(.mailOpened, "Mail", ["sender": "Marco Rossi <marco@studiorossi.it>", "subject": "Preventivo revisione", "thread_len": 2],
+            decision(id: "dec_1", event: "evt_1", action: .suggest, confidence: 0.83, suggestion: suggestion, explanation: explanation,
+                     readouts: [messageType, urgency], latency: 604))
+        state.commitments = [
+            Commitment(id: "c1", ts: now - 86400, person: "Marco Rossi",
+                       what: it ? "Mandare il contratto firmato" : "Send the signed contract", dueTs: now + 3600 * 5),
+        ]
+        state.pendingOverlay = nil
+        return state
+    }
+}
+
+/// Every state of the mark, at menu bar size and larger, beside the app icon:
+/// a visual check that the glasses read at 16 pt and that the eyes carry state.
+private struct MarkSheet: View {
+    private let states: [(String, Glasses.Eyes, Double)] = [
+        ("watching", .up, 1), ("thinking", .look(CGVector(dx: 0.9, dy: -0.6)), 1),
+        ("speaking", .look(CGVector(dx: -0.4, dy: 0.9)), 1), ("paused", .closed, 0.6),
+        ("starting", .up, 0.55), ("offline", .none, 0.45),
+    ]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 28) {
+            LeonardAppIcon(size: 128)
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(Array(states.enumerated()), id: \.offset) { _, item in
+                    HStack(spacing: 18) {
+                        LeonardMark(size: 20.6, eyes: item.1).opacity(item.2)
+                        LeonardMark(size: 44, eyes: item.1).opacity(item.2)
+                        Text(item.0).font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(24)
+    }
 }

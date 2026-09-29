@@ -2,6 +2,8 @@ import Foundation
 @testable import LeonardCore
 #if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
 #endif
 
 /// A minimal, blocking `AF_UNIX` server used only to drive `IPCClient`
@@ -17,7 +19,7 @@ final class FakeUnixDaemon: @unchecked Sendable {
     init(path: String) throws {
         self.path = path
         unlink(path)
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        let fd = socket(AF_UNIX, POSIX.streamSocket, 0)
         guard fd >= 0 else { throw SocketError(description: "socket() failed") }
 
         var addr = sockaddr_un()
@@ -51,7 +53,7 @@ final class FakeUnixDaemon: @unchecked Sendable {
         var data = Data(text.utf8)
         data.append(0x0A)
         data.withUnsafeBytes { raw in
-            _ = Darwin.write(clientFd, raw.baseAddress, raw.count)
+            _ = POSIX.write(clientFd, raw.baseAddress, raw.count)
         }
     }
 
@@ -60,7 +62,7 @@ final class FakeUnixDaemon: @unchecked Sendable {
         var buffer: [UInt8] = []
         var byte: UInt8 = 0
         while true {
-            let n = Darwin.read(clientFd, &byte, 1)
+            let n = POSIX.read(clientFd, &byte, 1)
             if n <= 0 { return buffer.isEmpty ? nil : String(decoding: buffer, as: UTF8.self) }
             if byte == 0x0A { return String(decoding: buffer, as: UTF8.self) }
             buffer.append(byte)
@@ -68,13 +70,13 @@ final class FakeUnixDaemon: @unchecked Sendable {
     }
 
     func hangUpClient() {
-        if clientFd >= 0 { close(clientFd) }
+        if clientFd >= 0 { _ = POSIX.close(clientFd) }
         clientFd = -1
     }
 
     func shutdown() {
         hangUpClient()
-        if listenFd >= 0 { close(listenFd) }
+        if listenFd >= 0 { _ = POSIX.close(listenFd) }
         unlink(path)
     }
 

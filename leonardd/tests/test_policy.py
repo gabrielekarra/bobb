@@ -28,8 +28,7 @@ _MESSAGE_TYPE_Q = Choice(
     options=("broadcast", "transactional", "personal_no_ask", "personal_request"),
 )
 _URGENCY_Q = Score(name="urgency", rubric="?", lo=0, hi=4)
-_STUCK_Q = Bool(name="stuck", statement="?")
-_TONE_Q = Bool(name="tone_risk", statement="?")
+_TONE_Q = Choice(name="tone", question="?", options=("warm_or_neutral", "firm", "curt_or_hostile"))
 _ACTIONABLE_Q = Bool(name="actionable", statement="?")
 _ACTION_KIND_Q = Choice(name="action_kind", question="?", options=("define", "translate", "compute", "lookup", "none"))
 _RELEVANT_Q = Bool(name="relevant", statement="?")
@@ -106,25 +105,34 @@ def test_confidence_is_the_minimum_of_the_facts_the_branch_used():
     assert result.confidence == pytest.approx(0.6)
 
 
-def test_mail_composing_tone_risk_wins_over_stuck():
-    readouts = {
-        "stuck": _decision(_STUCK_Q, True, 0.7),
-        "tone_risk": _decision(_TONE_Q, True, 0.8),
-    }
-    result = decide_action("mail.composing", readouts, "reading")
+def _composing(idle_seconds=0, draft="Ciao Marco, ti scrivo per"):
+    return {"kind": "mail.composing", "payload": {"idle_seconds": idle_seconds, "draft": draft}}
+
+
+def test_mail_composing_hostile_tone_suggests():
+    readouts = {"tone": _decision(_TONE_Q, "curt_or_hostile", 0.8)}
+    result = decide_action("mail.composing", readouts, "reading", _composing())
     assert result.action == "suggest"
-    assert result.basis == ("tone_risk",)
+    assert result.basis == ("tone",)
     assert result.confidence == pytest.approx(0.8)
 
 
-def test_mail_composing_neither_signal_waits_with_min_confidence():
-    readouts = {
-        "stuck": _decision(_STUCK_Q, False, 0.9),
-        "tone_risk": _decision(_TONE_Q, False, 0.55),
-    }
-    result = decide_action("mail.composing", readouts, "reading")
-    assert result.action == "wait"
-    assert result.confidence == pytest.approx(0.55)
+def test_mail_composing_firm_tone_is_left_alone():
+    readouts = {"tone": _decision(_TONE_Q, "firm", 0.9)}
+    assert decide_action("mail.composing", readouts, "reading", _composing()).action == "wait"
+
+
+def test_mail_composing_stuck_is_read_from_the_payload_and_only_prepares():
+    readouts = {"tone": _decision(_TONE_Q, "warm_or_neutral", 0.9)}
+    assert decide_action("mail.composing", readouts, "reading", _composing(idle_seconds=90)).action == "prepare"
+    assert decide_action("mail.composing", readouts, "reading", _composing(idle_seconds=10)).action == "wait"
+    assert decide_action("mail.composing", readouts, "reading", _composing(idle_seconds=90, draft="")).action == "wait"
+
+
+def test_uncapped_policy_reports_what_the_facts_alone_call_for():
+    readouts = _mail_readouts(urgency=4)
+    assert decide_action("mail.opened", readouts, "typing", cap=False).action == "suggest"
+    assert decide_action("mail.opened", readouts, "typing").action == "prepare"
 
 
 def test_text_selected_not_actionable_is_ignored():

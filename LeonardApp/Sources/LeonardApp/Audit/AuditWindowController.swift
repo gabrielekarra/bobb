@@ -11,7 +11,7 @@ final class AuditWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Audit"
+        window.title = L10n.t(.auditTitle)
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 600, height: 380)
         window.center()

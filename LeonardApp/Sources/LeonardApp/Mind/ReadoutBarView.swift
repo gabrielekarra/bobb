@@ -39,7 +39,7 @@ struct ReadoutBarView: View {
                 Text(String(format: "p %.2f", readout.p))
                     .font(.system(size: 9.5, design: .monospaced))
                     .foregroundStyle(.secondary)
-                Text(String(format: "massa %.2f", readout.schemaMass))
+                Text(L10n.t(.readoutMass, ["value": String(format: "%.2f", readout.schemaMass)]))
                     .font(.system(size: 9.5, design: .monospaced))
                     .foregroundStyle(readout.schemaMass < 0.5 ? Color.red : .secondary)
             }
@@ -60,7 +60,7 @@ struct ReadoutBarView: View {
             }
 
             if let runnerUp {
-                Text("vicino a \u{201c}\(runnerUp.label)\u{201d} (\(String(format: "%.2f", runnerUp.p)))")
+                Text(L10n.t(.readoutCloseTo, ["label": runnerUp.label, "p": String(format: "%.2f", runnerUp.p)]))
                     .font(.system(size: 9))
                     .foregroundStyle(.orange)
             }

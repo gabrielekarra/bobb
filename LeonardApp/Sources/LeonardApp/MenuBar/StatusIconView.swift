@@ -1,11 +1,12 @@
 import AppKit
 import LeonardCore
 
-/// A quiet, hand-drawn 18×18 glyph: a ring that fills to different degrees
-/// and colors for `disconnected` / `watching` / `thinking` / `suggesting`.
-/// No template image, no badge, no bounce — the icon should read as calm
-/// even in `suggesting`, because a colleague getting your attention taps
-/// your shoulder once, it does not flash.
+/// The menu bar mark: Leonard's glasses, in the menu bar's own color. The
+/// eyes say what Leonard is doing — up while it watches, glancing side to
+/// side while it thinks, down towards the card when it speaks, closed when
+/// paused — and a small amber dot means something is waiting for you. No
+/// badge counts, no bounce: a colleague getting your attention taps your
+/// shoulder once, it does not flash.
 final class StatusIconView: NSView {
     var activityState: ActivityState = .disconnected {
         didSet { if oldValue != activityState { needsDisplay = true } }
@@ -60,39 +61,28 @@ final class StatusIconView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         syncPulsing()
 
-        let diameter: CGFloat = 9
-        let rect = NSRect(
-            x: (bounds.width - diameter) / 2,
-            y: (bounds.height - diameter) / 2,
-            width: diameter, height: diameter
-        )
-        let ring = NSBezierPath(ovalIn: rect)
-
-        let color = tintColor()
+        let glyph = bounds.insetBy(dx: 1, dy: (bounds.height - 9.5) / 2)
+        let color = NSColor.labelColor
         switch activityState {
         case .disconnected:
-            color.withAlphaComponent(0.55).setStroke()
-            ring.lineWidth = 1.2
-            ring.stroke()
+            Glasses.draw(in: glyph, eyes: .none, color: color.withAlphaComponent(0.45))
+        case .starting, .setupNeeded:
+            Glasses.draw(in: glyph, eyes: .up, color: color.withAlphaComponent(0.55))
+        case .paused:
+            Glasses.draw(in: glyph, eyes: .closed, color: color.withAlphaComponent(0.6))
         case .watching:
-            color.withAlphaComponent(watching ? 0.9 : 0.35).setFill()
-            ring.fill()
+            Glasses.draw(in: glyph, eyes: .up, color: color.withAlphaComponent(watching ? 1 : 0.5))
         case .thinking:
-            let alpha = 0.55 + 0.35 * sin(pulsePhase * 2 * .pi)
-            color.withAlphaComponent(alpha).setFill()
-            ring.fill()
+            // A slow glance from side to side, still looking up.
+            let dx = sin(pulsePhase * 2 * .pi * 0.8)
+            Glasses.draw(in: glyph, eyes: .look(CGVector(dx: dx, dy: -0.6)), color: color)
         case .suggesting:
-            color.setFill()
-            ring.fill()
-        }
-    }
-
-    private func tintColor() -> NSColor {
-        switch activityState {
-        case .disconnected: .secondaryLabelColor
-        case .watching: .labelColor
-        case .thinking: .systemBlue
-        case .suggesting: .systemOrange
+            Glasses.draw(in: glyph, eyes: .look(CGVector(dx: -0.4, dy: 0.9)), color: color)
+        case .waitingForYou:
+            Glasses.draw(in: glyph, eyes: .up, color: color)
+            let dot = NSBezierPath(ovalIn: NSRect(x: bounds.maxX - 6, y: bounds.maxY - 7, width: 5, height: 5))
+            NSColor.systemOrange.setFill()
+            dot.fill()
         }
     }
 }

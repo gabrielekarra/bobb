@@ -103,8 +103,9 @@ def _chat_frame(engine: Engine, system: str) -> tuple[str, str]:
 _SYSTEM = "You classify inputs. Answer with a single letter and nothing else."
 
 
-def _suffix_text(question: Question) -> str:
-    lines = "\n".join(f"{_LETTERS[i]}. {label}" for i, label in enumerate(question.labels))
+def _suffix_text(question: Question, *, reverse: bool = False) -> str:
+    labels = question.labels[::-1] if reverse else question.labels
+    lines = "\n".join(f"{_LETTERS[i]}. {label}" for i, label in enumerate(labels))
     return f"\n\n{question.prompt}\n{lines}\nAnswer with a single letter:"
 
 
@@ -192,35 +193,54 @@ def decide_many(
         engine.step(base_cache, context_ids)
 
     _, tail = _chat_frame(engine, _SYSTEM)
-    suffixes = [engine.encode(_suffix_text(q) + tail, add_special=False) for q in questions]
+    # One row per question, plus a reversed-order row for every question that
+    # asks to be debiased. `rows[r] = (question index, reversed?)`.
+    rows: list[tuple[int, bool]] = []
+    for index, question in enumerate(questions):
+        rows.append((index, False))
+        if getattr(question, "debias", False):
+            rows.append((index, True))
+    suffixes = [
+        engine.encode(_suffix_text(questions[index], reverse=reverse) + tail, add_special=False)
+        for index, reverse in rows
+    ]
 
     batched = getattr(engine, "step_many", None)
     started = time.perf_counter()
-    if batched is not None and len(questions) > 1:
+    if batched is not None and len(suffixes) > 1:
         all_logits: list[np.ndarray | None] = [None] * len(suffixes)
         for bucket in _length_buckets(suffixes):
-            rows = batched(base_cache, [suffixes[i] for i in bucket])
+            batch_logits = batched(base_cache, [suffixes[i] for i in bucket])
             for slot, index in enumerate(bucket):
-                all_logits[index] = rows[slot]
+                all_logits[index] = batch_logits[slot]
         stacked = np.stack(all_logits)
     else:
         stacked = np.stack([engine.step(engine.fork(base_cache), ids) for ids in suffixes])
     shared_ms = (time.perf_counter() - started) * 1000 / len(questions)
+
+    readouts: dict[int, list[tuple[np.ndarray, float]]] = {}
+    for row, (index, reverse) in enumerate(rows):
+        full_probs = _softmax(np.asarray(stacked[row]).astype(np.float64))
+        group_mass = np.array([full_probs[ids].sum() for ids in letter_sets[index]], dtype=np.float64)
+        if reverse:
+            group_mass = group_mass[::-1]
+        readouts.setdefault(index, []).append((group_mass, float(group_mass.sum())))
 
     decisions = []
     for index, (question, calibrator) in enumerate(zip(questions, calibrators)):
         start = time.perf_counter()
 
         labels = question.labels
-        letter_id_sets = letter_sets[index]
-        logits = np.asarray(stacked[index])
-
-        full_probs = _softmax(logits.astype(np.float64))
-        group_mass = np.array([full_probs[ids].sum() for ids in letter_id_sets], dtype=np.float64)
-        schema_mass = float(group_mass.sum())
-        if schema_mass <= 0.0:
+        masses = readouts[index]
+        schema_mass = float(np.mean([mass for _, mass in masses]))
+        if any(mass <= 0.0 for _, mass in masses):
             raise ValueError(f"no probability mass landed on any option letter for {question.name!r}")
-        raw_probs = group_mass / schema_mass
+        # Each ordering is normalized on its own before averaging, so an
+        # ordering that put more mass on the schema does not outvote the
+        # other: the question is what the model believes, not how sure it
+        # was that it was answering the question.
+        raw_probs = np.mean([group / mass for group, mass in masses], axis=0)
+        raw_probs = raw_probs / raw_probs.sum()
         raw_probabilities = dict(zip(labels, (float(p) for p in raw_probs)))
 
         best = int(np.argmax(raw_probs))

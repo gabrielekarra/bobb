@@ -1,0 +1,6 @@
+# Production signing keys never live in the repository. Only the
+# development key (dev-signing.key) is committed, deliberately.
+*.key
+!dev-signing.key
+.venv/
+node_modules/

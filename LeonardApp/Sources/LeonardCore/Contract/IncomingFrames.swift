@@ -8,19 +8,34 @@ public struct ReadyFrame: Codable, Sendable, Equatable {
     public var primeMs: Double
     public var decideMs: Double
     public var floor: Double
+    /// Protocol version; absent from v0.1 daemons, which speak protocol 0.
+    public var protocolVersion: Int?
+    public var version: String?
+    public var features: [String]?
 
     enum CodingKeys: String, CodingKey {
-        case ts, model, floor
+        case ts, model, floor, version, features
         case primeMs = "prime_ms"
         case decideMs = "decide_ms"
+        case protocolVersion = "protocol"
     }
 
-    public init(ts: Double, model: String, primeMs: Double, decideMs: Double, floor: Double) {
+    public init(
+        ts: Double, model: String, primeMs: Double, decideMs: Double, floor: Double,
+        protocolVersion: Int? = nil, version: String? = nil, features: [String]? = nil
+    ) {
         self.ts = ts
         self.model = model
         self.primeMs = primeMs
         self.decideMs = decideMs
         self.floor = floor
+        self.protocolVersion = protocolVersion
+        self.version = version
+        self.features = features
+    }
+
+    public func supports(_ feature: String) -> Bool {
+        features?.contains(feature) ?? false
     }
 }
 
@@ -180,16 +195,20 @@ public struct Suggestion: Codable, Sendable, Equatable {
     public var title: String
     public var actionId: String
     public var detail: String
+    /// The primary button's label ("Draft reply", "Summarize"). Absent from
+    /// v0.1 daemons, where the app falls back to a generic label.
+    public var cta: String?
 
     enum CodingKeys: String, CodingKey {
-        case title, detail
+        case title, detail, cta
         case actionId = "action_id"
     }
 
-    public init(title: String, actionId: String, detail: String) {
+    public init(title: String, actionId: String, detail: String, cta: String? = nil) {
         self.title = title
         self.actionId = actionId
         self.detail = detail
+        self.cta = cta
     }
 }
 
@@ -213,11 +232,25 @@ public struct DecisionFrame: Sendable, Equatable {
     public var suggestion: Suggestion?
     public var why: String
     public var abstained: Bool
+    /// One sentence a person can read, in the UI language: what this was
+    /// and what Leonard did about it. `why` stays the technical trace.
+    public var explanation: String?
+    /// The floor this decision was judged against — the user's personal
+    /// floor for this kind when adaptive quiet is on.
+    public var floor: Double?
+    /// "specialist" when the personal specialist decided alone (tier 0),
+    /// "general" when the resident model did (tier 1).
+    public var tier: String?
+    /// The specialist's probability that the user wants to hear about this.
+    public var specialistP: Double?
+
+    public var decidedBySpecialist: Bool { tier == "specialist" }
 
     public init(
         ts: Double, id: String, eventId: String, action: DecisionAction, confidence: Double,
         schemaMass: Double, latencyMs: Double, hypotheses: [Hypothesis] = [], readouts: [Readout] = [],
-        suggestion: Suggestion? = nil, why: String = "", abstained: Bool = false
+        suggestion: Suggestion? = nil, why: String = "", abstained: Bool = false,
+        explanation: String? = nil, floor: Double? = nil, tier: String? = nil, specialistP: Double? = nil
     ) {
         self.ts = ts
         self.id = id
@@ -231,12 +264,17 @@ public struct DecisionFrame: Sendable, Equatable {
         self.suggestion = suggestion
         self.why = why
         self.abstained = abstained
+        self.explanation = explanation
+        self.floor = floor
+        self.tier = tier
+        self.specialistP = specialistP
     }
 }
 
 extension DecisionFrame: Codable {
     enum CodingKeys: String, CodingKey {
-        case ts, id, action, confidence, hypotheses, readouts, suggestion, why, abstained
+        case ts, id, action, confidence, hypotheses, readouts, suggestion, why, abstained, explanation, floor, tier
+        case specialistP = "specialist_p"
         case eventId = "event_id"
         case schemaMass = "schema_mass"
         case latencyMs = "latency_ms"
@@ -256,6 +294,10 @@ extension DecisionFrame: Codable {
         suggestion = try container.decodeIfPresent(Suggestion.self, forKey: .suggestion)
         why = try container.decodeIfPresent(String.self, forKey: .why) ?? ""
         abstained = try container.decodeIfPresent(Bool.self, forKey: .abstained) ?? false
+        explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
+        floor = try container.decodeIfPresent(Double.self, forKey: .floor)
+        tier = try container.decodeIfPresent(String.self, forKey: .tier)
+        specialistP = try container.decodeIfPresent(Double.self, forKey: .specialistP)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -274,6 +316,10 @@ extension DecisionFrame: Codable {
         if abstained {
             try container.encode(abstained, forKey: .abstained)
         }
+        try container.encodeIfPresent(explanation, forKey: .explanation)
+        try container.encodeIfPresent(floor, forKey: .floor)
+        try container.encodeIfPresent(tier, forKey: .tier)
+        try container.encodeIfPresent(specialistP, forKey: .specialistP)
     }
 }
 
@@ -287,12 +333,48 @@ public struct PreparedFrame: Codable, Sendable, Equatable {
     public var actionId: String
     public var result: JSONValue
     public var latencyMs: Double
+    public var firstTokenMs: Double?
+    public var cancelled: Bool?
 
     enum CodingKeys: String, CodingKey {
-        case ts, result
+        case ts, result, cancelled
         case decisionId = "decision_id"
         case actionId = "action_id"
         case latencyMs = "latency_ms"
+        case firstTokenMs = "first_token_ms"
+    }
+
+    public init(
+        ts: Double, decisionId: String, actionId: String, result: JSONValue, latencyMs: Double,
+        firstTokenMs: Double? = nil, cancelled: Bool? = nil
+    ) {
+        self.ts = ts
+        self.decisionId = decisionId
+        self.actionId = actionId
+        self.result = result
+        self.latencyMs = latencyMs
+        self.firstTokenMs = firstTokenMs
+        self.cancelled = cancelled
+    }
+
+    /// `text`, `reply`, `replacement`, `answer`, or `error`.
+    public var resultKind: String { result["kind"]?.stringValue ?? "text" }
+    public var body: String { result["body"]?.stringValue ?? "" }
+    public var isError: Bool { resultKind == "error" }
+    /// For a `reply`: who it answers, so the app can open the right reply
+    /// window in Mail.
+    public var replyTo: String? { result["to"]?.stringValue }
+    public var replySubject: String? { result["subject"]?.stringValue }
+    public var messageId: String? { result["message_id"]?.stringValue }
+    public var sources: [SourceRef] {
+        guard case .array(let items)? = result["sources"] else { return [] }
+        return items.compactMap(SourceRef.init(json:))
+    }
+    /// Dates, days and figures in the text that appear nowhere in what the
+    /// model was shown — shown to the user as things to check.
+    public var unsupported: [String] {
+        guard case .array(let items)? = result["unsupported"] else { return [] }
+        return items.compactMap(\.stringValue)
     }
 }
 
@@ -300,6 +382,19 @@ public struct PreparedFrame: Codable, Sendable, Equatable {
 public struct ErrorFrame: Codable, Sendable, Equatable {
     public var ts: Double
     public var detail: String
+    /// Set when the error answers a specific request (`ask`, `memory.*`).
+    public var requestId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case ts, detail
+        case requestId = "request_id"
+    }
+
+    public init(ts: Double, detail: String, requestId: String? = nil) {
+        self.ts = ts
+        self.detail = detail
+        self.requestId = requestId
+    }
 }
 
 /// Every frame `LeonardApp` may receive. `.unknown` is the contract's
@@ -307,24 +402,51 @@ public struct ErrorFrame: Codable, Sendable, Equatable {
 /// never throws for an unrecognized `t`, it just produces this case.
 public enum IncomingFrame: Sendable, Equatable {
     case ready(ReadyFrame)
+    case status(StatusFrame)
     case trace(TraceFrame)
     case decision(DecisionFrame)
     case prepared(PreparedFrame)
+    case preparedDelta(PreparedDeltaFrame)
+    case answerDelta(AnswerDeltaFrame)
+    case answer(AnswerFrame)
+    case memoryResults(MemoryResultsFrame)
+    case memoryDeleted(CountFrame)
+    case memoryStats(MemoryStatsFrame)
+    case historyDeleted(CountFrame)
+    case stats(StatsFrame)
     case error(ErrorFrame)
-    /// The daemon's verdict for one `observe`. Not consumed by anything in
-    /// this target yet — see `OutgoingFrame.observe`.
+    /// The daemon's verdict for one `observe`: the next step of a task.
     case act(ActFrame)
+    case taskPlan(TaskPlanFrame)
+    case tasksResults(TasksResultsFrame)
+    case commitment(CommitmentFoundFrame)
+    case commitments(CommitmentsFrame)
+    case procedures(ProceduresFrame)
     case unknown(type: String)
 
     public static func decode(from data: Data) throws -> IncomingFrame {
         let type = try FrameCodec.readType(from: data)
         switch type {
         case "ready": return .ready(try FrameCodec.payload(ReadyFrame.self, from: data))
+        case "status": return .status(try FrameCodec.payload(StatusFrame.self, from: data))
+        case "prepared.delta": return .preparedDelta(try FrameCodec.payload(PreparedDeltaFrame.self, from: data))
+        case "answer.delta": return .answerDelta(try FrameCodec.payload(AnswerDeltaFrame.self, from: data))
+        case "answer": return .answer(try FrameCodec.payload(AnswerFrame.self, from: data))
+        case "memory.results": return .memoryResults(try FrameCodec.payload(MemoryResultsFrame.self, from: data))
+        case "memory.deleted": return .memoryDeleted(try FrameCodec.payload(CountFrame.self, from: data))
+        case "memory.stats": return .memoryStats(try FrameCodec.payload(MemoryStatsFrame.self, from: data))
+        case "history.deleted": return .historyDeleted(try FrameCodec.payload(CountFrame.self, from: data))
+        case "stats": return .stats(try FrameCodec.payload(StatsFrame.self, from: data))
         case "trace": return .trace(try FrameCodec.payload(TraceFrame.self, from: data))
         case "decision": return .decision(try FrameCodec.payload(DecisionFrame.self, from: data))
         case "prepared": return .prepared(try FrameCodec.payload(PreparedFrame.self, from: data))
         case "error": return .error(try FrameCodec.payload(ErrorFrame.self, from: data))
         case "act": return .act(try FrameCodec.payload(ActFrame.self, from: data))
+        case "task.plan": return .taskPlan(try FrameCodec.payload(TaskPlanFrame.self, from: data))
+        case "tasks.results": return .tasksResults(try FrameCodec.payload(TasksResultsFrame.self, from: data))
+        case "commitment": return .commitment(try FrameCodec.payload(CommitmentFoundFrame.self, from: data))
+        case "commitments": return .commitments(try FrameCodec.payload(CommitmentsFrame.self, from: data))
+        case "procedures": return .procedures(try FrameCodec.payload(ProceduresFrame.self, from: data))
         default: return .unknown(type: type)
         }
     }

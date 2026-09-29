@@ -12,6 +12,59 @@ faith.
 
 Measured on a fanless Apple M4, 24 GB, macOS 27.
 
+## Leonard 1.0: what changed in the daemon
+
+Everything below this section is the v0.1 record and stays as it was
+measured. 1.0 changed these things, each with tests in `tests/`:
+
+| Area | Module | Change |
+|---|---|---|
+| Protocol 1 | `server.py` | Binds before the model loads and reports `loading` / `model_missing` / `error` / `ready`; streaming `prepared.delta` and `answer.delta`; `ask`, `cancel`, `regenerate`, memory, stats, learning and settings frames. See `docs/CONTRACT.md`. |
+| Letter-order bias | `decide.py`, `intents.py` | Fixed, not just measured: `message_type` is read twice, options in forward and reversed order, and the two distributions averaged (`debias=True`). |
+| Automated but critical | `intents.py` | The urgency rubric now describes consequential automated notices (security alerts, overdue invoices, expiring deadlines); they get a summary, not a reply. |
+| Tone | `intents.py` | `tone` is a three-way `Choice` (warm or neutral / firm / curt or hostile) instead of a score that collapsed to the middle. |
+| Drafts | `compose.py`, `generation.py` | Written as the user, never as the sender (salutation prefix, role rules); same language and register as the email; four variants (accept, decline, more time, ask for details); grounded in screen memory with `[n]` citations; a fact check lists figures, dates and names that appear in neither the email nor the sources. |
+| Ask | `compose.py` | Eight modes (ask, write, reply, rewrite, translate, summarize, explain, compute) over the selection and screen memory. |
+| Screen memory | `memory.py` | SQLite FTS5, text only; redaction of cards, keys, tokens, one-time codes and password lines (IBANs preserved); dedup and window growth merge; retention sweep. |
+| Learning | `learning.py` | Per-kind Beta(2,2) approval estimate moves a personal floor within [0.40, 0.90] after 6 answers; three explicit dismissals from one sender mute it; every rule is visible and undoable. Timeouts are not dismissals. |
+| Settings | `settings.py` | Floor, language, which event kinds may interrupt, quiet hours, protected apps, retention; applied live. |
+| Lifecycle | `__main__.py` | `--parent-pid` watchdog, single-instance lock (exit 3), log file, data dir. |
+| Tasks | `agent.py` | Doing a job in any app (ADR-007): a plan, then per step one prefill answering the operation and a typed target question per kind (press, text, scroll, app), each with "none of these"; text only for TYPE; a Bool for "press Return after"; blocks below the floor, on "none", on a step that changes nothing, after 30 steps. `route_request` tells a question from a job. |
+| Tier 0 | `specialist.py` | The personal specialist (ADR-008): hashed-feature logistic regression trained on the Mac from explicit, implicit and teacher labels, validated on the user's newest answers before it may decide, deciding alone only a confident "this can wait", with 5% shadow checks. |
+| Chats | `intents.py`, `compose.py` | `message.opened` judged on the mail questions; a chat-sized reply. |
+| Promises | `commitments.py` | One Bool readout (does this sent message promise something?), then the promise phrased by the text model and its due date parsed by code (EN/IT). |
+| Meetings | `intents.py`, `compose.py` | `calendar.upcoming`: one Bool (worth preparing?), and a cited brief that includes open promises to the attendees. |
+| Procedures | `procedures.py` | Tasks that ended done and user demonstrations, matched to new requests: a guide in every step's context, and the plan itself when the match is close. |
+
+### Judgement A/B, 1.0 against v0.1
+
+The same 25-message fixture (`judgement_eval.py`), run through the three
+prompt configurations. Because this machine could not run MLX at a usable
+speed, the run used `tools/torch_reference.py`: the **same 4-bit checkpoint,
+dequantized to bf16 and evaluated with PyTorch on CPU**. That makes the
+comparison between configurations fair (same weights, same engine), but the
+absolute numbers are not the MLX 4-bit numbers above, and **no latency from
+this run is quotable**. File: `results/reference/judgement_ab_1790592569.json`.
+
+| Configuration | Floor | Coverage | Precision | Recall |
+|---|---|---|---|---|
+| v0.1 | 0.60 | 0.28 | 1.000 | 0.538 (7/13) |
+| v0.1 + debias only | 0.60 | 0.28 | 1.000 | 0.538 (7/13) |
+| **1.0** | **0.60** | **0.48** | **0.833** | **0.769 (10/13)** |
+| 1.0 | 0.50 | 0.52 | 0.846 | 0.846 |
+| 1.0 | 0.70 | 0.40 | 0.900 | 0.692 |
+
+Read honestly: 1.0 catches three more of the thirteen messages that need the
+user, and pays for it with two false positives at the default floor. Both are
+`prepare`, not `suggest`: they wait silently under "For you" and never pop an
+overlay, so the cost is an item the user can ignore, not an interruption.
+Every `suggest` in the 1.0 run was correct. Letter order moved no final
+decision in either debiased configuration.
+
+What this does not show: behaviour on real inboxes (25 fixtures is a smoke
+test, not a benchmark), MLX 4-bit latency on the 1.0 prompts, and calibration
+of the personal floor, which needs weeks of a real user's answers.
+
 ## The core change: ask facts, not judgements
 
 The daemon used to ask the model `interrupt`: "what should Leonard do about
@@ -279,27 +332,22 @@ personal-specialist pipeline, per `docs/CONTRACT.md`.
 
 ## What did not work / is not closed out
 
+v0.1 items, with their 1.0 status:
+
 - **`deadline_stated` / `sender_waiting_on_user`**: designed, measured,
-  found broken (constant `true`), removed. See above.
-- **Letter-order bias**: confirmed real (28% on `message_type`), not fixed.
-  No averaging-over-orderings or position-debiasing was implemented.
-- **`urgency` still misses "automated but critical"**: security alerts and
-  overdue-invoice notices score `urgency=0` because the rubric's levels
-  describe personal urgency well and automated-but-consequential poorly.
-  Both of the fixture's remaining floor-0.6 false negatives beyond the
-  floor-boundary cases are this, not a policy or confidence bug.
-- **Full-pipeline sensitivity to letter order** was not measured, only the
-  isolated `message_type` readout; whether a reordering ever flips a final
-  `action` end-to-end is unverified.
-- **The post-rework benchmark figure**: the idle gate is implemented and was
-  verified refusing for real (see "Benchmark" above), but the machine never
-  settled during this session long enough to also capture the clean
-  post-rework latency number itself.
-- **`observe`/`act` is not wired into `LeonardServer`'s socket dispatch.**
-  `act.py` implements the scoring path as a pure library function, tested
-  directly (`tests/test_act.py`), by the same design separation
-  `attention.py`/`server.py` already use; adding an `_on_observe` handler to
-  `server.py` is a small, natural next step this task did not include.
+  found broken (constant `true`), removed. Still removed.
+- **Letter-order bias**: fixed in 1.0 by reading `message_type` in both
+  orders and averaging (above).
+- **`urgency` missed "automated but critical"**: addressed by the 1.0 rubric;
+  measured only on the reference engine.
+- **Full-pipeline sensitivity to letter order**: measured on the reference
+  engine for 1.0 (no final action moved); not re-measured on MLX.
+- **The post-rework MLX latency figure** was never captured cleanly, and 1.0
+  added readouts (the debiased `message_type`, `tone`). Re-run
+  `python -m leonardd.bench` on an idle Apple-silicon Mac before quoting any
+  1.0 latency.
+- **`observe`/`act`** is now wired into `server.py` (`_on_observe`); the app
+  does not drive other applications yet in 1.0.
 
 ## Running things
 
@@ -307,4 +355,8 @@ personal-specialist pipeline, per `docs/CONTRACT.md`.
 uv run pytest -q                        # full suite, includes test_no_network.py and the slow real-model tests
 uv run python -m leonardd.judgement_eval # writes results/judgement_eval_<ts>.json and results/latest_judgement_eval.json
 uv run python -m leonardd.bench          # writes results/bench_<ts>.json and results/latest_bench.json; refuses under load
+uv run pytest -q -m "not slow"          # the fast suite CI runs on Linux
+uv run python tools/reference_eval.py   # the A/B above, on the CPU reference engine (slow)
+uv run python tools/quality_probe.py    # read actual drafts and answers side by side
+uv run python tools/export_contract_fixtures.py  # regenerate the Swift contract fixtures
 ```

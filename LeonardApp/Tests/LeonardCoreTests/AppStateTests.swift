@@ -60,19 +60,99 @@ struct AppStateTests {
         #expect(state.staySilentCount == 1)
     }
 
+    private func modelDecision(id: String, eventId: String, latencyMs: Double) -> DecisionFrame {
+        var d = decision(id: id, eventId: eventId, action: .ignore, latencyMs: latencyMs)
+        d.readouts = [Readout(q: "urgency", value: .number(0), p: 0.9, schemaMass: 0.99)]
+        return d
+    }
+
     @Test func medianDecisionLatencyIsCorrectForEvenAndOddCounts() {
         let state = AppState()
         #expect(state.medianDecisionLatencyMs == 0)
 
         for (i, latency) in [10.0, 30.0, 20.0].enumerated() {
             state.recordEvent(event(id: "e\(i)"))
-            state.recordDecision(decision(id: "d\(i)", eventId: "e\(i)", action: .ignore, latencyMs: latency))
+            state.recordDecision(modelDecision(id: "d\(i)", eventId: "e\(i)", latencyMs: latency))
         }
         #expect(state.medianDecisionLatencyMs == 20.0)
 
         state.recordEvent(event(id: "e3"))
-        state.recordDecision(decision(id: "d3", eventId: "e3", action: .ignore, latencyMs: 40.0))
+        state.recordDecision(modelDecision(id: "d3", eventId: "e3", latencyMs: 40.0))
         #expect(state.medianDecisionLatencyMs == 25.0)
+    }
+
+    @Test func instantDecisionsWithoutAModelDoNotDragTheMedianDown() {
+        let state = AppState()
+        state.recordEvent(event(id: "e0"))
+        state.recordDecision(modelDecision(id: "d0", eventId: "e0", latencyMs: 500))
+        for i in 1...5 {
+            state.recordEvent(event(id: "e\(i)", kind: .mailArrived))
+            state.recordDecision(decision(id: "d\(i)", eventId: "e\(i)", action: .ignore, latencyMs: 0.1))
+        }
+        #expect(state.medianDecisionLatencyMs == 500)
+    }
+
+    @Test func suggestAndPrepareWaitInForYouUntilAnswered() {
+        let state = AppState()
+        var prepared = decision(id: "p1", eventId: "e1", action: .prepare, latencyMs: 1)
+        prepared.suggestion = Suggestion(title: "Marco is waiting", actionId: "draft_reply", detail: "", cta: "Draft reply")
+        state.recordDecision(prepared)
+        state.recordDecision(decision(id: "s1", eventId: "e2", action: .suggest, latencyMs: 1))
+        state.recordDecision(decision(id: "w1", eventId: "e3", action: .wait, latencyMs: 1, abstained: true))
+        #expect(state.forYou.map(\.id) == ["s1", "p1"])
+        #expect(state.pendingOverlay?.id == "s1")
+        state.resolve("s1")
+        #expect(state.forYou.map(\.id) == ["p1"])
+        state.expireForYou(now: 1 + 13 * 3600)
+        #expect(state.forYou.isEmpty)
+    }
+
+    @Test func draftStreamsThenSettles() {
+        let state = AppState()
+        let d = decision(id: "d1", eventId: "e1", action: .suggest, latencyMs: 1)
+        state.beginDraft(for: d)
+        state.applyPreparedDelta(PreparedDeltaFrame(ts: 1, decisionId: "d1", text: "Ciao "))
+        state.applyPreparedDelta(PreparedDeltaFrame(ts: 1, decisionId: "other", text: "ignored"))
+        state.applyPreparedDelta(PreparedDeltaFrame(ts: 1, decisionId: "d1", text: "Marco,"))
+        #expect(state.draft?.text == "Ciao Marco,")
+        #expect(state.draft?.streaming == true)
+        state.applyPrepared(PreparedFrame(ts: 2, decisionId: "d1", actionId: "draft_reply",
+                                          result: .object(["kind": .string("reply"), "body": .string("Ciao Marco, confermo.")]),
+                                          latencyMs: 900))
+        #expect(state.draft?.text == "Ciao Marco, confermo.")
+        #expect(state.draft?.streaming == false)
+        #expect(state.draft?.isReply == true)
+    }
+
+    @Test func askStreamsAndIgnoresStaleRequests() {
+        let state = AppState()
+        let frame = AskFrame(id: "a1", prompt: "IBAN?")
+        state.beginAsk(frame, mode: .ask)
+        state.applyAnswerDelta(AnswerDeltaFrame(ts: 1, requestId: "a0", text: "stale"))
+        state.applyAnswerDelta(AnswerDeltaFrame(ts: 1, requestId: "a1", text: "IT60 [1]"))
+        #expect(state.ask.text == "IT60 [1]")
+        state.applyAnswer(AnswerFrame(ts: 2, requestId: "a1", ok: true, text: "IT60 [1]",
+                                      sources: [SourceRef(n: 1, id: 7, app: "Mail", window: "Preventivo", ts: 1, lastSeen: 1)]))
+        #expect(state.ask.streaming == false)
+        #expect(state.ask.sources.first?.app == "Mail")
+        state.beginAsk(AskFrame(id: "a2", prompt: "x"), mode: .ask)
+        state.applyError(ErrorFrame(ts: 3, detail: "model loading", requestId: "a2"))
+        #expect(state.ask.error == "model loading")
+    }
+
+    @Test func activityStateReflectsSetupAndPause() {
+        let state = AppState()
+        state.modelInstalled = false
+        #expect(state.activityState == .setupNeeded)
+        state.connection = .connected
+        state.daemonStatus = StatusFrame(ts: 1, state: "loading")
+        #expect(state.activityState == .starting)
+        state.connection = .ready(ReadyFrame(ts: 1, model: "m", primeMs: 1, decideMs: 1, floor: 0.6))
+        state.watching = false
+        #expect(state.activityState == .paused)
+        state.watching = true
+        state.entitlement = .trialExpired
+        #expect(state.activityState == .paused)
     }
 
     @Test func learningSignalEventsAreCountedAndHiddenFromVisibleEntriesByDefault() {

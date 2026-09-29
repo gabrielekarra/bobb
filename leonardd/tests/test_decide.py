@@ -164,3 +164,40 @@ def test_decide_many_empty_questions_returns_empty_without_prefill():
     engine = FakeEngine(queued())
     assert decide_many(engine, "state", []) == []
     assert engine.prefill_calls == 0
+
+
+# ---------------------------------------------------------------- letter-order debiasing
+
+
+def test_debias_cancels_a_model_that_only_ever_says_A():
+    always_a = lambda cache: peaked_logits(4096, high_index=100)  # " A", whatever the question
+    q = Choice(name="kind", question="?", options=("request", "fyi"), debias=True)
+    decision = decide(FakeEngine(always_a), "state", q)
+    # Forward order says "request", reversed order says "fyi": no real opinion.
+    assert decision.probabilities["request"] == pytest.approx(0.5, abs=1e-6)
+    assert decision.probabilities["fyi"] == pytest.approx(0.5, abs=1e-6)
+
+
+def test_debias_keeps_an_answer_that_survives_reordering():
+    # Forward: B (= "fyi"). Reversed order lists "fyi" first: A (= "fyi").
+    engine = FakeEngine(queued(peaked_logits(4096, high_index=1), peaked_logits(4096, high_index=0)))
+    q = Choice(name="kind", question="?", options=("request", "fyi"), debias=True)
+    decision = decide(engine, "state", q)
+    assert decision.value == "fyi"
+    assert decision.confidence > 0.99
+
+
+def test_debias_rides_the_same_batched_pass():
+    engine = BatchedFakeEngine(lambda cache: peaked_logits(4096, high_index=100))
+    questions = [
+        Choice(name="kind", question="?", options=("a", "b", "c"), debias=True),
+        Score(name="urgency", rubric="?", lo=0, hi=4),
+    ]
+    decisions = decide_many(engine, "shared", questions)
+    assert [d.name for d in decisions] == ["kind", "urgency"]
+    assert sum(len(call) for call in engine.step_many_calls) == 3  # 2 rows for kind, 1 for urgency
+    assert engine.prefill_calls == 1
+
+
+def test_bool_never_debiases():
+    assert Bool(name="x", statement="y").debias is False
