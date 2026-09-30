@@ -246,6 +246,7 @@ public final class LeonardCoordinator {
     }
 
     private func permits(_ event: EventFrame) -> Bool {
+        if event.app.isEmpty, event.kind == .idleEntered || event.kind == .idleLeft { return true }
         let kind = event.kind.rawValue
         let bundle = event.payload.fields["bundle_id"]?.stringValue
             ?? (kind.hasPrefix("mail.") ? "com.apple.mail" : kind.hasPrefix("calendar.") ? "com.apple.iCal" : nil)

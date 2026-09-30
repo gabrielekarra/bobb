@@ -392,7 +392,8 @@ class LeonardServer:
         kind = event.get("kind", "")
         bundle = payload.get("bundle_id") or ("com.apple.mail" if kind.startswith("mail.")
                                                else "com.apple.iCal" if kind.startswith("calendar.") else None)
-        if settings_mod.is_protected(self.settings, app=event.get("app"), bundle_id=bundle):
+        aggregate_idle = not event.get("app") and kind in {"idle.entered", "idle.left"}
+        if not aggregate_idle and settings_mod.is_protected(self.settings, app=event.get("app"), bundle_id=bundle):
             return
         if event.get("id") and isinstance(event.get("kind"), str):
             self.workspace.event(event["kind"], str(event["id"]))

@@ -254,6 +254,8 @@ class Workspace:
                     continue
                 if run["surface"] == "desktop" and (not desktop_available or self.conn.execute("SELECT 1 FROM bobb_runs WHERE surface='desktop' AND status IN ('running','waiting')").fetchone()):
                     continue
+                if run["surface"] == "mcp" and self.conn.execute("SELECT 1 FROM bobb_runs WHERE surface='mcp' AND url=? AND status IN ('running','waiting')", (run["url"],)).fetchone():
+                    continue
                 if run["project_id"] and not self.get("project", run["project_id"])["enabled"]:
                     continue
                 if run["source_id"] and not run["project_id"]:

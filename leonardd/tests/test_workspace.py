@@ -29,6 +29,18 @@ def test_schedule_coalesces_and_does_not_queue_twice(workspace):
     assert workspace.get("job", j["id"])["next_due"] is None
 
 
+def test_same_mcp_computer_is_serialized_across_agents(workspace):
+    workspace.put("agent", {"id": "other", "name": "Other"})
+    job(workspace, id="first", surface="mcp", url="virtual-mac")
+    job(workspace, id="second", surface="mcp", url="virtual-mac", agent_id="other")
+    workspace.tick(now=101)
+    first = workspace.claim("one", now=102)
+    assert first is not None
+    assert workspace.claim("two", now=103) is None
+    workspace.update_run(first["id"], "one", "done", now=104)
+    assert workspace.claim("two", now=105) is not None
+
+
 def test_recurring_schedule_uses_local_calendar_across_spring_dst():
     s = schedule({"kind": "daily", "hour": 9, "minute": 0, "timezone": "Europe/Rome"})
     before = datetime(2026, 3, 28, 9, 0, tzinfo=ZoneInfo("Europe/Rome")).timestamp()

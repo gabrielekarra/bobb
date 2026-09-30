@@ -28,6 +28,9 @@ struct BobbView: View {
     @State private var connectorName = ""
     @State private var connectorExecutable = ""
     @State private var connectorArguments = ""
+    @State private var guestAddress = ""
+    @State private var guestUser = ""
+    @State private var guestKey = ""
 
     init(workspace: BobbWorkspace, initialTab: String = "identity") {
         self.workspace = workspace
@@ -469,8 +472,41 @@ struct BobbView: View {
                     Button(t("Open", "Apri")) { workspace.virtualMac.inspect() }
                     Button(t("Shut down", "Spegni")) { workspace.virtualMac.stop() }
                 }
-                hint(t("Apple silicon, 24 GB RAM and a local macOS restore image. A separate 64 GB sparse disk, no shared folders. This preview provides installation and manual inspection; autonomous guest control is not yet available.", "Apple silicon, 24 GB di RAM e un’immagine macOS locale. Disco sparso separato da 64 GB, nessuna cartella condivisa. Questa anteprima offre installazione e controllo manuale; l’automazione dentro il guest non è ancora disponibile."))
+                hint(t("Apple silicon, 24 GB RAM, a local macOS IPSW and a separate 64 GB sparse disk. Install Bobb in the guest, grant Accessibility, connect its apps and configure Remote Login with a dedicated SSH key. Verify its SSH fingerprint before connecting. No shared folders or forwarded credentials.", "Apple silicon, 24 GB di RAM, un IPSW macOS locale e un disco sparso separato da 64 GB. Installa Bobb nel guest, concedi Accessibilità, collega le app e configura Login remoto con una chiave SSH dedicata. Verifica prima l’impronta SSH. Nessuna cartella condivisa o credenziale inoltrata."))
+                TextField(t("Guest private IPv4 address", "Indirizzo IPv4 privato del guest"), text: $guestAddress)
+                TextField(t("Guest account", "Account del guest"), text: $guestUser)
+                HStack {
+                    Button(t("Choose SSH identity…", "Scegli identità SSH…")) {
+                        let picker = NSOpenPanel(); picker.canChooseDirectories = false
+                        if picker.runModal() == .OK { guestKey = picker.url?.path ?? "" }
+                    }
+                    Text(guestKey.isEmpty ? t("No key selected", "Nessuna chiave scelta") : URL(fileURLWithPath: guestKey).lastPathComponent).font(.caption)
+                    Spacer()
+                    Button(t("Connect virtual Mac", "Collega Mac virtuale"), action: connectGuest)
+                }
+                hint(t("Select the virtual-mac connector for an assignment. Host and guest boundaries both apply. An action that asks in the guest remains blocked until you review that category there.", "Seleziona il connettore virtual-mac per un incarico. Valgono i confini sia del Mac principale sia del guest. Un’azione che chiede nel guest resta bloccata finché rivedi lì quella categoria."))
             }
         }.formStyle(.grouped)
+    }
+
+    private func connectGuest() {
+        let octets = guestAddress.split(separator: ".").compactMap { Int($0) }
+        guard octets.count == 4, guestAddress.split(separator: ".").count == 4,
+              octets.allSatisfy({ (0...255).contains($0) }),
+              octets[0] == 10 || (octets[0] == 192 && octets[1] == 168) || (octets[0] == 172 && (16...31).contains(octets[1])),
+              !guestUser.isEmpty, guestUser.count <= 64, guestUser.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }),
+              !guestUser.hasPrefix("-"), guestKey.hasPrefix("/"), FileManager.default.fileExists(atPath: guestKey) else {
+            workspace.message = t("Enter a private IPv4 address, an account and a dedicated SSH key.", "Inserisci un IPv4 privato, un account e una chiave SSH dedicata."); return
+        }
+        let config = MCPConfiguration(id: "virtual-mac", executable: "/usr/bin/ssh", arguments: [
+            "-T", "-F", "/dev/null", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+            "-o", "ForwardAgent=no", "-o", "ClearAllForwardings=yes", "-o", "PermitLocalCommand=no",
+            "-o", "ConnectTimeout=10", "-o", "IdentityAgent=none", "-i", guestKey,
+            "--", "\(guestUser)@\(guestAddress)", "/Applications/Bobb.app/Contents/MacOS/BobbApp --mcp-guest"
+        ], enabled: true)
+        workspace.coordinator.updateSettings { s in
+            s.bobb.connectors.removeAll { $0.id == config.id }; s.bobb.connectors.append(config)
+        }
+        connect(id: "mcp:virtual-mac", name: "Virtual Mac")
     }
 }

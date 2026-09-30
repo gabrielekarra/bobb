@@ -100,6 +100,7 @@ final class DaemonSupervisor {
     private var process: Process?
     private var recentExits: [Date] = []
     private var stopping = false
+    private var generation = 0
     private let lockExitCode: Int32 = 3
 
     init(command: DaemonCommand?) {
@@ -118,6 +119,8 @@ final class DaemonSupervisor {
             return
         }
         guard process == nil else { return }
+        generation += 1
+        let currentGeneration = generation
         stopping = false
         let process = Process()
         process.executableURL = command.executable
@@ -129,7 +132,10 @@ final class DaemonSupervisor {
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] finished in
             let status = finished.terminationStatus
-            Task { @MainActor [weak self] in self?.processExited(status: status) }
+            Task { @MainActor [weak self] in
+                guard self?.generation == currentGeneration else { return }
+                self?.processExited(status: status)
+            }
         }
         do {
             try process.run()
@@ -142,6 +148,8 @@ final class DaemonSupervisor {
 
     func stop() {
         stopping = true
+        generation += 1
+        state = .idle
         guard let process, process.isRunning else {
             self.process = nil
             return
@@ -150,7 +158,7 @@ final class DaemonSupervisor {
         let pid = process.processIdentifier
         // Give it two seconds to close the socket and the databases cleanly.
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-            if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
+            if process.isRunning { kill(pid, SIGKILL) }
         }
         self.process = nil
     }
@@ -158,8 +166,12 @@ final class DaemonSupervisor {
     func restart() {
         stop()
         recentExits.removeAll()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            MainActor.assumeIsolated { self?.start() }
+        let currentGeneration = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+            MainActor.assumeIsolated {
+                guard self?.generation == currentGeneration else { return }
+                self?.start()
+            }
         }
     }
 
@@ -182,8 +194,12 @@ final class DaemonSupervisor {
         let attempt = recentExits.count
         state = .restarting(attempt: attempt)
         let delay = min(30.0, pow(2.0, Double(attempt)))
+        let currentGeneration = generation
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            MainActor.assumeIsolated { self?.start() }
+            MainActor.assumeIsolated {
+                guard self?.generation == currentGeneration else { return }
+                self?.start()
+            }
         }
     }
 }

@@ -74,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             eventSource = MockEventSource(scenario: MockEventSource.demoScenario())
         } else {
             let composite = CompositeEventSource()
+            composite.permittedApp = { [weak self] id, name in self?.permitsSensor(id, name) ?? false }
             composite.mail.onPermissionDenied = { [weak self] in self?.permissions.refresh() }
             composite.mail.permitted = { [weak self] in
                 guard let self else { return false }
@@ -94,8 +95,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenSensor.onFrame = { [weak coordinator] frame in coordinator?.observe(frame) }
         screenSensor.onWindowText = { [weak self] text in self?.windowRead(text) }
         sentMail = SentMailSensor(seenFile: AppPaths.dataDirectory.appendingPathComponent("sent-seen.json"))
+        sentMail.permitted = { [weak self] in self?.permitsSensor("com.apple.mail", "Mail") ?? false }
         sentMail.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
         calendar = CalendarSensor()
+        calendar.permitted = { [weak self] in self?.permitsSensor("com.apple.iCal", "Calendar") ?? false }
         calendar.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
         calendar.onMemory = { [weak coordinator] frame in coordinator?.observe(frame) }
 
@@ -276,6 +279,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: Windows
+
+    private func permitsSensor(_ id: String?, _ name: String) -> Bool {
+        state.settings.watching && state.settings.bobb.boundaries.app(bundleId: id, name: name) != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: id, appName: name)
+    }
 
     private func showSettings(tab: SettingsUIModel.Tab) {
         settingsUI.tab = tab
