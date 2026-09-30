@@ -77,6 +77,7 @@ class Settings:
     history_retention_days: int = 90
     protected_apps: frozenset[str] = DEFAULT_PROTECTED_APPS
     extra_protected_apps: frozenset[str] = field(default_factory=frozenset)
+    timezone: str = "UTC"
 
     @property
     def all_protected_apps(self) -> frozenset[str]:
@@ -104,6 +105,7 @@ class Settings:
             "memory_retention_days": self.memory_retention_days,
             "history_retention_days": self.history_retention_days,
             "extra_protected_apps": sorted(self.extra_protected_apps),
+            "timezone": self.timezone,
         }
 
 
@@ -145,6 +147,13 @@ def apply(settings: Settings, frame: dict[str, Any]) -> Settings:
         changes["floor"] = floor
     if frame.get("locale") in SUPPORTED_LOCALES:
         changes["locale"] = frame["locale"]
+    if isinstance(frame.get("timezone"), str):
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(frame["timezone"])
+            changes["timezone"] = frame["timezone"]
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
     if "proactive_kinds" in frame and (kinds := _valid_strings(frame["proactive_kinds"])) is not None:
         changes["proactive_kinds"] = kinds
     if "quiet_hours" in frame and (hours := _valid_hours(frame["quiet_hours"])) is not False:

@@ -251,14 +251,14 @@ enum Clipboard {
 }
 
 enum Keyboard {
-    static func press(key: CGKeyCode, command: Bool) {
+    static func press(key: CGKeyCode, command: Bool, shift: Bool = false) {
         let source = CGEventSource(stateID: .combinedSessionState)
         let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true)
         let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false)
-        if command {
-            down?.flags = .maskCommand
-            up?.flags = .maskCommand
-        }
+        var flags: CGEventFlags = []
+        if command { flags.insert(.maskCommand) }
+        if shift { flags.insert(.maskShift) }
+        down?.flags = flags; up?.flags = flags
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }

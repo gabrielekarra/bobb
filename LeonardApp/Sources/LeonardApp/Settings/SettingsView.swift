@@ -39,7 +39,6 @@ struct SettingsView: View {
             acting.tabItem { Label(L10n.t(.settingsActing), systemImage: "cursorarrow.rays") }.tag(SettingsUIModel.Tab.acting)
             privacy.tabItem { Label(L10n.t(.settingsPrivacy), systemImage: "lock.shield") }.tag(SettingsUIModel.Tab.privacy)
             modelTab.tabItem { Label(L10n.t(.settingsModel), systemImage: "cpu") }.tag(SettingsUIModel.Tab.model)
-            licenseTab.tabItem { Label(L10n.t(.settingsLicense), systemImage: "key") }.tag(SettingsUIModel.Tab.license)
             about.tabItem { Label(L10n.t(.settingsAbout), systemImage: "info.circle") }.tag(SettingsUIModel.Tab.about)
         }
         .padding(20)
@@ -66,6 +65,7 @@ struct SettingsView: View {
 
     private var general: some View {
         Form {
+            Button("Bobb · " + BobbCopy.t("Projects, assignments & boundaries", "Progetti, incarichi e confini"), action: services.openBobb)
             Picker(L10n.t(.settingsLanguage), selection: binding(\.language)) {
                 Text(L10n.t(.settingsLanguageSystem)).tag(AppLanguage.system)
                 Text("English").tag(AppLanguage.en)
@@ -356,6 +356,8 @@ struct SettingsView: View {
         Form {
             Section {
                 switch license.entitlement {
+                case .community:
+                    Label("Bobb · Open source", systemImage: "heart")
                 case .trial(let days):
                     Label(L10n.t(.licenseTrial, ["days": "\(days)"]), systemImage: "hourglass")
                 case .trialExpired:
@@ -437,4 +439,5 @@ struct SettingsServices {
     var exportDiagnostics: () -> Void
     var openNotices: () -> Void
     var entitlementChanged: () -> Void
+    var openBobb: () -> Void = {}
 }

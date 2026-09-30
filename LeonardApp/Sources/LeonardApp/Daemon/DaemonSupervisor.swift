@@ -14,13 +14,14 @@ struct DaemonCommand: Equatable {
     /// `python -m leonardd`. In development, `--daemon-dir <repo>/leonardd`
     /// runs the checkout through `uv` instead, and `--no-daemon` starts
     /// nothing, for a daemon (or `scripts/mockd.py`) the developer runs by hand.
-    static func resolve(dataDir: URL, modelsDir: URL, logFile: URL) -> DaemonCommand? {
+    static func resolve(dataDir: URL, modelsDir: URL, logFile: URL, modelPath: String = "") -> DaemonCommand? {
         if AppPaths.flag("--no-daemon") || AppPaths.flag("--mock-events") { return nil }
         let common = [
             "--data-dir", dataDir.path,
             "--log-file", logFile.path,
             "--parent-pid", String(ProcessInfo.processInfo.processIdentifier),
         ] + (AppPaths.argument("--socket").map { ["--socket", $0] } ?? [])
+          + (modelPath.isEmpty ? [] : ["--model", modelPath])
         var environment = cleanEnvironment()
         environment["LEONARD_MODELS_DIR"] = modelsDir.path
 
@@ -95,7 +96,7 @@ final class DaemonSupervisor {
 
     private(set) var state: State = .idle
 
-    private let command: DaemonCommand?
+    private var command: DaemonCommand?
     private var process: Process?
     private var recentExits: [Date] = []
     private var stopping = false
@@ -106,6 +107,10 @@ final class DaemonSupervisor {
     }
 
     var isManaged: Bool { command != nil }
+    func reconfigure(_ command: DaemonCommand?) {
+        self.command = command
+        restart()
+    }
 
     func start() {
         guard let command else {

@@ -55,6 +55,7 @@ from .i18n import t as tr
 from .learning import Personalizer
 from .memory import MemoryStore, Observation
 from .settings import Settings
+from .workspace import Workspace
 
 PROTOCOL_VERSION = 1
 DEFAULT_DATA_DIR = Path.home() / "Library" / "Application Support" / "Leonard"
@@ -73,6 +74,7 @@ FEATURES = (
     "tasks",
     "commitments",
     "specialist",
+    "bobb.workspace",
 )
 MAX_OPEN_TASKS = 8
 
@@ -179,6 +181,7 @@ class LeonardServer:
         self._tasks: set[asyncio.Task] = set()
         self._reload_hook = None
         self._task_sessions: dict[str, agent_mod.TaskSession] = {}
+        self.workspace = Workspace(conn, recover=True)
         commitments_mod.ensure_schema(conn)
         procedures_mod.ensure_schema(conn)
         self.specialist_path = specialist_path
@@ -325,6 +328,7 @@ class LeonardServer:
             "task.step": self._on_task_step,
             "task.end": self._on_task_end,
             "tasks.recent": self._on_tasks_recent,
+            "bobb.command": self._on_bobb_command,
         }.get(kind)
         if handler is None:
             return
@@ -384,6 +388,8 @@ class LeonardServer:
     # ------------------------------------------------------------ attention
 
     async def _on_event(self, event: dict, client: _Client) -> None:
+        if event.get("id") and isinstance(event.get("kind"), str):
+            self.workspace.event(event["kind"], str(event["id"]))
         obs = mail_observation(event)
         if obs is not None and self.memory is not None and self.settings.memory_enabled:
             protected = settings_mod.is_protected(self.settings, app=obs.app, bundle_id=obs.bundle_id)
@@ -875,9 +881,12 @@ class LeonardServer:
             # Done this way before: that is the plan, no generation needed.
             plan = guide
         else:
-            plan = await self._run_model(agent_mod.plan_task, self.attention.engine, goal, app, apps)
+            persona = " ".join(str(frame.get(k) or "")[:1000] for k in ("agent_name", "character", "profile")).strip()
+            planning_goal = (f"User-chosen assistant character: {persona}\nTask: {goal}" if persona else goal)
+            plan = await self._run_model(agent_mod.plan_task, self.attention.engine, planning_goal, app, apps)
         task_id = str(frame.get("task_id") or agent_mod.new_task_id())
         session = agent_mod.TaskSession(id=task_id, goal=goal, plan=plan, app=app, guide=guide)
+        session.persona = " ".join(str(frame.get(k) or "")[:1000] for k in ("agent_name", "character", "profile")).strip()
         while len(self._task_sessions) >= MAX_OPEN_TASKS:
             oldest = min(self._task_sessions.values(), key=lambda t: t.started)
             self._task_sessions.pop(oldest.id, None)
@@ -935,6 +944,33 @@ class LeonardServer:
             # A task that worked is a way of doing it, learned by watching Leonard.
             if status == "done":
                 procedures_mod.record(self.conn, session.goal, procedures_mod.from_task(self.conn, task_id), source="task")
+                # Scheduled work must not manufacture evidence of a user routine.
+                if not self.conn.execute("SELECT 1 FROM bobb_runs WHERE task_id=?", (task_id,)).fetchone():
+                    self.workspace.remember_routine(task_id, session.goal, timezone=self.settings.timezone)
+
+    async def _on_bobb_command(self, frame: dict, client: _Client) -> None:
+        if frame.get("op") == "register_task":
+            payload = frame.get("payload") or {}
+            task_id = str(payload.get("task_id") or "")[:100]
+            goal = str(payload.get("goal") or "").strip()[:4000]
+            steps = payload.get("steps")
+            if not task_id or not goal or not isinstance(steps, list) or not 1 <= len(steps) <= 12 or not all(isinstance(s, str) for s in steps):
+                raise ValueError("invalid task registration")
+            session = agent_mod.TaskSession(id=task_id, goal=goal, plan=steps, app=str(payload.get("app") or ""))
+            self._task_sessions[task_id] = session
+            audit_mod.record_task(self.conn, task_id, goal, steps, app=session.app)
+            result = {"result": task_id, **self.workspace.snapshot()}
+        elif frame.get("op") == "plan_project":
+            payload = frame.get("payload") or {}
+            goal = str(payload.get("goal") or "").strip()[:4000]
+            if not goal or self.attention is None:
+                raise ValueError("project planning requires a goal and a loaded model")
+            plan = await self._run_model(agent_mod.plan_project, self.attention.engine, goal,
+                                         str(payload.get("profile") or "general"))
+            result = {"result": plan, **self.workspace.snapshot()}
+        else:
+            result = self.workspace.command(frame)
+        await client.send({"t": "bobb.state", "ts": _now(), "request_id": frame.get("id"), **result})
 
     async def _on_procedure_record(self, frame: dict, client: _Client) -> None:
         """The user showed Leonard how ("Show me"), step by step."""

@@ -298,6 +298,8 @@ final class TaskController {
     private var escapeMonitors: [Any] = []
     private var hideTask: Task<Void, Never>?
     let driver = AXDriver()
+    var brainFactory: (() -> any TaskBrain)?
+    private var leaseId: String?
 
     init(state: AppState, coordinator: LeonardCoordinator) {
         self.state = state
@@ -315,13 +317,24 @@ final class TaskController {
         guard state.settings.actingEnabled else { return L10n.t(.taskDisabled) }
         guard AXIsProcessTrusted() else { return L10n.t(.taskNotTrusted) }
         guard state.entitlement.allowsAssistance else { return L10n.t(.statusTrialExpired) }
+        if let leaseId { ScreenLease.shared.release(leaseId) }
         loop?.stop()
         running?.cancel()
+        let id = TaskStartFrame.newTaskID()
+        guard ScreenLease.shared.acquire(id) else { return BobbCopy.t("The desktop is busy. Stop its current task in Bobb Activity.", "Lo schermo è occupato. Ferma l’incarico attuale in Attività di Bobb.") }
+        leaseId = id
+        driver.settings = { [weak self] in self?.state.settings ?? LeonardSettings() }
+        driver.stillOwnsScreen = { ScreenLease.shared.owner == id }
 
         let settings = state.settings
         let policy = ActionPolicy(approval: settings.actingApproval, allowRules: settings.actionAllowRules,
-                                  extraProtected: settings.extraProtectedApps)
-        let loop = TaskLoop(goal: trimmed, state: state, brain: coordinator, driver: driver, policy: policy)
+                                  extraProtected: settings.extraProtectedApps, boundaries: settings.bobb.boundaries)
+        let loop = TaskLoop(goal: trimmed, state: state, brain: brainFactory?() ?? coordinator, driver: driver, policy: policy, taskId: id)
+        loop.currentPolicy = { [weak self] in
+            let s = self?.state.settings ?? LeonardSettings()
+            return ActionPolicy(approval: s.actingApproval, allowRules: s.actionAllowRules, extraProtected: s.extraProtectedApps, boundaries: s.bobb.boundaries)
+        }
+        loop.shouldStop = { [weak self] in self?.state.settings.actingEnabled != true || ScreenLease.shared.owner != id }
         loop.onAllowAlways = { [weak self] rule in
             self?.coordinator.updateSettings { settings in
                 if !settings.actionAllowRules.contains(rule) { settings.actionAllowRules.append(rule) }
@@ -333,7 +346,8 @@ final class TaskController {
         installEscape()
         running = Task { [weak self] in
             let status = await loop.run()
-            self?.finished(status)
+            ScreenLease.shared.release(id)
+            if self?.leaseId == id { self?.leaseId = nil; self?.finished(status) }
         }
         return nil
     }

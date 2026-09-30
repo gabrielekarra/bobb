@@ -36,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let memoryModel = MemoryBrowserModel()
     private let onboardingModel = OnboardingModel()
     private var housekeeping: Timer?
+    private var bobb: BobbWorkspace!
+    private var configuredModelPath = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -62,8 +64,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor = DaemonSupervisor(command: DaemonCommand.resolve(
             dataDir: AppPaths.dataDirectory, modelsDir: AppPaths.modelsDirectory,
-            logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log")
+            logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log"), modelPath: settings.bobb.localModelPath
         ))
+        configuredModelPath = settings.bobb.localModelPath
 
         let client = IPCClient(socketPath: AppPaths.socketPath)
         let eventSource: EventSource
@@ -91,6 +94,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
         commandBar = CommandBarController(state: state, coordinator: coordinator)
         tasks = TaskController(state: state, coordinator: coordinator)
+        bobb = BobbWorkspace(state: state, coordinator: coordinator)
+        tasks.brainFactory = { [weak self] in
+            guard let self else { return coordinator }
+            let agent = self.bobb.activeAgent
+            if self.state.settings.bobb.cloud.enabled {
+                return CloudBrain(coordinator: coordinator, settings: { [weak self] in self?.state.settings ?? LeonardSettings() }, agent: agent)
+            }
+            return ProfileBrain(coordinator: coordinator, agent: agent)
+        }
         commandBar.startTask = { [weak self] goal in self?.tasks.start(goal: goal) }
         mindWindowController = MindWindowController(state: state, coordinator: coordinator)
         auditWindowController = AuditWindowController(auditPath: AppPaths.auditDatabase)
@@ -105,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor.start()
         coordinator.start()
+        bobb.start()
         if Self.needsScreenSensor(settings) { screenSensor.start() }
         syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
@@ -119,6 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        bobb?.stop()
+        tasks?.stop()
         coordinator?.stop()
         screenSensor?.stop()
         supervisor?.stop()
@@ -140,6 +155,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
+        bobb?.settingsChanged()
+        if configuredModelPath != settings.bobb.localModelPath {
+            configuredModelPath = settings.bobb.localModelPath
+            supervisor.reconfigure(DaemonCommand.resolve(dataDir: AppPaths.dataDirectory, modelsDir: AppPaths.modelsDirectory,
+                logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log"), modelPath: configuredModelPath))
+        }
     }
 
     private func syncSensors(_ settings: LeonardSettings) {
@@ -227,7 +248,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!
                     self?.coordinator.updateCommitment(promise.id, dueTs: tomorrow.addingTimeInterval(18 * 3600).timeIntervalSince1970)
                 }
-            }
+            },
+            openBobb: { [weak self, weak controller] in controller?.closePopover(); self?.bobb.show() }
         )
     }
 
@@ -253,7 +275,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     restartDaemon: { [weak self] in self?.supervisor.restart() },
                     exportDiagnostics: { [weak self] in self?.exportDiagnostics() },
                     openNotices: { Self.openNotices() },
-                    entitlementChanged: { [weak self] in self?.refreshEntitlement() }
+                    entitlementChanged: { [weak self] in self?.refreshEntitlement() },
+                    openBobb: { [weak self] in self?.bobb.show() }
                 )
             )
             settingsWindow = WindowPresenter.makeWindow(title: L10n.t(.settingsTitle), size: NSSize(width: 600, height: 520), resizable: false, content: view)
@@ -292,6 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishOnboarding() {
         coordinator.updateSettings { $0.onboardingCompleted = true }
         onboardingWindow?.close()
+        bobb.show()
     }
 
     private func startDownload() {

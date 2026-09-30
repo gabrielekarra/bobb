@@ -22,6 +22,8 @@ public final class LeonardCoordinator {
     public var onSettingsChanged: ((LeonardSettings) -> Void)?
     /// Called for every screen-memory frame an app-side sensor produces.
     public var memorySink: ((MemoryObserveFrame) -> Void)?
+    public var onAnswer: ((AnswerFrame) -> Void)?
+    public var answerProvider: ((AskFrame) async -> AnswerFrame?)?
 
     private var stateTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
@@ -124,6 +126,7 @@ public final class LeonardCoordinator {
             state.applyAnswerDelta(delta)
         case .answer(let answer):
             state.applyAnswer(answer)
+            if state.ask.requestId == answer.requestId, answer.ok, answer.cancelled != true { onAnswer?(answer) }
         case .stats(let stats):
             state.stats = stats
         case .error(let error):
@@ -136,7 +139,7 @@ public final class LeonardCoordinator {
             state.commitments = list.items
         case .procedures(let list):
             state.procedures = list.items
-        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .unknown:
+        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .workspace, .unknown:
             break
         }
     }
@@ -216,6 +219,10 @@ public final class LeonardCoordinator {
         state.beginAsk(frame, mode: mode)
         let ipc = client
         Task { [weak self] in
+            if let provider = self?.answerProvider, let answer = await provider(frame) {
+                if self?.state.ask.requestId == frame.id, self?.state.ask.streaming == true { self?.handle(.answer(answer)) }
+                return
+            }
             let sent = await ipc.send(.ask(frame))
             if !sent {
                 self?.state.applyError(ErrorFrame(ts: Date().timeIntervalSince1970, detail: L10n.t(.askNotReady), requestId: frame.id))
@@ -328,10 +335,14 @@ public final class LeonardCoordinator {
     // MARK: Request plumbing
 
     func request(_ frame: OutgoingFrame, id: String, timeout: Double = 8) async -> IncomingFrame? {
-        let sent = await client.send(frame)
-        guard sent else { return nil }
         return await withCheckedContinuation { (continuation: CheckedContinuation<IncomingFrame?, Never>) in
             waiting[id] = continuation
+            // Register before sending: a fast local reply can arrive while
+            // send() suspends, otherwise its continuation is lost.
+            Task { [weak self] in
+                guard let self else { return }
+                if !(await self.client.send(frame)) { self.timeOut(id) }
+            }
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 self?.timeOut(id)
@@ -341,6 +352,18 @@ public final class LeonardCoordinator {
 
     private func timeOut(_ id: String) {
         waiting.removeValue(forKey: id)?.resume(returning: nil)
+    }
+
+    public func workspace(_ op: String = "list", payload: JSONValue = .object([:])) async -> WorkspaceStateFrame? {
+        let frame = WorkspaceCommandFrame(op: op, payload: payload)
+        if case .workspace(let result)? = await request(.workspace(frame), id: frame.id, timeout: op == "plan_project" ? 120 : 8) { return result }
+        return nil
+    }
+
+    public func answer(_ frame: AskFrame) async -> AnswerFrame? {
+        if let answerProvider, let result = await answerProvider(frame) { return result }
+        if case .answer(let answer)? = await request(.ask(frame), id: frame.id, timeout: 120) { return answer }
+        return nil
     }
 }
 

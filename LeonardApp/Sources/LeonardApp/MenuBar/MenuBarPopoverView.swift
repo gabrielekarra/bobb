@@ -20,6 +20,8 @@ struct MenuBarPopoverView: View {
             askField
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
+            Button("Bobb · " + BobbCopy.t("Projects, assignments & boundaries", "Progetti, incarichi e confini"), action: actions.openBobb)
+                .buttonStyle(.plain).font(.system(size: 11, weight: .medium)).padding(12)
             forYou
             Divider()
             footer
@@ -315,6 +317,7 @@ struct MenuBarActions {
     var quit: () -> Void
     /// A promise: "done", "not a promise", or "tomorrow".
     var promise: (Commitment, PromiseAction) -> Void = { _, _ in }
+    var openBobb: () -> Void = {}
 }
 
 enum PromiseAction {

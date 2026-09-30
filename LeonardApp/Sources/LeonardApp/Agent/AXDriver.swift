@@ -20,6 +20,10 @@ final class AXDriver: TaskDriver {
     private var menuCache: (pid: pid_t, at: Date, items: [(UIElementSnapshot, AXUIElement)])?
     private var lastTyped: (element: AXUIElement, previous: String)?
     private var lastApp: pid_t?
+    var settings: (() -> LeonardSettings)?
+    var stillOwnsScreen: (() -> Bool)?
+    private var fingerprints: [Int: String] = [:]
+    private var windowTitle = ""
 
     static let maxNodes = 2600
     static let maxDepth = 40
@@ -31,12 +35,20 @@ final class AXDriver: TaskDriver {
         guard let front = NSWorkspace.shared.frontmostApplication,
               front.bundleIdentifier != Bundle.main.bundleIdentifier else { return nil }
         lastApp = front.processIdentifier
+        if let settings {
+            let s = settings()
+            guard s.bobb.boundaries.app(bundleId: front.bundleIdentifier, name: front.localizedName ?? "") != nil,
+                  !ScreenMemoryPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: front.bundleIdentifier, appName: front.localizedName ?? "") else {
+                return ScreenObservation(app: front.localizedName ?? "", bundleId: front.bundleIdentifier, window: "", elements: [])
+            }
+        }
         let app = AX.application(front.processIdentifier)
         AX.enableFullTree(app, pid: front.processIdentifier)
         elements.removeAll(keepingCapacity: true)
         frames.removeAll(keepingCapacity: true)
         let window = AX.element(app, "AXFocusedWindow") ?? AX.element(app, "AXMainWindow")
         let title = window.flatMap { AX.string($0, "AXTitle") } ?? ""
+        windowTitle = title
         var snapshots: [UIElementSnapshot] = []
         var visible: ScreenRect?
         if let window {
@@ -44,8 +56,24 @@ final class AXDriver: TaskDriver {
             snapshots = walk(window)
         }
         snapshots += menuItems(app: app, pid: front.processIdentifier)
+        // Editors, terminals and spreadsheet selections may expose only a
+        // focused cursor rather than a settable text field.
+        if let focused = AX.focusedElement(in: app), !AX.isSecure(focused),
+           !snapshots.contains(where: { $0.focused && ElementClassifier.kind(of: $0) == .text }) {
+            let key = register(focused)
+            snapshots.append(UIElementSnapshot(key: key, role: AX.string(focused, "AXRole") ?? "AXUnknown",
+                                               title: "Focused cursor", focused: true, cursor: true))
+        }
+        fingerprints = Dictionary(uniqueKeysWithValues: elements.map { ($0.key, Self.fingerprint($0.value)) })
+        var text = WindowReader.read(pid: front.processIdentifier, appName: front.localizedName ?? "",
+                                      bundleId: front.bundleIdentifier, windowTitle: title)?.text ?? ""
+        if text.count < 40, settings?().readImages == true {
+            text = await ScreenTextRecognizer.read(pid: front.processIdentifier, windowTitle: title) ?? text
+        }
+        let defaultButton = window.flatMap { AX.element($0, "AXDefaultButton") }.flatMap { AX.string($0, "AXTitle") } ?? ""
         return ScreenObservation(app: front.localizedName ?? front.bundleIdentifier ?? "", bundleId: front.bundleIdentifier,
-                                 window: title, elements: snapshots, screen: visible)
+                                 window: title, elements: snapshots, screen: visible, screenText: text,
+                                 defaultButton: defaultButton, unreadable: text.isEmpty && snapshots.isEmpty)
     }
 
     private func register(_ element: AXUIElement) -> Int {
@@ -202,12 +230,26 @@ final class AXDriver: TaskDriver {
     // MARK: Acting
 
     func perform(_ action: DriverAction) async -> DriverResult {
+        guard !Task.isCancelled, stillOwnsScreen?() != false else { return .stale }
+        if case .openApp = action {} else {
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
+            if let lastApp, let current = AX.element(AX.application(lastApp), "AXFocusedWindow"),
+               (AX.string(current, "AXTitle") ?? "") != windowTitle { return .stale }
+        }
         switch action {
         case .openApp(let name):
             return await openApp(name)
         case .press(let key):
             guard let element = live(key) else { return .stale }
             return await press(element, key: key)
+        case .open(let key):
+            guard let element = live(key), !AX.isSecure(element) else { return .stale }
+            if Self.actionNames(element).contains("AXOpen"), AXUIElementPerformAction(element, "AXOpen" as CFString) == .success { return .ok }
+            guard let frame = Self.rect(of: element) else { return .stale }
+            Pointer.click(at: CGPoint(x: frame.midX, y: frame.midY), count: 2); return .ok
+        case .key(let chord):
+            guard let lastApp, let focused = AX.focusedElement(in: AX.application(lastApp)), !AX.isSecure(focused) else { return .stale }
+            Keyboard.press(key: chord.keyCode, command: chord.command, shift: chord.shift); return .ok
         case .type(let key, let text, let submit):
             guard let element = live(key) else { return .stale }
             if AX.isSecure(element) { return .failed("secure") }
@@ -223,7 +265,12 @@ final class AXDriver: TaskDriver {
         guard let element = elements[key] else { return nil }
         var role: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, "AXRole" as CFString, &role) == .success else { return nil }
+        guard !AX.isSecure(element), fingerprints[key] == Self.fingerprint(element) else { return nil }
         return element
+    }
+
+    private static func fingerprint(_ element: AXUIElement) -> String {
+        ["AXRole", "AXTitle", "AXDescription", "AXIdentifier"].map { AX.string(element, $0) ?? "" }.joined(separator: "|")
     }
 
     private func press(_ element: AXUIElement, key: Int) async -> DriverResult {
@@ -248,18 +295,27 @@ final class AXDriver: TaskDriver {
     private func type(_ text: String, into element: AXUIElement, submit: Bool) async -> DriverResult {
         _ = AXUIElementSetAttributeValue(element, "AXFocused" as CFString, kCFBooleanTrue)
         try? await Task.sleep(nanoseconds: 120_000_000)
+        guard !Task.isCancelled, stillOwnsScreen?() != false, NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
         let role = AX.string(element, "AXRole") ?? ""
         let previous = Self.stringValue(AX.attribute(element, "AXValue"))
         let multiline = role == "AXTextArea" || role == "AXWebArea"
         lastTyped = (element, previous)
+        var settable = DarwinBoolean(false)
+        AXUIElementIsAttributeSettable(element, "AXValue" as CFString, &settable)
+        if settable.boolValue, AXUIElementSetAttributeValue(element, "AXValue" as CFString, text as CFString) == .success {
+            if submit { Keyboard.press(key: 36, command: false) }
+            return .ok
+        }
         if !multiline || previous.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             // Replace what is there: select all, then paste, as a person would.
             Keyboard.press(key: 0, command: true)  // A
             try? await Task.sleep(nanoseconds: 60_000_000)
         }
+        guard !Task.isCancelled, stillOwnsScreen?() != false, NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
         await Clipboard.paste(text)
         if submit {
             try? await Task.sleep(nanoseconds: 150_000_000)
+            guard !Task.isCancelled, stillOwnsScreen?() != false, NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
             Keyboard.press(key: 36, command: false)  // Return
         }
         return .ok
@@ -276,6 +332,7 @@ final class AXDriver: TaskDriver {
 
     private func openApp(_ label: String) async -> DriverResult {
         guard let url = InstalledApps.shared.url(for: label) else { return .failed("not installed") }
+        if let settings, settings().bobb.boundaries.app(bundleId: Bundle(url: url)?.bundleIdentifier, name: label) == nil { return .failed("unconnectedApp") }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         let pid: pid_t? = await withCheckedContinuation { continuation in
@@ -326,6 +383,7 @@ final class AXDriver: TaskDriver {
     }
 
     func undoLast() async -> Bool {
+        guard stillOwnsScreen?() != false, NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return false }
         if let typed = lastTyped {
             lastTyped = nil
             var settable = DarwinBoolean(false)
@@ -363,7 +421,10 @@ final class AXDriver: TaskDriver {
     // MARK: Apps
 
     func installedApps() -> [String] {
-        InstalledApps.shared.names()
+        InstalledApps.shared.names().filter { name in
+            guard let settings else { return true }
+            return settings().bobb.boundaries.app(bundleId: InstalledApps.shared.url(for: name).flatMap { Bundle(url: $0)?.bundleIdentifier }, name: name) != nil
+        }
     }
 
     // MARK: Helpers
