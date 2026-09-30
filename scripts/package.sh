@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds Bobb.app and, unless --app-only, the complete, self-contained
-# product: the Swift app, a relocatable Python with leonardd and its locked
+# product: the Swift app, a relocatable Python with bobbd and its locked
 # dependencies inside the bundle, code signatures, a DMG, and notarization.
 #
 #   scripts/package.sh --app-only      # dev: app bundle only, ad-hoc signed
@@ -9,10 +9,10 @@
 #                                      # notarized; refuses without secrets
 #
 # Environment:
-#   LEONARD_VERSION              marketing version (default: ./VERSION)
-#   LEONARD_BUILD                build number (default: git commit count)
+#   BOBB_VERSION              marketing version (default: ./VERSION)
+#   BOBB_BUILD                build number (default: git commit count)
 #   DEVELOPER_ID_APPLICATION     codesign identity, e.g. "Developer ID
-#                                Application: Leonard S.r.l. (TEAMID)"
+#                                Application: Bobb S.r.l. (TEAMID)"
 #   NOTARY_PROFILE               notarytool keychain profile, or
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
 #
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_SRC="$ROOT/LeonardApp"
+APP_SRC="$ROOT/BobbApp"
 DIST="$ROOT/dist"
 WORK="$DIST/work"
 APP="$DIST/Bobb.app"
@@ -36,8 +36,8 @@ for arg in "$@"; do
     esac
 done
 
-VERSION="${LEONARD_VERSION:-$(cat "$ROOT/VERSION")}"
-BUILD="${LEONARD_BUILD:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)}"
+VERSION="${BOBB_VERSION:-$(cat "$ROOT/VERSION")}"
+BUILD="${BOBB_BUILD:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)}"
 BUILD_DATE="$(date -u +%Y-%m-%d)"
 IDENTITY="${DEVELOPER_ID_APPLICATION:--}"
 
@@ -62,7 +62,7 @@ cp "$APP_SRC/Info.plist" "$APP/Contents/Info.plist"
 PLIST="$APP/Contents/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$PLIST"
 plutil -replace CFBundleVersion -string "$BUILD" "$PLIST"
-plutil -replace LeonardBuildDate -string "$BUILD_DATE" "$PLIST"
+plutil -replace BobbBuildDate -string "$BUILD_DATE" "$PLIST"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 step "resources"
@@ -85,12 +85,12 @@ if [[ "$MODE" == "full" ]]; then
     PY="$DAEMON/python/bin/python3"
     rm -f "$DAEMON/python/lib/python$PYTHON_SERIES/EXTERNALLY-MANAGED"
 
-    step "leonardd dependencies (from uv.lock, hash-checked, wheels only)"
-    uv export --project "$ROOT/leonardd" --frozen --no-dev --no-emit-project --format requirements-txt > "$WORK/requirements.txt"
+    step "bobbd dependencies (from uv.lock, hash-checked, wheels only)"
+    uv export --project "$ROOT/bobbd" --frozen --no-dev --no-emit-project --format requirements-txt > "$WORK/requirements.txt"
     "$PY" -m pip install --quiet --no-cache-dir --no-deps --require-hashes --only-binary=:all: -r "$WORK/requirements.txt"
     SITE="$("$PY" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
-    cp -R "$ROOT/leonardd/leonardd" "$SITE/leonardd"
-    find "$SITE/leonardd" -name '__pycache__' -type d -prune -exec rm -rf {} +
+    cp -R "$ROOT/bobbd/bobbd" "$SITE/bobbd"
+    find "$SITE/bobbd" -name '__pycache__' -type d -prune -exec rm -rf {} +
 
     step "slimming"
     find "$DAEMON/python" -type d \( -name 'test' -o -name 'tests' -o -name 'idle_test' -o -name '__pycache__' \) -prune -exec rm -rf {} +
@@ -100,10 +100,10 @@ if [[ "$MODE" == "full" ]]; then
     "$PY" -m compileall -q -j 0 "$DAEMON/python/lib" >/dev/null || true
 
     step "smoke test: the bundled daemon starts with no network and reports the missing model"
-    PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 "$PY" -s -m leonardd --version
-    SMOKE="$(mktemp -d /tmp/leonard-smoke.XXXXXX)"
-    LEONARD_MODELS_DIR="$SMOKE/models" PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 \
-        "$PY" -s -m leonardd --data-dir "$SMOKE/data" --socket "$SMOKE/s.sock" --log-file "$SMOKE/leonardd.log" &
+    PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 "$PY" -s -m bobbd --version
+    SMOKE="$(mktemp -d /tmp/bobb-smoke.XXXXXX)"
+    BOBB_MODELS_DIR="$SMOKE/models" PYTHONNOUSERSITE=1 HF_HUB_OFFLINE=1 \
+        "$PY" -s -m bobbd --data-dir "$SMOKE/data" --socket "$SMOKE/s.sock" --log-file "$SMOKE/bobbd.log" &
     DPID=$!
     "$PY" -s - "$SMOKE/s.sock" <<'PYEOF'
 import json, socket, sys, time
@@ -143,7 +143,7 @@ if [[ "$MODE" == "full" ]]; then
         file "$exe" | grep -q 'Mach-O' && "${SIGN[@]}" --entitlements "$APP_SRC/Resources/daemon.entitlements" "$exe" >/dev/null
     done
 fi
-"${SIGN[@]}" --entitlements "$APP_SRC/Resources/Leonard.entitlements" "$APP"
+"${SIGN[@]}" --entitlements "$APP_SRC/Resources/Bobb.entitlements" "$APP"
 codesign --verify --deep --strict --verbose=1 "$APP"
 
 [[ "$MODE" == "app" ]] && { echo; echo "Built $APP"; exit 0; }

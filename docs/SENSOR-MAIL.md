@@ -13,10 +13,10 @@ the bottom. One good, one bad, and the bad one changes the sensor's design.
 ### 1. Walk `AXChildren` ∪ `AXWindows`, never `AXChildren` alone
 
 AppKit omits background windows from `AXChildren` when the app is not
-frontmost. Leonard reads Mail precisely while the user is somewhere else, so
+frontmost. Bobb reads Mail precisely while the user is somewhere else, so
 walking only `AXChildren` returns an empty or partial tree in the normal case
 and a full tree only while the user is already looking at Mail — the case
-where Leonard has the least to add.
+where Bobb has the least to add.
 
 This is the single easiest way to get a false negative. Our first probe had
 exactly this bug.
@@ -82,15 +82,15 @@ before the probe has told us whether we need to.
 
 ## Running the probe
 
-Built and ad-hoc signed at `~/leonard-probe/LeonardProbe.app`, bundle id
-`com.leonard.probe`. It walks Mail with all five rules above and writes
-`~/leonard-axprobe.txt`.
+Built and ad-hoc signed at `~/bobb-probe/BobbProbe.app`, bundle id
+`com.bobb.probe`. It walks Mail with all five rules above and writes
+`~/bobb-axprobe.txt`.
 
 It needs Accessibility, which cannot be granted from a command line: `tccutil`
 only resets permissions, and the TCC database is protected by SIP even with
 Full Disk Access. It requires the GUI or an MDM profile.
 
-System Settings → Privacy & Security → Accessibility → enable LeonardProbe,
+System Settings → Privacy & Security → Accessibility → enable BobbProbe,
 with a message open in Mail, then run it.
 
 It doubles as the test of ADR-003's unverified claim that an ad-hoc signature
@@ -102,7 +102,7 @@ and we need to know early.
 
 # Measured, 2026-09-20, live Mail.app on macOS 27
 
-Fanless Apple M4, 24 GB. `LeonardProbe.app`, ad-hoc signed, Accessibility
+Fanless Apple M4, 24 GB. `BobbProbe.app`, ad-hoc signed, Accessibility
 granted. Mail frontmost, message list displayed, no message selected.
 
 ```
@@ -157,7 +157,7 @@ Directions, in the order worth trying:
    says moved.
 
 Until that is measured, **no latency claim about the sensor path should be
-made**, and the end-to-end numbers in `leonardd/results/` describe the
+made**, and the end-to-end numbers in `bobbd/results/` describe the
 decision path only, from an event that was handed to it.
 
 ### A second observation, smaller but useful

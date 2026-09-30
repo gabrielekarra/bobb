@@ -111,7 +111,7 @@ def abstain_curve(
 ) -> dict[float, dict[str, float]]:
     """Coverage and selective accuracy at each confidence floor: only
     examples whose top-1 confidence clears the floor are kept, mirroring
-    `leonardd`'s own abstention gate (`attention.DEFAULT_FLOOR`)."""
+    `bobbd`'s own abstention gate (`attention.DEFAULT_FLOOR`)."""
     _check(probs, labels)
     curve: dict[float, dict[str, float]] = {}
     for floor in floors:

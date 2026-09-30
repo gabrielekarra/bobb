@@ -1,4 +1,4 @@
-"""Adds keys to LeonardCore/L10n/L10n.swift: a `case` line in `Key` and the
+"""Adds keys to BobbCore/L10n/L10n.swift: a `case` line in `Key` and the
 English/Italian pair in the table. Usage:
 
     python3 scripts/dev/add_l10n.py <section> <<'KEYS'
@@ -9,7 +9,7 @@ English/Italian pair in the table. Usage:
 import sys
 from pathlib import Path
 
-path = Path(__file__).resolve().parents[2] / "LeonardApp/Sources/LeonardCore/L10n/L10n.swift"
+path = Path(__file__).resolve().parents[2] / "BobbApp/Sources/BobbCore/L10n/L10n.swift"
 section = sys.argv[1]
 rows = [line.split("|") for line in sys.stdin.read().splitlines() if line.strip()]
 source = path.read_text()

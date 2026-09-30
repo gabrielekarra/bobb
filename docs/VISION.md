@@ -1,4 +1,4 @@
-# Leonard — the governing logic
+# Bobb — the governing logic
 
 This is the product's constitution. Everything else in `docs/` is subordinate
 to it. When a technical decision and this document disagree, this document
@@ -33,7 +33,7 @@ And, stated separately and just as firmly:
 
 ### 1. Never integrate. Only use.
 
-Leonard is never embedded inside Mail, Excel, Spotify or anything else. No
+Bobb is never embedded inside Mail, Excel, Spotify or anything else. No
 plugin, no extension, no connector, no OAuth, no API key. It drives the
 applications the way a person does, from outside.
 
@@ -45,14 +45,14 @@ not exist yet.
 
 Any information displayed is captured and stored. Not screenshots — the text
 and structure the operating system already has. That store is the knowledge
-base, and it is how Leonard comes to know the user without being told
+base, and it is how Bobb comes to know the user without being told
 anything.
 
 See `SCREEN-MEMORY.md`.
 
 ### 3. Learn by watching, not by asking.
 
-Leonard learns from what the user does. It does not have a training mode, it
+Bobb learns from what the user does. It does not have a training mode, it
 does not ask the user to label anything, and it does not need to be taught.
 Behaviour is the label.
 

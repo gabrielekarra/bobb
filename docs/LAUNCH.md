@@ -1,6 +1,6 @@
-> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+> Historical Bobb document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
 
-# Launching Leonard
+# Launching Bobb
 
 Everything that can be built, tested and automated is in this repository.
 What is left needs a person with legal standing, accounts, money or a Mac:
@@ -28,8 +28,8 @@ with real permissions, a real Mail account and the real model on Apple
 silicon. Do that once before charging anyone:
 
 ```
-scripts/package.sh            # or download the Leonard-dmg artifact from CI
-open dist/Leonard-1.0.0.dmg
+scripts/package.sh            # or download the Bobb-dmg artifact from CI
+open dist/Bobb-1.0.0.dmg
 ```
 
 1. **Onboarding.** Grant Accessibility, Automation for Mail and (optional)
@@ -46,7 +46,7 @@ open dist/Leonard-1.0.0.dmg
    cites it. Select a paragraph in TextEdit, "Improve", Replace.
 5. **Do (⌥Space).** "Put on my Focus playlist on Spotify" (or any app you
    have): the task panel shows the plan and each step; the app is driven.
-   "Tell <a colleague> on Slack I'll be ten minutes late": Leonard stops and
+   "Tell <a colleague> on Slack I'll be ten minutes late": Bobb stops and
    asks before pressing Return in the message box. Press ⎋ mid-task: it
    stops. Ask for something impossible: it blocks and offers "Show me how";
    do it yourself, press Done, then ask again: the panel says it learned.
@@ -69,27 +69,27 @@ open dist/Leonard-1.0.0.dmg
 12. **License.** The trial shows 14 days. A key signed with the development
     key activates a development build; a release build rejects it.
 13. **Lifecycle.** Quit and relaunch; log out and in with "Open at login";
-    kill `leonardd` in Activity Monitor and watch it come back.
-14. **Speed.** On an idle Mac run `cd leonardd && uv run python -m
-    leonardd.bench` and keep the JSON. Only numbers from this run may appear
-    in marketing; see `leonardd/README.md` for why.
+    kill `bobbd` in Activity Monitor and watch it come back.
+14. **Speed.** On an idle Mac run `cd bobbd && uv run python -m
+    bobbd.bench` and keep the JSON. Only numbers from this run may appear
+    in marketing; see `bobbd/README.md` for why.
 
 Anything that fails here is a bug to fix before step 8.
 
 ## 2. Name, domain and bundle id
 
-The product uses `leonard.app` as its domain and `com.leonard.app` as its
+The product uses `bobb.app` as its domain and `com.bobb.app` as its
 bundle identifier. Check both are yours to use (domain registration, and a
-trademark search for "Leonard" in class 9 at EUIPO and USPTO).
+trademark search for "Bobb" in class 9 at EUIPO and USPTO).
 
-- **Domain.** If it is not `leonard.app`, replace it everywhere:
-  `grep -rl "leonard\.app" --exclude-dir=.build --exclude-dir=node_modules .`
-  (app URLs in `LeonardApp/Sources/LeonardApp/App/AppPaths.swift`, emails in
+- **Domain.** If it is not `bobb.app`, replace it everywhere:
+  `grep -rl "bobb\.app" --exclude-dir=.build --exclude-dir=node_modules .`
+  (app URLs in `BobbApp/Sources/BobbApp/App/AppPaths.swift`, emails in
   the worker).
 - **Bundle id.** Decide it **before the first public release** and never
   change it afterwards: macOS ties the user's Accessibility and Automation
   permissions, login item and settings to it. It lives in
-  `LeonardApp/Info.plist` and `ScreenMemoryPolicy.ownBundleId`.
+  `BobbApp/Info.plist` and `ScreenMemoryPolicy.ownBundleId`.
 - **Mailboxes.** `support@`, `sales@`, `privacy@` and a sending address for
   licenses, `licenses@`.
 
@@ -101,7 +101,7 @@ commercialista, who will also tell you how Lemon Squeezy's payouts are
 booked (they are the merchant of record: you invoice them, not the buyers).
 
 Publish a privacy policy and terms of sale wherever the product is sold (the
-store's product page is enough to start): Leonard sends nothing anywhere, so
+store's product page is enough to start): Bobb sends nothing anywhere, so
 the policy only has to cover orders and support mail.
 
 ## 4. Apple Developer Program
@@ -121,8 +121,8 @@ On a trusted machine, offline if possible:
 
 ```
 cd tools/license
-uv run python license_tool.py keygen --out ~/secure/leonard-signing.key
-uv run python license_tool.py public --key ~/secure/leonard-signing.key
+uv run python license_tool.py keygen --out ~/secure/bobb-signing.key
+uv run python license_tool.py public --key ~/secure/bobb-signing.key
 ```
 
 The first file is the business. Back it up twice, offline (a password
@@ -140,10 +140,10 @@ Italian seller otherwise cannot do sanely for EU consumers. Paddle is the
 alternative; the worker would need a different payload parser.
 
 1. Create the store (currency EUR) and two products, **one-time payment**:
-   - *Leonard Personal*, €79, "2 Macs, 1 year of updates"
-   - *Leonard Pro*, €149, "3 Macs, 1 year of updates, priority support"
+   - *Bobb Personal*, €79, "2 Macs, 1 year of updates"
+   - *Bobb Pro*, €149, "3 Macs, 1 year of updates, priority support"
 
-   Turn off Lemon Squeezy's own license keys; Leonard's keys come from the
+   Turn off Lemon Squeezy's own license keys; Bobb's keys come from the
    worker.
 2. Note each product's **variant id** (the product's page, or the API).
 3. Use each product's **checkout link** wherever you sell. Adding
@@ -168,7 +168,7 @@ cd tools/license/worker
 npx wrangler login
 # in wrangler.toml: PUBLIC_KEY, VARIANT_PERSONAL, VARIANT_PRO, FROM_EMAIL, SUPPORT_EMAIL
 npx wrangler secret put WEBHOOK_SECRET    # from step 6.4
-npx wrangler secret put SIGNING_KEY       # the contents of ~/secure/leonard-signing.key
+npx wrangler secret put SIGNING_KEY       # the contents of ~/secure/bobb-signing.key
 npx wrangler secret put RESEND_API_KEY
 npx wrangler deploy
 curl https://<worker>/health              # prints the public key it signs for
@@ -192,7 +192,7 @@ In GitHub › Settings › Secrets and variables › Actions, add:
 | `APPLE_ID` | your Apple ID email |
 | `APPLE_TEAM_ID` | the Team ID |
 | `APPLE_APP_PASSWORD` | the app-specific password |
-| `LEONARD_LICENSE_PUBLIC_KEY` | the public key from step 5 |
+| `BOBB_LICENSE_PUBLIC_KEY` | the public key from step 5 |
 
 Merge the release branch into `main`, then:
 
@@ -219,11 +219,11 @@ switch the store to live mode.
 
 ## The Llama license, briefly
 
-Leonard downloads `mlx-community/Llama-3.2-3B-Instruct-4bit` from Hugging
+Bobb downloads `mlx-community/Llama-3.2-3B-Instruct-4bit` from Hugging
 Face at setup, on the user's machine; the app does not redistribute the
 weights. Llama 3.2's Community License asks for "Built with Llama"
 attribution (in the app's About box and `THIRD_PARTY_NOTICES.md`) and
 acceptance of Meta's Acceptable Use Policy (in the terms). Its restriction on
 EU users concerns the *multimodal* Llama 3.2 models only; the 3B model
-Leonard uses is text-only. The 700-million-monthly-user threshold is not a
+Bobb uses is text-only. The 700-million-monthly-user threshold is not a
 concern for this business.

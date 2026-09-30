@@ -1,6 +1,6 @@
 # Review of `locali` — read-only, 2026-09-20
 
-Written from Leonard, which depends on this technique. Nothing in `locali` was
+Written from Bobb, which depends on this technique. Nothing in `locali` was
 modified; another session is working there. Hand this over rather than acting
 on it here.
 
@@ -61,7 +61,7 @@ meaningless: the gate fires, the dark frame becomes the reference at the wrong
 scale, and the next normal frame fires too.
 
 It is a narrow input range, but it is silent when it happens and it lands
-exactly on the dark-screen case Leonard will hit constantly.
+exactly on the dark-screen case Bobb will hit constantly.
 
 `changed_area` has the same construction. It is safer, because it takes the
 peak from both frames together so at least they agree, but the sensitivity of
@@ -92,7 +92,7 @@ only in `changed_area`'s docstring, and the README's frame-skipping section
 has not been updated for the metric at all. The 9x measurement is the most
 interesting result in the file and it is the hardest one to find.
 
-## Not a bug, but relevant to Leonard
+## Not a bug, but relevant to Bobb
 
 `signature()` loops 256 times in Python per frame. At camera resolution that
 is the few hundred microseconds the docstring claims. At 3024x1964 it is worth
@@ -100,5 +100,5 @@ re-measuring, and it vectorizes cleanly by reshaping when the dimensions
 divide evenly.
 
 `decide_many` raises `ValueError` when `schema_mass` is exactly zero. For a
-batch pipeline that is right. For Leonard it would take down a decision cycle,
-so Leonard catches it and degrades to `wait` rather than letting it propagate.
+batch pipeline that is right. For Bobb it would take down a decision cycle,
+so Bobb catches it and degrades to `wait` rather than letting it propagate.

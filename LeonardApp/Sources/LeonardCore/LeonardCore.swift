@@ -1,1 +1,0 @@
-public let leonardCoreMarker = "LeonardCore"

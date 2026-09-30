@@ -1,4 +1,4 @@
-# Leonard — what we are actually building
+# Bobb — what we are actually building
 
 Supersedes the narrower framing in the first README. 2026-09-20.
 
@@ -55,16 +55,16 @@ different boundaries.
 A 2.8 MB model can be **trained on the user's own machine, on the user's own
 behaviour.**
 
-That is the whole company in one sentence. Leonard does not just run locally.
+That is the whole company in one sentence. Bobb does not just run locally.
 It *learns* locally, and it mints its own specialists as it goes.
 
 - **Day 1** — a decision goes to the resident general model. ~200 ms. Generic
-  judgement. Leonard records what it decided and what you did about it.
-- **Day 30** — that decision has been made a few thousand times and Leonard
+  judgement. Bobb records what it decided and what you did about it.
+- **Day 30** — that decision has been made a few thousand times and Bobb
   has a labelled set of your answers. It trains a specialist. ~8 ms, and
   better than the general model was, because it was fitted to *you*.
 
-**Leonard gets faster the longer you use it.** Not a metaphor — the latency
+**Bobb gets faster the longer you use it.** Not a metaphor — the latency
 number goes down on a chart, and the accuracy goes up, and the user can watch
 it happen.
 
@@ -90,7 +90,7 @@ and their business models are why.
 ## Scope of the product
 
 The product does everything. This is not a phased ambition we grow into — it
-is what Leonard is, and every architectural decision is made against it.
+is what Bobb is, and every architectural decision is made against it.
 
 **It knows everything.** Mail, messages, calendar, documents, browser history,
 code, meetings, the people you deal with and what you owe each of them. Not a
@@ -116,7 +116,7 @@ That is the product. The MVP is one slice of it.
 
 ## The MVP
 
-**Leonard watches your mail, decides on its own when to speak, prepares the
+**Bobb watches your mail, decides on its own when to speak, prepares the
 reply, and after a few thousand decisions mints its first specialist — live,
 on the machine, with the latency dropping on screen.**
 
@@ -141,7 +141,7 @@ closed candidate set scored in one pass, with a floor and an abstention. The
 action loop in `CONTRACT.md` is the attention loop with a longer option list.
 
 Restricting the MVP to drafting an email would not have made it smaller, only
-narrower, and it would have hidden the thing that makes Leonard a product
+narrower, and it would have hidden the thing that makes Bobb a product
 rather than a feature: it does the work, in the app, on your machine.
 
 The bound on risk is structural rather than a matter of trusting the model.

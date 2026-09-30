@@ -1,0 +1,20 @@
+{"client":"BobbApp","version":"1.0","locale":"it","t":"hello","ts":1}
+{"adaptive":true,"memory_enabled":true,"quiet_hours":null,"memory_retention_days":30,"locale":"it","history_retention_days":90,"timezone":"Europe\/Rome","t":"settings","proactive_kinds":["mail.opened","message.opened","calendar.upcoming","mail.composing"],"connected_apps":[],"floor":0.6,"extra_protected_apps":[]}
+{"t":"memory.observe","bundle_id":"com.apple.Safari","source":"screen","window":"Docs","ts":1790000000,"text":"Installation guide for the product, step one","app":"Safari"}
+{"app":"Mail","ts":1790000000,"t":"event","payload":{"typing":false,"subject":"Preventivo","sender":"Marco Rossi <marco@studiorossi.it>","unread":true,"body":"Ciao, mi confermi il preventivo?","thread_len":1,"idle":false},"kind":"mail.opened","id":"evt_app_fixture"}
+{"route":false,"app":"","id":"ask_app","prompt":"Cosa dice la guida?","t":"ask","selection":"","mode":"ask","window":""}
+{"request_id":"ask_app","t":"cancel"}
+{"limit":30,"id":"s1","query":"guide","t":"memory.search"}
+{"t":"memory.recent","id":"r1","limit":60}
+{"t":"memory.stats","id":"ms1"}
+{"t":"stats","id":"st1"}
+{"id":"lm1","sender":"news@example.com","t":"learning.mute"}
+{"rule_id":"sender:news@example.com","t":"learning.forget","id":"lf1"}
+{"reason":"timeout","ts":1,"decision_id":"dec_unknown","t":"dismiss"}
+{"query":"guide","scope":"query","t":"memory.delete","id":"d1"}
+{"id":"rl1","t":"reload"}
+{"app":"Finder","id":"ts1","goal":"Apri Spotify","window":"Download","apps":["Spotify","Musica (Music)"],"t":"task.start","task_id":"task_app"}
+{"step":1,"t":"observe","ts":1,"window":"Spotify","task_id":"task_app","app":"Spotify","candidates":[{"enabled":true,"role":"button","where":"toolbar","value":"","kind":"press","focused":false,"label":"Play","id":"o1e1"},{"label":"Search","value":"","where":"","focused":true,"kind":"text","enabled":true,"role":"search field","id":"o1e2"},{"label":"Library","value":"","where":"","focused":false,"kind":"scroll","enabled":true,"role":"scroll area","id":"o1e3"}],"id":"obs_app","digest":"d1","apps":[{"label":"Music","id":"app1"}]}
+{"confidence":0.9,"operation":"CLICK","permission":"allowed","app":"Spotify","latency_ms":120,"outcome":"ok","task_id":"task_app","t":"task.step","target_role":"button","target":"Play","ts":1,"digest":"d1","step":1,"window":"Spotify"}
+{"status":"done","detail":"","t":"task.end","task_id":"task_app"}
+{"t":"tasks.recent","id":"tr1","limit":5}

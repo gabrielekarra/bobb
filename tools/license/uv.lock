@@ -175,7 +175,7 @@ wheels = [
 ]
 
 [[package]]
-name = "leonard-license-tools"
+name = "bobb-license-tools"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

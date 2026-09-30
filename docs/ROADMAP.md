@@ -1,4 +1,4 @@
-> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+> Historical Bobb document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
 
 # Roadmap
 
@@ -25,7 +25,7 @@ stands.
 
 ## How the next steps are decided
 
-Leonard has no telemetry, so the order is set by support mail, refund
+Bobb has no telemetry, so the order is set by support mail, refund
 reasons and design partners ([`BUSINESS.md`](BUSINESS.md)). Every step keeps
 the rules in [`VISION.md`](VISION.md): local by architecture, silence as a
 measured outcome, never send on the user's behalf without a visible,
@@ -38,4 +38,4 @@ explicit action.
 - The real-Mac checklist in [`LAUNCH.md`](LAUNCH.md#1-qa-pass-on-a-real-mac)
   passes on the release candidate.
 - Any number quoted in the release notes has a JSON file under
-  `leonardd/results/` behind it.
+  `bobbd/results/` behind it.

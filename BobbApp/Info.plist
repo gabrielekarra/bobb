@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Bobb</string>
+    <key>CFBundleDisplayName</key>
+    <string>Bobb</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.bobb.app</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>BobbApp</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>it</string>
+    </array>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Gabriele Karra and contributors. MIT License.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>Bobb reads your calendar on this Mac to brief you before meetings and to answer questions about your schedule. It never changes your calendar.</string>
+    <key>NSCalendarsUsageDescription</key>
+    <string>Bobb reads your calendar on this Mac to brief you before meetings. It never changes your calendar.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>When you talk to Bobb, it listens through the microphone. Your voice is turned into text on this Mac and never sent anywhere.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Bobb turns what you say into text on this Mac, with on-device recognition only. Nothing is sent to Apple or anyone else.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Bobb uses Mail and Messages only when connected in Boundaries. Sending follows your allow, ask or never rules.</string>
+</dict>
+</plist>

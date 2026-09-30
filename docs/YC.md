@@ -1,13 +1,13 @@
-> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+> Historical Bobb document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
 
-# Leonard — the YC argument
+# Bobb — the YC argument
 
 Working draft. Everything here is either true today or marked `[TBD]`. Nothing
 is a number we have not measured.
 
 ## One sentence
 
-Leonard is an assistant that watches how you work and offers help before you
+Bobb is an assistant that watches how you work and offers help before you
 ask — and it runs entirely on your own computer, so it can watch things you
 would never send to a server.
 
@@ -24,7 +24,7 @@ a threshold, coverage trades against accuracy, and the whole thing calibrates
 against what the user actually did next.
 
 **That technique requires owning the model's logits. Owning the logits
-requires running locally. So Leonard is local because proactivity demands it —
+requires running locally. So Bobb is local because proactivity demands it —
 privacy is the consequence, not the pitch.**
 
 That inversion is the thing most people get backwards, and it is why the
@@ -47,7 +47,7 @@ before:
 ## Why us
 
 We did not decide to be local-first and then look for a way. We built the
-local inference layer first, measured it, and Leonard is what it is for.
+local inference layer first, measured it, and Bobb is what it is for.
 
 [`locali`](https://github.com/gabrielekarra/locali) is prior work on a fanless
 Apple M4 with 24 GB, and every number in it has the JSON behind it in the
@@ -56,7 +56,7 @@ repository:
 - typed decisions with calibrated confidence, primed decision 149.8 ms on
   Llama-3.2-3B
 - an abstain curve: at a 0.60 floor, 55.6% coverage at 0.800 accuracy against
-  0.569 at full coverage — the exact trade Leonard's floor slider exposes
+  0.569 at full coverage — the exact trade Bobb's floor slider exposes
 - frame gating: 91% of frames skipped, no event missed, 308 ms/frame becomes
   28.2 ms effective
 - and a discipline that matters more than any of them: the repository
@@ -69,21 +69,21 @@ threshold on a confidence.
 ## What is built
 
 - Frozen IPC contract between the app and the on-device daemon.
-- `leonardd`: resident MLX model, typed decisions, confidence floor, frame
+- `bobbd`: resident MLX model, typed decisions, confidence floor, frame
   gate, SQLite audit store, unix socket only — with a test that fails the
   build if the process can open a network socket.
-- `LeonardApp`: menu bar, non-activating overlay, accessibility sensors
+- `BobbApp`: menu bar, non-activating overlay, accessibility sensors
   against real Mail.app, and **Mind**.
 
 ## The demo
 
 Two minutes, no slides.
 
-1. Work normally. Mail.app, a few messages. Leonard says nothing.
+1. Work normally. Mail.app, a few messages. Bobb says nothing.
 2. Open a message that actually needs an answer. The overlay appears, quietly:
    *"Vuoi che prepari una risposta a Marco?"* Click Prepara. The draft is
    there, written on the machine.
-3. Now open Mind and scroll back. Every message Leonard saw, every decision it
+3. Now open Mind and scroll back. Every message Bobb saw, every decision it
    made, and the twelve times it decided you were not worth interrupting, each
    with the confidence that fell short and the reason.
 4. Drag the floor slider. Watch what would have surfaced change live.
@@ -109,5 +109,5 @@ Step 3 is the pitch. Step 5 is the moat.
 
 1. Who is the first user who pays? `[TBD]`
 2. Is the wedge email, or is email just the easiest thing to demo? `[TBD]`
-3. What does Leonard do on day 30 that it cannot do on day 1? The audit store
+3. What does Bobb do on day 30 that it cannot do on day 1? The audit store
    is designed to be the answer; we have not proved it yet.

@@ -1,7 +1,7 @@
 [project]
 name = "specialist"
 version = "0.1.0"
-description = "Leonard's personal specialist: mints a byte-level tiny transformer that scores ignore/wait/prepare/suggest from one user's own audit.db, distilled from the resident model and fit on real labels, entirely on-device."
+description = "Bobb's personal specialist: mints a byte-level tiny transformer that scores ignore/wait/prepare/suggest from one user's own audit.db, distilled from the resident model and fit on real labels, entirely on-device."
 requires-python = ">=3.12"
 dependencies = [
     "torch",

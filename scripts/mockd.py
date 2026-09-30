@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""A contract-speaking mock of leonardd, for demoing LeonardApp without the
+"""A contract-speaking mock of bobbd, for demoing BobbApp without the
 real model.
 
 Standard library only — no `mlx`, no model weights, starts instantly. Speaks
 the exact wire shapes in `docs/CONTRACT.md`: `hello`/`ready`, `event` ->
 `trace` + `decision`, `approve`/`dismiss` -> `prepared`, `policy`. Writes
-every decision into the same `audit.db` schema `leonardd/leonardd/audit.py`
-uses, so `LeonardApp`'s Audit window works against this too.
+every decision into the same `audit.db` schema `bobbd/bobbd/audit.py`
+uses, so `BobbApp`'s Audit window works against this too.
 
 Unlike the real model, this one is not conservative: `mail.opened` mostly
 resolves to `suggest` so the overlay and the Mind panel have something to
@@ -28,9 +28,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-DEFAULT_SOCKET_PATH = Path.home() / "Library" / "Application Support" / "Leonard" / "leonardd.sock"
-DEFAULT_AUDIT_PATH = Path.home() / "Library" / "Application Support" / "Leonard" / "audit.db"
-MODEL_NAME = "mock/leonard-demo-0.1"
+DEFAULT_SOCKET_PATH = Path.home() / "Library" / "Application Support" / "Bobb" / "bobbd.sock"
+DEFAULT_AUDIT_PATH = Path.home() / "Library" / "Application Support" / "Bobb" / "audit.db"
+MODEL_NAME = "mock/bobb-demo-0.1"
 
 _AUDIT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (

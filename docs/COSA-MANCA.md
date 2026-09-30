@@ -1,10 +1,10 @@
-> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+> Historical Bobb document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
 
 # Cosa manca
 
-Stato al 28 settembre 2026, branch `claude/leonard-marketplace-product-g77orn`.
+Stato al 28 settembre 2026, branch `claude/bobb-marketplace-product-g77orn`.
 Questo file elenca con onestà tutto quello che non è finito, non è verificato o
-non esiste ancora. Si parte dal lavoro interrotto ("Leonard deve saper usare
+non esiste ancora. Si parte dal lavoro interrotto ("Bobb deve saper usare
 qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 
 ---
@@ -13,7 +13,7 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 
 ### Cosa è già nel commit
 
-**Motore (`leonardd`) — fatto e coperto da test (tutti i test Python passano)**
+**Motore (`bobbd`) — fatto e coperto da test (tutti i test Python passano)**
 
 - Due nuove operazioni oltre a CLICK, TYPE, SCROLL, OPEN_APP, WAIT, DONE, BLOCKED:
   - `KEY`: preme un tasto o una scorciatoia scelta da un vocabolario chiuso di
@@ -32,17 +32,17 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
   quello, poi dalla memoria. Esempi: "in che mese ho speso di più?" su un foglio
   aperto, "cosa fa questa funzione?", "riassumi questo documento".
 - Candidati con stato `selected`. Le procedure apprese sanno leggere i passi KEY e OPEN.
-- **Banco di prova su tutte le categorie di app** (`leonardd/leonardd/task_eval.py`):
+- **Banco di prova su tutte le categorie di app** (`bobbd/bobbd/task_eval.py`):
   - 39 passi realistici: file, fogli di calcolo, documenti, browser, moduli web,
     codice, terminale, note, calendario, promemoria, contatti, Impostazioni di
     Sistema, visori, musica, presentazioni, foto, mappe, mail, finestre di
     dialogo, menu a tendina aperti, copia/incolla tra app, app lette dai pixel;
   - 14 richieste da smistare tra "fai" e "rispondi";
-  - lo strumento `leonardd/tools/task_reference_eval.py` li esegue con i pesi veri
+  - lo strumento `bobbd/tools/task_reference_eval.py` li esegue con i pesi veri
     sul motore CPU di riferimento;
   - un test controlla che il banco sia valido.
 
-**App — nucleo `LeonardCore`, scritto ma NON compilato**
+**App — nucleo `BobbCore`, scritto ma NON compilato**
 
 - `Agent/Keys.swift`: `KeyChord`, con codici tasto macOS, simboli (↩ ⇥ esc ⌘S…) e tasti offerti per app.
 - `ActOperation.open` e `.key`. `TaskObserveFrame` porta `screen_text` e `keys`. `AgentCandidate.selected`.
@@ -71,7 +71,7 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 ### Cosa NON è fatto (in ordine di lavoro)
 
 1. **Compilare e far passare la CI.** Le modifiche Swift non sono mai state
-   compilate. Vanno eseguiti `swift build` e `swift test` su LeonardCore (Linux)
+   compilate. Vanno eseguiti `swift build` e `swift test` su BobbCore (Linux)
    e poi controllata la CI macOS. È probabile qualche errore da correggere.
 2. **`AXDriver` (target app): la parte che agisce davvero.**
    - `perform(.key)`: CGEvent con il `keyCode` e i flag ⌘/⇧ di `KeyChord`.
@@ -106,10 +106,10 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
    - mostrare `task.report` con un pulsante Copia;
    - spiegare `unreadable` con un pulsante che apre Impostazioni › Leggi il testo nelle immagini.
 4. **Command bar**: `AskFrame` deve avere il campo `screen`. All'apertura va
-   letto il testo della finestra in primo piano, prima che Leonard prenda il
+   letto il testo della finestra in primo piano, prima che Bobb prenda il
    focus, e inviato con la domanda.
 5. **Contratto e fixture**: aggiornare `docs/CONTRACT.md` (observe `screen_text`/`keys`, act KEY/OPEN,
-   testo su DONE, ask `screen`), `leonardd/tools/export_contract_fixtures.py`,
+   testo su DONE, ask `screen`), `bobbd/tools/export_contract_fixtures.py`,
    `ContractFixtureTests` Swift.
 6. **Test Swift nuovi** (`AgentTests`):
    - policy su tasti, apertura ed Impostazioni;
@@ -120,7 +120,7 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 7. **Dimostrazioni ("Mostrami come")**: `DemonstrationWatcher` registra clic e
    digitazione ma non i tasti né i doppi clic. Va esteso a KEY e OPEN.
 8. **Misurare sul modello vero**: eseguire
-   `PYTHONPATH=. uv run --no-sync python -u tools/task_reference_eval.py` in `leonardd/`
+   `PYTHONPATH=. uv run --no-sync python -u tools/task_reference_eval.py` in `bobbd/`
    (40-60 minuti su CPU). Poi:
    - pubblicare i numeri per famiglia di app, che oggi non esistono;
    - correggere i prompt dove sbaglia;
@@ -139,14 +139,14 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 - **Valori regolabili**: slider, stepper, selettori di data (volume, luminosità, zoom).
 - **Clic destro**: aprire un menu contestuale su un elemento, cioè l'azione `AXShowMenu`.
 - **Barra dei menu di sistema**: Centro di Controllo, menu extra, Dock, Spotlight,
-  notifiche. Oggi Leonard legge solo l'app in primo piano.
+  notifiche. Oggi Bobb legge solo l'app in primo piano.
 - **Più finestre, Spazi e schermo intero**: scegliere la finestra giusta quando l'app ne ha più di una.
 - **Pagine web molto lunghe**: il walk si ferma a 2600 nodi e 0,7 s, quindi
   parte della pagina resta invisibile e va raggiunta scorrendo.
 - **Più monitor e Retina**: coordinate del ripiego sui pixel da verificare.
 - **Metodi di input e lingue non latine**: digitazione con IME (cinese, giapponese) non gestita.
 - **Aiuto proattivo fuori da mail, chat e calendario**: per esempio proporre
-  "finisco io" quando l'utente inizia una procedura che Leonard ha già imparato.
+  "finisco io" quando l'utente inizia una procedura che Bobb ha già imparato.
 - **Più tasti nel vocabolario**: Pagina su/giù, Inizio/Fine, ⌘⇧ vari, tasti
   funzione. Il vocabolario è chiuso di proposito: ogni aggiunta va fatta anche
   nella policy.
@@ -155,7 +155,7 @@ qualsiasi app, non solo quelle di messaggistica"), poi viene il resto.
 
 ## 2. Da verificare su un Mac vero (mai fatto)
 
-Nessuna persona ha ancora usato Leonard su un Mac vero. In particolare:
+Nessuna persona ha ancora usato Bobb su un Mac vero. In particolare:
 
 - installazione dal DMG, primo avvio, download del modello, onboarding;
 - permessi di macOS: Accessibilità, Automazione Mail, Calendari, Microfono e

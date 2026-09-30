@@ -2,12 +2,12 @@
 
 This is the demo timeline, not an evaluation fixture. It is written to show
 the product working rather than to score it: the events carry no labels, and
-the point is what Leonard decides unprompted.
+the point is what Bobb decides unprompted.
 
 It exercises every mail event kind, including the four that exist only so the
 specialist can learn from behaviour — `mail.arrived`, `mail.closed`,
 `mail.archived`, `mail.deleted`. Those are most of the traffic here, as they
-will be in real use, which is itself part of what the demo shows: Leonard
+will be in real use, which is itself part of what the demo shows: Bobb
 spends the day mostly staying quiet.
 
 Replay with `python -m demo.day --speed 60` to compress an eight-hour day
@@ -24,7 +24,7 @@ import time
 import uuid
 from pathlib import Path
 
-SOCKET = Path.home() / "Library/Application Support/Leonard/leonardd.sock"
+SOCKET = Path.home() / "Library/Application Support/Bobb/bobbd.sock"
 
 _T0 = 9 * 3600
 
@@ -71,7 +71,7 @@ TIMELINE: list[tuple[int, str, str, dict]] = [
         "thread_id": "t-marco-prev", "recipient": MARCO, "typing": True}),
 
     (_at(9, 21), "app.activated", "Xcode", {"typing": False}),
-    (_at(9, 22), "window.changed", "Xcode", {"title": "Leonard — attention.py", "typing": True}),
+    (_at(9, 22), "window.changed", "Xcode", {"title": "Bobb — attention.py", "typing": True}),
 
     (_at(10, 5), "mail.arrived", "Mail", _mail(
         OPS, "Your Atlas Cloud invoice is ready",

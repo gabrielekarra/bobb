@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs `swift test` for LeonardCore, retrying clean builds a few times.
+# Runs `swift test` for BobbCore, retrying clean builds a few times.
 #
 # On this machine's Command Line Tools toolchain (Swift 6.4, no Xcode), the
 # swift-testing macro plugin is intermittently not resolved for one
@@ -7,11 +7,11 @@
 # issue: every run that gets past compilation passes all tests, and a
 # retried *clean* build (not an incremental one; incremental retries just
 # repeat the same failure) has each time been enough to get past it within
-# a handful of attempts. See LeonardApp/README.md for the full story.
+# a handful of attempts. See BobbApp/README.md for the full story.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DIR="$(cd "$SCRIPT_DIR/../LeonardApp" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/../BobbApp" && pwd)"
 MAX_ATTEMPTS="${1:-8}"
 
 cd "$APP_DIR"

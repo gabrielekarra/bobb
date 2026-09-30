@@ -1,8 +1,8 @@
-> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+> Historical Bobb document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
 
 # Business
 
-How Leonard makes money, from whom, and why they will pay. Every figure
+How Bobb makes money, from whom, and why they will pay. Every figure
 below is either a price we set or an assumption marked as one; there is no
 customer data yet, and there will be no telemetry to collect it (ADR-002),
 so the measurement plan is part of this document.
@@ -27,7 +27,7 @@ Two claims carry it, and both are checkable by the buyer:
 
 **Primary: professionals whose inbox is confidential and who work on a Mac.**
 
-| Segment | Why the cloud is a problem for them | What Leonard does for them |
+| Segment | Why the cloud is a problem for them | What Bobb does for them |
 |---|---|---|
 | Lawyers (avvocati, solicitors) | Professional secrecy; client mail cannot go to a third-party AI provider without a processing agreement and often not at all | Triage, drafts, "what did the client say about the deadline" |
 | Accountants and tax advisors (commercialisti) | Client financial data, GDPR, deadlines everywhere | Urgent notices surfaced, figures fact-checked in drafts |
@@ -52,7 +52,7 @@ Outlook; the Mac share is higher among solo professionals, boutiques,
 founders and creative businesses. Outlook for Mac (it has a scripting
 dictionary) is the first expansion to test demand for.
 
-## Why they choose Leonard
+## Why they choose Bobb
 
 | Alternative | Where it falls short for this buyer |
 |---|---|
@@ -62,7 +62,7 @@ dictionary) is the first expansion to test demand for.
 | Screen-memory recorders | Screenshots rather than text, and none of them decide or draft |
 | Doing it by hand | The status quo, and the real competitor |
 
-Apple is the largest risk and the reason Leonard competes on *judgement*
+Apple is the largest risk and the reason Bobb competes on *judgement*
 (when to speak, with a number and an explanation), *memory* (grounded,
 cited answers) and *transparency* (Mind), not on generic writing tools.
 
@@ -123,7 +123,7 @@ In order of expected return for a solo founder, all testable in the first
 
 ## Measuring without telemetry
 
-Leonard will never report usage, so the business is steered by what the
+Bobb will never report usage, so the business is steered by what the
 business itself sees:
 
 | Question | Signal |
@@ -141,7 +141,7 @@ rate, refunds under 5%.
 
 | Risk | Mitigation |
 |---|---|
-| Apple ships proactive triage in Mail | Compete on judgement, memory and transparency; Leonard works across every app, not only Mail |
+| Apple ships proactive triage in Mail | Compete on judgement, memory and transparency; Bobb works across every app, not only Mail |
 | A 3B model makes a visible mistake in a client email | It never sends; figures are fact-checked; it abstains when unsure; the terms say to review |
 | Mac-only, Mail-only limits the market | Outlook for Mac next; the engine is app-agnostic by design |
 | The license signing key leaks | Kept offline; a leaked key means a new key pair in the next release |

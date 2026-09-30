@@ -1,4 +1,4 @@
-name = "leonard-licenses"
+name = "bobb-licenses"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
@@ -8,8 +8,8 @@ PUBLIC_KEY = ""
 # Lemon Squeezy variant ids for each edition.
 VARIANT_PERSONAL = ""
 VARIANT_PRO = ""
-FROM_EMAIL = "Leonard <licenses@leonard.app>"
-SUPPORT_EMAIL = "support@leonard.app"
+FROM_EMAIL = "Bobb <licenses@bobb.app>"
+SUPPORT_EMAIL = "support@bobb.app"
 
 # Secrets, never in this file:
 #   wrangler secret put WEBHOOK_SECRET    # Lemon Squeezy webhook signing secret

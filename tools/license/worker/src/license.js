@@ -1,8 +1,8 @@
 // License keys in JavaScript, byte-compatible with tools/license/license_tool.py
-// and LeonardCore/License/License.swift:
-//   LEONARD-<base64url(payload JSON)>.<base64url(Ed25519 signature)>
+// and BobbCore/License/License.swift:
+//   BOBB-<base64url(payload JSON)>.<base64url(Ed25519 signature)>
 
-export const PREFIX = "LEONARD-";
+export const PREFIX = "BOBB-";
 
 export function b64url(bytes) {
   let binary = "";

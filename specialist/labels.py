@@ -195,7 +195,7 @@ def rule_delayed_reply(event: TimedEvent, subsequent: Sequence[TimedEvent]) -> L
 
 def rule_calendar_after_reading(event: TimedEvent, subsequent: Sequence[TimedEvent]) -> LabelResult | None:
     """The user opened the calendar shortly after reading the email: the
-    relevant context was the calendar, so Leonard should have prepared it."""
+    relevant context was the calendar, so Bobb should have prepared it."""
     if event.kind != "mail.opened":
         return None
     for candidate in subsequent:

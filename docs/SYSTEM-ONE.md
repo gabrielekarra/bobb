@@ -1,4 +1,4 @@
-# System One — the category, and where Leonard sits in it
+# System One — the category, and where Bobb sits in it
 
 Source: Francesco Bonacci, *"Jev, System One models and the future of computer
 use"*, LinkedIn, September 2026. Read 2026-09-20. Supersedes part of ADR-004.
@@ -10,7 +10,7 @@ from a set of candidates the application already defined. It does not generate
 prose, it does not invent tools, values or coordinates. You supply the context
 and the decision to be made; you get back a typed result with a probability.
 
-Jev's primitives are Choice, Score and Noul. Leonard's are Choice, Score and
+Jev's primitives are Choice, Score and Noul. Bobb's are Choice, Score and
 Bool. The same shape, independently arrived at.
 
 The proposed architecture is a split, not a replacement: a general model for
@@ -34,13 +34,13 @@ latencies measure different boundaries — a local forward pass against a hosted
 round trip including network. It is not an apples-to-apples benchmark and it
 is not evidence that a tiny model beats a large one at anything general.
 
-What it *is* evidence for is the thing Leonard needs: **inside one bounded
+What it *is* evidence for is the thing Bobb needs: **inside one bounded
 decision, a sub-million-parameter specialist is competitive, and it is two
 orders of magnitude cheaper to run.**
 
-## What this changes for Leonard
+## What this changes for Bobb
 
-Leonard's attention engine was designed around a resident 3B at roughly 150 ms
+Bobb's attention engine was designed around a resident 3B at roughly 150 ms
 per decision. That is a sound v0.1 and it stays. But it is no longer obviously
 the endpoint, because *"should I interrupt right now?"* is precisely the shape
 of decision a specialist is for: bounded, repetitive, thousands of times a
@@ -62,13 +62,13 @@ being built before we knew we needed it here.
 A 2.8 MB model is small enough to **train on the user's own machine, on the
 user's own behaviour.**
 
-Leonard's audit store was designed to record every decision alongside what the
+Bobb's audit store was designed to record every decision alongside what the
 user did about it — approve, dismiss, ignore. That is a labelled dataset of
 one person's interruption preferences, accumulating from day one, never
 leaving the machine. A tier-0 specialist of that size can be fitted to it
 overnight on an M4.
 
-So the product's answer to *"what does Leonard do on day 30 that it cannot do
+So the product's answer to *"what does Bobb do on day 30 that it cannot do
 on day 1?"* becomes concrete: **on day 30 the interruption policy is yours,
 fitted to when you actually said yes.** A hosted System One cannot offer that
 without holding your behavioural data, which is the one thing it must not
@@ -83,7 +83,7 @@ The authors flag perception as the limiting factor: vision-capable models need
 a text representation of the interface, and producing one costs latency — the
 OmniParser and OCR steps in the Jev macOS projects.
 
-Leonard does not pay that. The accessibility tree *is* the text representation
+Bobb does not pay that. The accessibility tree *is* the text representation
 of the interface, structured, free, and available synchronously from the OS.
 Screen capture is the fallback, gated, not the primary path.
 

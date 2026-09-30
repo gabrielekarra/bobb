@@ -12,19 +12,19 @@ concurrency:
 
 jobs:
   daemon:
-    name: leonardd (Python)
+    name: bobbd (Python)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: Sync
-        working-directory: leonardd
+        working-directory: bobbd
         run: |
           uv sync --frozen
           # Linux has no Metal; the CPU build of MLX lets the model-free suite import.
           uv pip install "mlx[cpu]==$(uv run --no-sync python -c 'import importlib.metadata as m; print(m.version("mlx"))')"
       - name: Test
-        working-directory: leonardd
+        working-directory: bobbd
         run: uv run --no-sync pytest -q -m "not slow"
 
   specialist:
@@ -40,13 +40,13 @@ jobs:
           uv run --no-sync pytest -q
 
   core-linux:
-    name: LeonardCore (Swift, Linux)
+    name: BobbCore (Swift, Linux)
     runs-on: ubuntu-latest
     container: swift:6.1-noble
     steps:
       - uses: actions/checkout@v4
       - name: Test
-        working-directory: LeonardApp
+        working-directory: BobbApp
         run: |
           apt-get update -qq && apt-get install -y -qq libsqlite3-dev sqlite3 > /dev/null
           swift test -j 1
@@ -70,7 +70,7 @@ jobs:
         run: npm test
 
   app:
-    name: LeonardApp (Swift, macOS)
+    name: BobbApp (Swift, macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,13 +82,13 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Build
-        working-directory: LeonardApp
+        working-directory: BobbApp
         run: |
           set -o pipefail
           swift build -Xswiftc -continue-building-after-errors 2>&1 | tee build.log || {
             echo "::group::errors"; grep -E "error:" build.log | sort -u | head -150; echo "::endgroup::"; exit 1; }
       - name: Test
-        working-directory: LeonardApp
+        working-directory: BobbApp
         run: swift test -j 1
 
   package:

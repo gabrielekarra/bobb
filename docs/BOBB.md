@@ -1,6 +1,6 @@
 # Bobb — guida e stato di implementazione
 
-Il passaggio da Leonard comprende codice, interfaccia Liquid Glass, logo nero con occhiali rivolti in alto a sinistra e licenza MIT. Le vecchie cartelle dati e il bundle ID restano compatibili.
+Bobb comprende codice, interfaccia Liquid Glass, logo nero con occhiali rivolti in alto a sinistra e licenza MIT. I moduli Swift sono `BobbApp` e `BobbCore`, il daemon è `bobbd`, il bundle ID è `com.bobb.app` e i dati risiedono in `~/Library/Application Support/Bobb`.
 
 | Area | Implementazione |
 |---|---|

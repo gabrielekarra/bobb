@@ -1,6 +1,6 @@
 # Minting a personal specialist
 
-How Leonard learns one person's interruption preferences on their own machine.
+How Bobb learns one person's interruption preferences on their own machine.
 This is the part no one else has built, so it is the part most likely to be
 wrong. Written 2026-09-20.
 
@@ -11,7 +11,7 @@ below: a logistic regression over hashed features, trained on the Mac in
 NumPy from explicit, implicit and teacher labels, turned on only after it
 beats or matches the resident model on the user's own newest answers, and
 allowed to decide only a confident "this can wait" (ADR-008,
-`leonardd/specialist.py`). The implicit labeller (a reply started, a
+`bobbd/specialist.py`). The implicit labeller (a reply started, a
 message left unread within seconds) and the validation gate described here
 are in it. The transformer below is the next specialist, behind the same
 gate, when there is data to feed it.
@@ -43,7 +43,7 @@ There is exactly one source of truth for it and it is the person.
 This is the part that matters, and it is not a training problem, it is a data
 problem.
 
-Leonard only learns the outcome of decisions it *acted on*. Every decision it
+Bobb only learns the outcome of decisions it *acted on*. Every decision it
 abstained on — which at a 0.60 floor is nearly half of them — produces no
 label at all. We observe the reward only for the arm we pulled.
 
@@ -57,14 +57,14 @@ Three consequences:
    the week after one.
 
 A naive fit on approve/dismiss alone learns the policy that generated the
-data, not the policy the user wants. It will confidently reproduce Leonard's
+data, not the policy the user wants. It will confidently reproduce Bobb's
 current mistakes.
 
 ## Three mechanisms, in order of how much they buy
 
 ### 1. Implicit labels — by far the largest source
 
-The user does not have to teach Leonard anything. They already answer the
+The user does not have to teach Bobb anything. They already answer the
 question by what they do next.
 
 | Observation | Label |
@@ -76,16 +76,16 @@ question by what they do next.
 | Never opened it at all | `ignore` |
 
 None of this requires a click, a prompt, or a training mode. It requires
-watching what already happens, which Leonard is doing anyway.
+watching what already happens, which Bobb is doing anyway.
 
 This is the mechanism that makes the whole thing tractable: it produces
 thousands of labelled examples a month from ordinary use, and crucially **it
-is not censored** — it labels events Leonard stayed silent on just as well as
+is not censored** — it labels events Bobb stayed silent on just as well as
 the ones it surfaced.
 
 It is also the answer to the cold-start problem in a second sense: a new
 user's existing mailbox is a labelled corpus on day zero. What they replied
-to, what they archived, how fast. We can fit a first specialist before Leonard
+to, what they archived, how fast. We can fit a first specialist before Bobb
 has ever interrupted anyone.
 
 ### 2. Deliberate exploration at the boundary
@@ -93,12 +93,12 @@ has ever interrupted anyone.
 Implicit labels are dense but indirect. For the `interrupt` decision
 specifically we still want the user's actual verdict near the threshold.
 
-So Leonard occasionally surfaces a decision it would have abstained on,
+So Bobb occasionally surfaces a decision it would have abstained on,
 sampled from just below the floor, and treats the response as a label. A small
 exploration rate spent precisely where the model is least certain.
 
 This must be visible. Mind marks those interruptions as what they are —
-Leonard asking rather than telling — because an assistant that experiments on
+Bobb asking rather than telling — because an assistant that experiments on
 you without saying so has broken the only thing it has.
 
 ### 3. Distillation for the cold start
@@ -162,5 +162,5 @@ Cua, in TypeSafe's Jev, or in the literature we found does this for real
 end-user behavioural data on-device.
 
 If implicit labelling works, the moat is real and compounds per user. If it
-does not, Leonard is still a good local assistant, but it is a product anyone
+does not, Bobb is still a good local assistant, but it is a product anyone
 with a GPU budget could copy.

@@ -2,12 +2,12 @@
 
 The mark is a pair of round glasses whose eyes look up and left: black on a soft white tile, on
 the macOS rounded square. The same geometry, in unit coordinates, is drawn
-by `LeonardApp/Sources/LeonardApp/UI/Glasses.swift` for the menu bar and the
+by `BobbApp/Sources/BobbApp/UI/Glasses.swift` for the menu bar and the
 interface, so the three never drift apart. Drawn at 4x and downsampled, so
 every size is antialiased. Needs only Pillow.
 
-    uv run --with pillow python scripts/make_icon.py LeonardApp/Resources/AppIcon.iconset
-    iconutil -c icns LeonardApp/Resources/AppIcon.iconset    # macOS only
+    uv run --with pillow python scripts/make_icon.py BobbApp/Resources/AppIcon.iconset
+    iconutil -c icns BobbApp/Resources/AppIcon.iconset    # macOS only
 """
 
 from __future__ import annotations
@@ -136,4 +136,4 @@ def main(out: Path) -> None:
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else "LeonardApp/Resources/AppIcon.iconset"))
+    main(Path(sys.argv[1] if len(sys.argv) > 1 else "BobbApp/Resources/AppIcon.iconset"))

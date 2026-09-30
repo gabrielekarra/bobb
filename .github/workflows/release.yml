@@ -1,6 +1,6 @@
-# Builds, signs, notarizes and publishes Leonard when a version tag is pushed:
+# Builds, signs, notarizes and publishes Bobb when a version tag is pushed:
 #
-#   echo 1.0.1 > VERSION && git commit -am "Leonard 1.0.1" && git tag v1.0.1 && git push --tags
+#   echo 1.0.1 > VERSION && git commit -am "Bobb 1.0.1" && git tag v1.0.1 && git push --tags
 #
 # A release is never ad-hoc signed: without the secrets below the job stops
 # before building. See docs/LAUNCH.md for how to create each one.
@@ -89,7 +89,7 @@ jobs:
           NOTES="$(awk -v v="## $VERSION" '$0 ~ "^## " { p = index($0, v) == 1; next } p' CHANGELOG.md)"
           gh release create "$GITHUB_REF_NAME" \
             "dist/Bobb-$VERSION.dmg" "dist/Bobb-$VERSION.dmg.sha256" \
-            --title "Leonard $VERSION" --notes "$NOTES"
+            --title "Bobb $VERSION" --notes "$NOTES"
 
       - uses: actions/upload-artifact@v4
         with:

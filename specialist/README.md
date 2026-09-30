@@ -1,9 +1,9 @@
 # specialist
 
-Mints Leonard's personal, on-device specialist: a byte-level tiny
+Mints Bobb's personal, on-device specialist: a byte-level tiny
 transformer that scores `ignore` / `wait` / `prepare` / `suggest` from one
 user's own `audit.db`, distilled from the resident model and then fit on
-real labels. See `/Users/gabrielekarra/dev/leonard/docs/SPECIALIST.md` for
+real labels. See `/Users/gabrielekarra/dev/bobb/docs/SPECIALIST.md` for
 the design this implements and `docs/CUA-INVESTIGATION.md` sections 2.1-2.6
 for the architecture it is adapted from.
 
@@ -30,7 +30,7 @@ hyperparameters: width 128, rank 128, layers 2, heads 4, context_tokens 224,
 option_tokens 96. CUA-S1-FORMS has two branches — an entity-pointer branch
 for "fill this field with that document entity" (a variable-size option
 table per example) and a fixed-action branch for "check / click / skip" (a
-constant option table). Leonard's action set never changes size or
+constant option table). Bobb's action set never changes size or
 membership, so `SpecialistScorer` is built entirely on the fixed-action
 shape; there is no pointer mechanism anywhere in this codebase.
 
@@ -70,7 +70,7 @@ B <body excerpt>           body / draft / selected text / url, kind-dependent (c
 A line is omitted entirely when its field is empty for that event kind (for
 example `idle.entered` has no actor, title, or body). `user_state` is not
 computed by this module — it is folded into the event dict by the caller,
-exactly as `leonardd/leonardd/intents.py` folds it into context text rather
+exactly as `bobbd/bobbd/intents.py` folds it into context text rather
 than asking the model to predict it, and for exactly the same reason: it
 costs nothing to compute deterministically from event history, so there is
 no reason to spend a forward pass guessing it.
@@ -83,20 +83,20 @@ day/night cycle needs to normalize `ts` to local time first.
 ## The implicit labeller (`labels.py`) — every rule, and why
 
 `SPECIALIST.md` names five behavioural observations. Two anchor event kinds
-are labelled now: `mail.opened` (`leonardd/leonardd/intents.py`'s existing
+are labelled now: `mail.opened` (`bobbd/bobbd/intents.py`'s existing
 sensor) and `mail.arrived` (`docs/CONTRACT.md`'s new "a message landed and
 has not been opened" kind, added specifically because the first pass of
 this module — see "Rules removed" below — showed the labeller was structurally
 incapable of seeing the negatives). `mail.closed`, `mail.archived`, and
 `mail.deleted`, also new in `docs/CONTRACT.md`, appear only as *subsequent*
-evidence, never as anchors, since none of them represent a moment Leonard
+evidence, never as anchors, since none of them represent a moment Bobb
 would need to decide anything about.
 
 | Rule | Anchor | Fires when | Label | Confidence | Rationale |
 |---|---|---|---|---|---|
 | `replied_within_hour` | `mail.opened` | A `mail.composing` event to the same thread (matched on `thread_id`, then normalized subject, then sender address) within 3600s | `suggest` | 0.9 | Direct behavioural evidence: the user acted on the thread promptly. `SPECIALIST.md`'s own example, verbatim. |
 | `delayed_reply` | `mail.opened` | Same-thread reply between 3600s and 86400s later | `wait` | 0.65 | It mattered, just not urgently. |
-| `calendar_after_reading` | `mail.opened` | An `app.activated`/`window.changed` event to a calendar app within 300s | `prepare` | 0.75 | The relevant context was the calendar — Leonard should have prepared it, per `SPECIALIST.md`'s own example. |
+| `calendar_after_reading` | `mail.opened` | An `app.activated`/`window.changed` event to a calendar app within 300s | `prepare` | 0.75 | The relevant context was the calendar — Bobb should have prepared it, per `SPECIALIST.md`'s own example. |
 | `read_and_abandoned` | `mail.opened` | A same-message `mail.closed` with `dwell_ms >= 40000` and `still_unread: true`, no reply following | `wait` | 0.75 | **The rule this module previously refused to fake.** `docs/CONTRACT.md` added `mail.closed`'s `dwell_ms`/`still_unread` fields specifically so "opened, read for 40 seconds, left it unread" would stop being a guess. Higher confidence than `delayed_reply` because it is now a direct dwell + still-unread observation, not an inferred proxy. Abstains outright if either field is absent rather than approximating from event spacing. |
 | `archived_unread` | `mail.arrived` | `mail.archived` or `mail.deleted` for the same message with no `mail.opened` anywhere before it, within 30 days | `ignore` | 0.92 | Highest-confidence rule in the set: archiving something you never opened is about as clear as this signal gets. |
 | `never_opened` | `mail.arrived` | No `mail.opened` for the same message anywhere within 3 days, and enough time has actually elapsed to know that (see window reasoning below) | `ignore` | 0.5 | Lowest-confidence rule in the set: pure absence-of-evidence, the weakest form of evidence this module uses. |
@@ -184,7 +184,7 @@ hardcoded, so the two cannot silently fall out of sync.
 `build_examples` turns `audit.db` rows into `Example`s three ways:
 
 - **Explicit** — a row with a `response`. `approve` labels the row with the
-  action Leonard actually surfaced (confirmed correct); `dismiss` labels it
+  action Bobb actually surfaced (confirmed correct); `dismiss` labels it
   `ignore`, since a dismissed suggestion only tells us the surfaced action
   was wrong, not what the right one was, and "the user would rather have
   been left alone" is the closest available proxy. **This is a modeling
@@ -193,8 +193,8 @@ hardcoded, so the two cannot silently fall out of sync.
   to check it against the implicit labeller's independent signal via
   `data.implicit_explicit_agreement`.
 - **Implicit** — `labels.label_event` run against the row and every later
-  row in the same table (every event `leonardd` scores gets a `decisions`
-  row per `leonardd/leonardd/server.py`'s `_on_event`, so "subsequent
+  row in the same table (every event `bobbd` scores gets a `decisions`
+  row per `bobbd/bobbd/server.py`'s `_on_event`, so "subsequent
   events" is simply later rows ordered by `ts` — no separate event log was
   needed).
 - **Distillation** — the teacher's distribution for the `interrupt`
@@ -216,22 +216,22 @@ even on genuinely "never opened" mail if handed a shorter lookahead, since
 it cannot distinguish "we waited the full window and saw nothing" from "the
 caller only gave us a week" — see that rule's docstring.
 
-**Known data gap, found while building this:** `leonardd/leonardd/
+**Known data gap, found while building this:** `bobbd/bobbd/
 attention.py`'s `_readout_frame` only persists the chosen answer's
 confidence (`Decision.confidence`), not `Decision.probabilities` — the full
 calibrated distribution `SPECIALIST.md`'s distillation stage needs
 ("teacher's full distribution as the target, not just its argmax"). Today's
 `audit.db` therefore cannot support proper KL distillation as designed.
 `data._teacher_distribution` prefers a `probabilities` field if a future
-`leonardd` schema adds one to `readouts`, and otherwise falls back to a
+`bobbd` schema adds one to `readouts`, and otherwise falls back to a
 peaked pseudo-distribution (the stored confidence on the chosen action, the
 remainder split uniformly across the other three) — a materially worse
 distillation target, used only because nothing better is currently logged.
-**Fixing this properly means widening `leonardd/leonardd/attention.py`'s
+**Fixing this properly means widening `bobbd/bobbd/attention.py`'s
 `_readout_frame` to persist the full `probabilities` dict, which is a change
-to `leonardd/`, out of scope and off limits for this package.** This is the
+to `bobbd/`, out of scope and off limits for this package.** This is the
 single most actionable finding in this whole exercise for someone working in
-`leonardd/`.
+`bobbd/`.
 
 `time_split` splits **by time, not at random**: sort by `ts`, cut by
 position. `tests/test_data.py::test_time_split_preserves_chronology_
@@ -265,7 +265,7 @@ is the headline number, not accuracy**: `SPECIALIST.md`'s confidence floor
 only works as a safety mechanism if a correct call is reliably more
 confident than a wrong one, so this is the number that decides whether a
 floor can gate anything at all. `abstain_curve` reports coverage and
-selective accuracy at floors 0.5/0.6/0.7, mirroring `leonardd/leonardd/
+selective accuracy at floors 0.5/0.6/0.7, mirroring `bobbd/bobbd/
 attention.py`'s own `DEFAULT_FLOOR` gate.
 
 ## Synthetic data (`synth.py`)
@@ -413,7 +413,7 @@ the two — archiving is a deliberate action, not silence, so despite being a
 negative it behaves evidentially like the positive rules. `never_opened` is
 the one I would bet against first now: three days of silence is consistent
 with "this didn't matter," but also with "this user batches email weekly,"
-"this user was on vacation," or "this user reads mail in a client Leonard
+"this user was on vacation," or "this user reads mail in a client Bobb
 doesn't instrument yet" — the window was chosen specifically to make the
 first explanation more likely than the other three, but I have no real data
 to confirm that judgment, only the reasoning behind the window. If

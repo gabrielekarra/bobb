@@ -1,12 +1,12 @@
 # Architecture
 
-Leonard is two processes on one Mac, joined by a unix socket, plus the tools
+Bobb is two processes on one Mac, joined by a unix socket, plus the tools
 that build, sell and license it. This page says where each responsibility
 lives and why it lives there. The protocol between the processes is
 [`CONTRACT.md`](CONTRACT.md); the decisions behind the shape are the ADRs.
 
 ```
-┌──────────────────────────── Leonard.app (Swift 6) ────────────────────────────┐
+┌──────────────────────────── Bobb.app (Swift 6) ────────────────────────────┐
 │ Sensors                         Coordinator              Surfaces             │
 │ MailSensor (Apple Events) ──┐                         ┌─ Overlay card          │
 │ SentMailSensor (Sent box) ──┤                         ├─ Draft panel           │
@@ -18,7 +18,7 @@ lives and why it lives there. The protocol between the processes is
 │ DaemonSupervisor · ModelDownloader · LicenseController                        │
 └─────────────────────────────────────────┬─────────────────────────────────────┘
                      unix socket, NDJSON, 0600
-┌─────────────────────────────── leonardd (Python) ─────────────────────────────┐
+┌─────────────────────────────── bobbd (Python) ─────────────────────────────┐
 │ server.py ── status, handlers, streaming, cancellation                        │
 │   attention.py ─ specialist.py (tier 0) ─ intents.py ─ decide.py ─ policy.py  │
 │   agent.py ── tasks: plan, one checked step at a time, text only for TYPE     │
@@ -53,8 +53,8 @@ holds content it did not put on screen itself.
 
 ## Lifecycle
 
-1. The app starts `leonardd` through `DaemonSupervisor`: in a release, the
-   Python runtime bundled in `Leonard.app/Contents/Resources/daemon`, with a
+1. The app starts `bobbd` through `DaemonSupervisor`: in a release, the
+   Python runtime bundled in `Bobb.app/Contents/Resources/daemon`, with a
    clean environment and `--parent-pid`, so the daemon exits if the app dies.
 2. The daemon takes a single-instance lock (exit 3 if another holds it),
    binds the socket **before** loading the model, and reports `loading`,
@@ -82,7 +82,7 @@ holds content it did not put on screen itself.
    streams it into the draft panel, with citations and a fact check of
    figures and names against the email and the sources.
 6. "Reply in Mail" opens Mail's own reply window and pastes the draft
-   (ADR-006). Leonard never sends.
+   (ADR-006). Bobb never sends.
 7. The user's answer (approve, dismiss, or the card timing out) goes back to
    the audit log, and `learning.py` updates on the next decision.
 
@@ -99,7 +99,7 @@ Retention sweeps run at start-up and every six hours. See
 ## Doing things: tasks
 
 The command bar's Do mode, or any request the engine routes to "do", starts
-a task (ADR-007). `TaskLoop` (LeonardCore, tested on Linux with fakes) asks
+a task (ADR-007). `TaskLoop` (BobbCore, tested on Linux with fakes) asks
 the engine for a plan — or reuses a learned procedure as the plan — then
 repeats: `AXDriver` reads the front app's window and menu bar into element
 snapshots; `CandidateRanker` narrows hundreds of elements to the few worth
@@ -150,12 +150,12 @@ A task that ends done, and a demonstration recorded by
 The closest procedure to a new request is shown to the engine in every
 step's context as a guide, and becomes the plan when the match is close.
 
-## LeonardCore and LeonardApp
+## BobbCore and BobbApp
 
-`LeonardCore` (contract types, IPC, state, coordinator, license
+`BobbCore` (contract types, IPC, state, coordinator, license
 verification, Mail parsing, settings, localization) has no AppKit and builds
 and tests on Linux, so most logic is covered by `swift test` on both
-platforms. `LeonardApp` is AppKit and SwiftUI: sensors, windows, panels,
+platforms. `BobbApp` is AppKit and SwiftUI: sensors, windows, panels,
 the hotkey, the supervisor. UI strings live in one table (`L10n.swift`) with
 English and Italian for every key; a test fails if one is missing.
 
@@ -178,7 +178,7 @@ about 200 MB; the model is downloaded once at setup.
 ```
 buyer ── Lemon Squeezy checkout ── order_created webhook ──▶
     tools/license/worker (Cloudflare): verify HMAC → sign Ed25519 key → email (Resend)
-buyer pastes key ──▶ Leonard verifies offline with the public key in Info.plist
+buyer pastes key ──▶ Bobb verifies offline with the public key in Info.plist
 ```
 
 The key's payload carries edition, seats and `updates_until`; the app

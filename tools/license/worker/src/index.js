@@ -1,4 +1,4 @@
-// Leonard license fulfillment: a Cloudflare Worker.
+// Bobb license fulfillment: a Cloudflare Worker.
 //
 // Lemon Squeezy calls POST /webhook when an order is paid. The worker checks
 // the webhook's HMAC signature, maps the purchased variant to an edition,
@@ -52,10 +52,10 @@ export function orderFromWebhook(event, env) {
 
 export function emailFor(order, licenseKey, env) {
   const it = order.locale === "it";
-  const subject = it ? "La tua licenza di Leonard" : "Your Leonard license";
+  const subject = it ? "La tua licenza di Bobb" : "Your Bobb license";
   const text = it
-    ? `Ciao ${order.name},\n\ngrazie per aver scelto Leonard ${order.edition === "pro" ? "Pro" : "Personal"}.\n\nLa tua chiave di licenza:\n\n${licenseKey}\n\nPer attivarla: apri Leonard dalla barra dei menu, Impostazioni › Licenza, incolla la chiave e premi Attiva. La chiave viene verificata sul tuo Mac: niente viene inviato a noi.\n\nLa licenza vale per ${order.seats} Mac e include un anno di aggiornamenti. Conserva questa email.\n\nPer qualsiasi cosa: ${env.SUPPORT_EMAIL}\n\n— Leonard`
-    : `Hi ${order.name},\n\nthank you for choosing Leonard ${order.edition === "pro" ? "Pro" : "Personal"}.\n\nYour license key:\n\n${licenseKey}\n\nTo activate it: open Leonard from the menu bar, go to Settings › License, paste the key and press Activate. The key is checked on your Mac; nothing is sent to us.\n\nYour license covers ${order.seats} Macs and includes a year of updates. Keep this email.\n\nAnything at all: ${env.SUPPORT_EMAIL}\n\n— Leonard`;
+    ? `Ciao ${order.name},\n\ngrazie per aver scelto Bobb ${order.edition === "pro" ? "Pro" : "Personal"}.\n\nLa tua chiave di licenza:\n\n${licenseKey}\n\nPer attivarla: apri Bobb dalla barra dei menu, Impostazioni › Licenza, incolla la chiave e premi Attiva. La chiave viene verificata sul tuo Mac: niente viene inviato a noi.\n\nLa licenza vale per ${order.seats} Mac e include un anno di aggiornamenti. Conserva questa email.\n\nPer qualsiasi cosa: ${env.SUPPORT_EMAIL}\n\n— Bobb`
+    : `Hi ${order.name},\n\nthank you for choosing Bobb ${order.edition === "pro" ? "Pro" : "Personal"}.\n\nYour license key:\n\n${licenseKey}\n\nTo activate it: open Bobb from the menu bar, go to Settings › License, paste the key and press Activate. The key is checked on your Mac; nothing is sent to us.\n\nYour license covers ${order.seats} Macs and includes a year of updates. Keep this email.\n\nAnything at all: ${env.SUPPORT_EMAIL}\n\n— Bobb`;
   return { from: env.FROM_EMAIL, to: [order.email], reply_to: env.SUPPORT_EMAIL, subject, text };
 }
 

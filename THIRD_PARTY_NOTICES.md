@@ -16,10 +16,10 @@ your consent, during setup.
 **Built with Llama.** Use of the model is subject to the
 [Llama 3.2 Community License](https://www.llama.com/llama3_2/license/) and
 the [Acceptable Use Policy](https://www.llama.com/llama3_2/use-policy/).
-Leonard ships only the text model; the license restrictions that apply to
+Bobb ships only the text model; the license restrictions that apply to
 the multimodal Llama 3.2 models do not apply to it.
 
-## Bundled with the on-device engine (`leonardd`)
+## Bundled with the on-device engine (`bobbd`)
 
 | Component | License |
 |---|---|
@@ -42,10 +42,10 @@ The full license text of every bundled Python package is included inside the
 application at `Contents/Resources/daemon/python/lib/python3.12/site-packages/*.dist-info/`.
 
 Network libraries (`httpx`, `huggingface_hub`) are present only because the
-model libraries depend on them. Leonard's engine starts with the Hugging
+model libraries depend on them. Bobb's engine starts with the Hugging
 Face libraries in offline mode and cannot open a network connection; this is
 enforced by a test that fails the build if it ever could
-(`leonardd/tests/test_no_network.py`).
+(`bobbd/tests/test_no_network.py`).
 
 ## Research components (not shipped in the app)
 

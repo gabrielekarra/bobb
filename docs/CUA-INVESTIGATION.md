@@ -1,6 +1,6 @@
 # Cua / CUA-S1 technical due diligence
 
-Status: complete, 2026-09-20. Prepared for the Leonard architecture decision
+Status: complete, 2026-09-20. Prepared for the Bobb architecture decision
 referenced in `PRODUCT.md` ("Actuation, accessibility tree, window state —
 Cua Driver, MIT — under investigation") and `SYSTEM-ONE.md`.
 
@@ -604,7 +604,7 @@ single-step, single-element, fully-observed, text-only, closed 4-action
 vocabulary (fill/check/click/skip), synthetic training distribution.
 
 **What would have to change for "should I interrupt the user right now?"**
-(the Leonard tier-0 decision named in `SYSTEM-ONE.md`), reasoning from the
+(the Bobb tier-0 decision named in `SYSTEM-ONE.md`), reasoning from the
 architecture directly:
 
 1. **Context encoding is byte-level text-only — no screenshots, no
@@ -625,7 +625,7 @@ architecture directly:
    silently / wait / suppress) with a *graded urgency*, not a pointer into
    document entities.** That's actually a simplification relative to
    CUA-S1-FORMS's "fill" action (which requires the entity-pointer
-   mechanism); Leonard's decision is closer to the *scorer's* fixed-action
+   mechanism); Bobb's decision is closer to the *scorer's* fixed-action
    branch (`check`/`click`/`skip` in the forms model) than to its
    entity-fill branch — good news, since that's the simpler half of the
    existing head to reuse.
@@ -637,7 +637,7 @@ architecture directly:
    (`train.py:130-137`) is already computed and already the right thing to
    watch; nothing architectural needs to change here, just the acceptance
    bar on ECE and on `unsafe_action_rate` before trusting the specialist
-   unsupervised (this maps directly onto Leonard's own confidence-floor
+   unsupervised (this maps directly onto Bobb's own confidence-floor
    design referenced in `CONTRACT.md`).
 4. **Training data cannot be template-generated the way form data is.**
    Section 2.2's generator works because "what value goes in this field" is
@@ -669,7 +669,7 @@ architecture directly:
 `jev-use` (`skills/jev-use/SKILL.md`, runnable reference at
 `libs/cua-driver/examples/jev-use/`) is Cua's own published recipe for
 pairing Cua Driver with **TypeSafe's hosted Jev** — the same hosted "System
-One" API that Leonard's `ADR-004` and `SYSTEM-ONE.md` already discuss and
+One" API that Bobb's `ADR-004` and `SYSTEM-ONE.md` already discuss and
 have already decided not to use on the attention path. Reading the actual
 recipe confirms and sharpens what those two docs already assume.
 
@@ -867,7 +867,7 @@ core *philosophy* — identify where the student actually fails via a real
 teacher-student comparison, generate more data specifically targeting those
 failures rather than generic broad data, and use error-type-aware training
 signal — is a good template for how we'd design a data-generation loop for
-Leonard's own specialists (e.g., mine hard cases from the audit store where
+Bobb's own specialists (e.g., mine hard cases from the audit store where
 the resident general model and the nascent specialist disagree, rather than
 just accumulating all accept/dismiss events uniformly). That transfers as a
 *methodology idea*, not as evidence about model size, and not as anything
@@ -877,7 +877,7 @@ connected to Cua's codebase.
 
 ## 5. Build-versus-reuse verdict
 
-**Answer to the governing question: yes.** Leonard can be built on Cua
+**Answer to the governing question: yes.** Bobb can be built on Cua
 Driver for actuation/observation plus locally-trained CUA-S1-style
 specialists for bounded decisions, with no hosted model anywhere on the hot
 path. Cua Driver's background-delivery and AX-tree mechanisms are real,
@@ -888,19 +888,19 @@ is small, fully reproducible from source, and has a genuine Swift-native
 would have to build ourselves is concentrated in exactly the place
 `PRODUCT.md` already identifies as the company: the personal, on-device
 specialist-minting loop from real behavioral data, which nothing in either
-project provides or has validated at Leonard's scale.
+project provides or has validated at Bobb's scale.
 
 | Capability | Cua gives us | We adapt | We build from scratch | Why |
 |---|---|---|---|---|
 | Accessibility-tree reading (macOS) | **Yes** — `AXUIElement*` FFI + tree walker, real node schema (role/title/value/actions/frame/enabled/selected), depth/element caps, Chromium-enablement workaround | Tune depth/element caps and the markdown-render format for our own context budget; may want richer caching than the built-in `element_cache.rs` for our always-on daemon's long-lived sessions | — | §1.3 — this is the deepest, most mature part of Driver; reinventing `AXUIElementCopyAttributeValue`-level plumbing correctly (timeouts, Chromium lazy-tree, window/menu-bar disambiguation) would cost months we don't need to spend |
-| Screen capture (fallback path) | **Yes** — rides along in `get_window_state`; ScreenCaptureKit-based, gated by a separate TCC grant | Decide our own policy for *when* to request it (Leonard's design already treats vision as fallback, not primary — matches Driver's own posture) | — | §1.3, §1.6 |
+| Screen capture (fallback path) | **Yes** — rides along in `get_window_state`; ScreenCaptureKit-based, gated by a separate TCC grant | Decide our own policy for *when* to request it (Bobb's design already treats vision as fallback, not primary — matches Driver's own posture) | — | §1.3, §1.6 |
 | Mouse/keyboard actuation without foreground steal | **Yes, with a real caveat** — `SLEventPostToPid`/window-local `CGEventSetWindowLocation`, explicit refusal ladder with stable error codes | Decide our own product-level promise to the user given the documented layer-3-only focus-guard and the native-AppKit "unproven" gaps in `action-support.md` — don't over-promise "never touches your frontmost app" without our own regression suite | Possibly: a stronger layer-1/2 focus-suppression (synthetic-focus write/restore) if the reactive-only guard proves insufficient for apps we specifically care about (Mail.app, Messages, Calendar) | §1.4 — the mechanism is real and non-trivial to build (private SkyLight SPI usage, the whole routing/refusal state machine); the gap is specifically in *completeness of proof* for native Cocoa apps, which we'd need to test against our actual target apps (Mail, Calendar) ourselves regardless of whose driver we use |
 | App/window control (launch, list, focus-safe menu invocation, geometry) | **Yes** — `launch_app` (idempotent, `FocusRestoreGuard`), `list_apps/windows`, `invoke_menu` (native `AXMenuBar`), `set_window_frame` | Verify the Automation-permission question (§1.6) empirically for our own onboarding flow before promising "two permissions only" | — | §1.2, §1.6 |
-| MCP/CLI/native transport | **Yes** — MCP stdio, CLI, and a real UniFFI/C-ABI native embedding path | Use the native embedding path (not MCP-over-pipe) for `leonardd`, since `CONTRACT.md` already establishes `leonardd` as a no-network-socket local daemon and MCP-over-stdio-subprocess is an unnecessary extra hop when a native binding exists | — | §1.5 |
-| Candidate/action-space construction for a bounded decision | **Partially** — `jev-use`'s pattern (app builds the full candidate table, decision-maker only picks an ID) is a good, source-proven pattern; CUA-S1's `PlanningBackend` Protocol is the same shape | **Yes, adapt directly** — this is exactly the seam Leonard's typed-decision engine should sit behind; reuse the "decision-maker sees only IDs + descriptions, never tool names/arguments" boundary as a hard security property, not just a Jev-specific convenience | — | §3.4 |
-| Specialist model architecture (byte-embed + tiny transformer + option-attention head) | **Yes** — `model.py`'s `TinyTransformerScorer`/`AttentionHead`, fully specified, 706,048 params reproducible, MIT source | **Yes, adapt** — the "fill" (entity-pointer) branch is forms-specific; Leonard's interrupt-decision is closer to the fixed-action branch (`check`/`click`/`skip` analogue), and context encoding needs a structured recent-event serialization, not free document text | Possibly a sequence-of-events context encoder (one token per event rather than pure byte stream) if the flat-text template proves insufficient for temporal signal | §2.1, §2.6 |
+| MCP/CLI/native transport | **Yes** — MCP stdio, CLI, and a real UniFFI/C-ABI native embedding path | Use the native embedding path (not MCP-over-pipe) for `bobbd`, since `CONTRACT.md` already establishes `bobbd` as a no-network-socket local daemon and MCP-over-stdio-subprocess is an unnecessary extra hop when a native binding exists | — | §1.5 |
+| Candidate/action-space construction for a bounded decision | **Partially** — `jev-use`'s pattern (app builds the full candidate table, decision-maker only picks an ID) is a good, source-proven pattern; CUA-S1's `PlanningBackend` Protocol is the same shape | **Yes, adapt directly** — this is exactly the seam Bobb's typed-decision engine should sit behind; reuse the "decision-maker sees only IDs + descriptions, never tool names/arguments" boundary as a hard security property, not just a Jev-specific convenience | — | §3.4 |
+| Specialist model architecture (byte-embed + tiny transformer + option-attention head) | **Yes** — `model.py`'s `TinyTransformerScorer`/`AttentionHead`, fully specified, 706,048 params reproducible, MIT source | **Yes, adapt** — the "fill" (entity-pointer) branch is forms-specific; Bobb's interrupt-decision is closer to the fixed-action branch (`check`/`click`/`skip` analogue), and context encoding needs a structured recent-event serialization, not free document text | Possibly a sequence-of-events context encoder (one token per event rather than pure byte stream) if the flat-text template proves insufficient for temporal signal | §2.1, §2.6 |
 | Training loop / loss / calibration metrics | **Yes** — AdamW+cosine+warmup, cross-entropy, real ECE computation, abstention-aware metric suite (`evals/metrics.py`) directly matches what a confidence-gated interruption decision needs | Reuse largely as-is; add `unsafe_action_rate`-equivalent semantics tuned to "interrupted when shouldn't have" as the primary thing to bound | — | §2.3 |
-| Synthetic training-data generator | **No, not transferable** — CUA-S1's generator is entirely forms-domain (concept catalog of address/insurance/medical/etc. fields); the *technique* (template-based, seeded, confusable-pair co-location, signature-disjoint splits) is reusable, the *content* is not | **Adapt the technique**, build the content ourselves | **Yes, from scratch** — Leonard's decision data isn't synthesizable the way form-field values are; it's a labeled record of one person's actual accept/dismiss behavior (per `PRODUCT.md`'s own framing), which is the explicitly-named unproven research risk | §2.2, §2.6 point 4 |
+| Synthetic training-data generator | **No, not transferable** — CUA-S1's generator is entirely forms-domain (concept catalog of address/insurance/medical/etc. fields); the *technique* (template-based, seeded, confusable-pair co-location, signature-disjoint splits) is reusable, the *content* is not | **Adapt the technique**, build the content ourselves | **Yes, from scratch** — Bobb's decision data isn't synthesizable the way form-field values are; it's a labeled record of one person's actual accept/dismiss behavior (per `PRODUCT.md`'s own framing), which is the explicitly-named unproven research risk | §2.2, §2.6 point 4 |
 | Inference runtime for a Swift, no-Python daemon | **Partially** — a community (non-official) CoreML export already exists and works, proving the path is real | **Yes, adapt** — build our own export pipeline from our own retrained checkpoints (can't depend on a third-party community HF repo for a production dependency); the conversion notes (§2.5) tell us exactly what had to change for CoreML tracing | — | §2.5 |
 | Personal specialist minting from the audit store (train a new specialist overnight from real local behavioral data) | **No** — nothing in either project does this; CUA-S1's whole recipe assumes synthetic, developer-generated training data produced once, offline, by the model's authors | — | **Yes, entirely from scratch** — this is `PRODUCT.md`'s stated moat ("Personal specialist minting from the audit store — Ours. This is the company.") and this investigation found nothing in Cua's codebase, TypeSafe's Jev, or the LEARNWEAK paper that does this for real end-user behavioral data on-device | §2.6 point 4, §4.2 |
 | Hosted decision API (Jev or equivalent) | N/A | N/A | **Deliberately not used** — confirmed nothing in the jev-use recipe requires it be hosted; the interface it exposes is narrow enough that a local model can sit behind the identical boundary (§3.4) | Consistent with `ADR-004`, now with source-level confirmation that the substitution point is clean |
@@ -915,14 +915,14 @@ project provides or has validated at Leonard's scale.
 2. **Run our own background-delivery proof against Mail.app, Calendar, and
    Messages specifically** — `action-support.md` itself says native AppKit
    press-key/hotkey/right-click/double-click delivery is "unproven," and
-   those are exactly the apps in Leonard's MVP surface (`CONTRACT.md`).
+   those are exactly the apps in Bobb's MVP surface (`CONTRACT.md`).
    Don't inherit Cua's proof matrix by assumption; extend it to our actual
    target apps.
 3. **Get the published `cua-s1-forms` checkpoint into safetensors ourselves**
    (or start from one of the community CoreML/ONNX conversions) rather than
    hitting the pickle-format bug in GH issue #3977 blind.
 4. **Do not budget on the CUA-S1 synthetic-data-generation technique solving
-   Leonard's data problem** — it solves a different, easier problem (closed
+   Bobb's data problem** — it solves a different, easier problem (closed
    synthesizable domain) than "learn one person's interruption preferences
    from sparse real behavior," which remains exactly the open research risk
    `PRODUCT.md` already names, unresolved by anything found in this

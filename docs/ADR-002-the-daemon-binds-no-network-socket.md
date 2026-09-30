@@ -4,7 +4,7 @@ Status: accepted, 2026-09-20
 
 ## Context
 
-Leonard reads the accessibility tree of whatever is in front of the user and,
+Bobb reads the accessibility tree of whatever is in front of the user and,
 when it must, the screen itself. That is the most sensitive data surface on a
 personal computer: credentials, medical and financial records, unreleased
 work, other people's confidential material that the user is merely a custodian
@@ -16,7 +16,7 @@ that holds when the policy is ignored.
 
 ## Decision
 
-`leonardd` communicates over a unix domain socket at mode 0600 and nothing
+`bobbd` communicates over a unix domain socket at mode 0600 and nothing
 else. It binds no TCP port. It opens no outbound connection. Inference is a
 resident 4-bit model in the same process.
 
@@ -43,7 +43,7 @@ content.
 
 ## Consequences
 
-Leonard cannot reach for a frontier model when the local one is uncertain. It
+Bobb cannot reach for a frontier model when the local one is uncertain. It
 abstains instead, which is the behaviour ADR-001 already prescribes, so the
 uncertain case has a defined outcome rather than a remote call.
 

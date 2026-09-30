@@ -9,10 +9,10 @@
 
 ## 1.0.0 — 2026-09-28
 
-The first release of Leonard: the assistant that knows when to stay quiet,
+The first release of Bobb: the assistant that knows when to stay quiet,
 and does the work when you ask. Everything runs on your Mac.
 
-**Knows what needs you.** Leonard reads the message you open in Apple Mail
+**Knows what needs you.** Bobb reads the message you open in Apple Mail
 and the conversation you open in Slack, WhatsApp, Messages, Teams, Telegram,
 Discord or Signal, and decides with a calibrated confidence whether someone
 is asking you for something. When they are, a small card appears once;
@@ -23,14 +23,14 @@ worth an interruption wait under "For you".
 in what you have seen on screen, with sources; one click turns a draft into
 a yes, a polite no, a request for time or for details. Figures and dates that
 appear nowhere else are flagged. Drafts go into Mail's reply window or the
-chat's message box. Leonard never sends.
+chat's message box. Bobb never sends.
 
 **Does it for you (⌥Space).** Ask for something to be done — "put on my Focus
 playlist", "make a sheet with these totals", "tell Giulia on Slack I'll be
-late" — and Leonard plans it and works your apps from outside, one checked
+late" — and Bobb plans it and works your apps from outside, one checked
 step at a time: pressing, typing, scrolling, opening apps. It asks before
 anything that sends, pays, deletes or runs a command; ⎋ stops it; Undo takes
-the last step back. In Ask mode Leonard itself tells a question from a job.
+the last step back. In Ask mode Bobb itself tells a question from a job.
 
 **Talk to it (⌥⇧Space).** Speech is recognized on the Mac, never on a server.
 
@@ -48,7 +48,7 @@ worked, and the ones you show it with "Show me how", become the way it does
 them next time.
 
 **Shows its work.** Mind lists every decision and every silence, every task
-and every step, what Leonard learned and how well its specialist agrees with
+and every step, what Bobb learned and how well its specialist agrees with
 you.
 
 **Private by architecture.** The engine that reads your screen cannot open a

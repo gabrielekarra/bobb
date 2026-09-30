@@ -4,7 +4,7 @@ Status: accepted, 2026-09-20
 
 ## Context
 
-Leonard must decide, many times a minute, whether to stay silent. The obvious
+Bobb must decide, many times a minute, whether to stay silent. The obvious
 implementation asks a model in prose and parses what comes back.
 
 That fails for a reason that is structural rather than fixable. Prose gives no
@@ -48,7 +48,7 @@ a product whose entire mechanism is a threshold.
 
 ## Consequences
 
-Leonard cannot use a hosted API for the attention path. See ADR-002. Adding a
+Bobb cannot use a hosted API for the attention path. See ADR-002. Adding a
 new event kind means writing questions, not a prompt, which is more work and a
 narrower failure surface. Calibration needs labelled data, which the audit
 store is designed to accumulate from real accept/dismiss behaviour.

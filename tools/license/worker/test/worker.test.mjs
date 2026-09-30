@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import worker, { emailFor, orderFromWebhook, verifySignature } from "../src/index.js";
-import { addYears, importSigningKey, issue, unb64url } from "../src/license.js";
+import { PREFIX, addYears, importSigningKey, issue, unb64url } from "../src/license.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const toolDir = join(here, "..", "..");
@@ -19,8 +19,8 @@ const env = {
   PUBLIC_KEY: DEV_PUBLIC,
   VARIANT_PERSONAL: "111",
   VARIANT_PRO: "222",
-  FROM_EMAIL: "Leonard <licenses@leonard.app>",
-  SUPPORT_EMAIL: "support@leonard.app",
+  FROM_EMAIL: "Bobb <licenses@bobb.app>",
+  SUPPORT_EMAIL: "support@bobb.app",
   RESEND_API_KEY: "re_test",
 };
 
@@ -94,9 +94,9 @@ test("orders map to editions and seats; unpaid and unknown are refused", () => {
 
 test("the email is in the buyer's language and carries the key", () => {
   const { order } = orderFromWebhook(orderEvent({ lang: "it" }), env);
-  const email = emailFor(order, "LEONARD-abc.def", env);
-  assert.equal(email.subject, "La tua licenza di Leonard");
-  assert.match(email.text, /LEONARD-abc\.def/);
+  const email = emailFor(order, "BOBB-abc.def", env);
+  assert.equal(email.subject, "La tua licenza di Bobb");
+  assert.match(email.text, /BOBB-abc\.def/);
   assert.match(email.text, /Impostazioni › Licenza/);
 });
 
@@ -108,16 +108,16 @@ test("end to end: a signed webhook produces an email with a valid key", async ()
     sentEmail = JSON.parse(init.body);
     return new Response("{}", { status: 200 });
   };
-  const request = new Request("https://licenses.leonard.app/webhook", {
+  const request = new Request("https://licenses.bobb.app/webhook", {
     method: "POST", body, headers: { "X-Signature": await hmac(env.WEBHOOK_SECRET, body) },
   });
   const response = await worker.fetch(request, env);
   assert.equal(response.status, 200);
-  const license = sentEmail.text.match(/LEONARD-[A-Za-z0-9_.-]+/)[0];
-  const payload = JSON.parse(new TextDecoder().decode(unb64url(license.slice(8).split(".")[0])));
+  const license = sentEmail.text.match(/BOBB-[A-Za-z0-9_.-]+/)[0];
+  const payload = JSON.parse(new TextDecoder().decode(unb64url(license.slice(PREFIX.length).split(".")[0])));
   assert.equal(payload.id, "lic_ls_98765");
   assert.equal(payload.seats, 3);
 
-  const forged = new Request("https://licenses.leonard.app/webhook", { method: "POST", body, headers: { "X-Signature": "00" } });
+  const forged = new Request("https://licenses.bobb.app/webhook", { method: "POST", body, headers: { "X-Signature": "00" } });
   assert.equal((await worker.fetch(forged, env)).status, 401);
 });

@@ -1,14 +1,14 @@
-"""Leonard's license keys: generate the signing key, issue keys, verify them.
+"""Bobb's license keys: generate the signing key, issue keys, verify them.
 
-A key is `LEONARD-<base64url(payload)>.<base64url(signature)>`, where the
+A key is `BOBB-<base64url(payload)>.<base64url(signature)>`, where the
 payload is compact JSON and the signature is Ed25519 over its exact bytes.
 The app verifies it offline with the public key stamped into Info.plist;
-see `LeonardApp/Sources/LeonardCore/License/License.swift`.
+see `BobbApp/Sources/BobbCore/License/License.swift`.
 
-    uv run python license_tool.py keygen --out ~/secure/leonard-signing.key
-    uv run python license_tool.py issue --key ~/secure/leonard-signing.key \\
+    uv run python license_tool.py keygen --out ~/secure/bobb-signing.key
+    uv run python license_tool.py issue --key ~/secure/bobb-signing.key \\
         --name "Studio Rossi" --email marco@studiorossi.it --edition pro --seats 3
-    uv run python license_tool.py verify --public <base64url> LEONARD-...
+    uv run python license_tool.py verify --public <base64url> BOBB-...
 
 The signing key is the business. Keep it offline, back it up twice, never
 commit it. `dev-signing.key` in this directory is the *development* key: its
@@ -29,7 +29,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-PREFIX = "LEONARD-"
+PREFIX = "BOBB-"
 EDITIONS = ("personal", "pro", "team")
 
 
@@ -88,7 +88,7 @@ def issue(private: Ed25519PrivateKey, *, name: str, email: str, edition: str, se
 def verify(key: str, public: str) -> dict:
     compact = "".join(key.split())
     if not compact.startswith(PREFIX):
-        raise ValueError("not a Leonard license key")
+        raise ValueError("not a Bobb license key")
     payload_b64, _, signature_b64 = compact[len(PREFIX):].partition(".")
     data = unb64url(payload_b64)
     Ed25519PublicKey.from_public_bytes(unb64url(public)).verify(unb64url(signature_b64), data)

@@ -18,7 +18,7 @@ real reply window" — has to be reliable before anything else matters.
 
 ## Decision
 
-For Apple Mail, Leonard uses Mail's own scripting dictionary through Apple
+For Apple Mail, Bobb uses Mail's own scripting dictionary through Apple
 Events, the interface Shortcuts and Automator use. It is a lens, not an
 integration:
 
@@ -29,10 +29,10 @@ integration:
   and polls only when Mail is the active app.
 - **One write, never send.** "Reply in Mail" opens Mail's own reply window
   for the message (found by Message-ID) and pastes the draft at the cursor.
-  The user reads, edits and presses Send. No script in Leonard can send,
+  The user reads, edits and presses Send. No script in Bobb can send,
   move, delete or flag a message.
 - **Nothing inside Mail.** No Mail bundle, no extension, no account access,
-  no server credentials. Mail's permission prompt ("Leonard wants to control
+  no server credentials. Mail's permission prompt ("Bobb wants to control
   Mail") is the user's explicit, revocable consent, and the app explains it
   before it appears.
 
@@ -41,7 +41,7 @@ accessibility tree, as rule 1 intends.
 
 ## Why this does not break rule 1
 
-Rule 1 forbids what costs per app and couples Leonard to an app's internals
+Rule 1 forbids what costs per app and couples Bobb to an app's internals
 or a vendor's servers: plugins, connectors, OAuth. Apple Events is the
 operating system's user-level automation surface — the programmatic
 equivalent of the menu bar — available for any scriptable app without the

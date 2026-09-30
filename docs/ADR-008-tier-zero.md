@@ -15,7 +15,7 @@ a person produces tens of answers a week.
 Ship tier 0 now as a weighted logistic regression over stable hashed
 features — sender and domain, automated-sender markers, subject and body
 words, thread length, time — trained with AdaGrad in NumPy
-(`leonardd/specialist.py`). It learns one question for mail and chat
+(`bobbd/specialist.py`). It learns one question for mail and chat
 messages: would this person want to hear about this?
 
 - **Labels by trust.** The user's approve and dismiss; implicit ones (a

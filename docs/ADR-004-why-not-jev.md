@@ -1,4 +1,4 @@
-# ADR-004 — Why Leonard does not call Jev
+# ADR-004 — Why Bobb does not call Jev
 
 Status: accepted, 2026-09-20
 
@@ -9,7 +9,7 @@ block of text and a list of typed questions and returns answers with
 probability distributions rather than generated text. Question types are
 Choice, Score and Bool.
 
-That is the same mechanism Leonard's attention engine is built on, and it
+That is the same mechanism Bobb's attention engine is built on, and it
 arrived as a product one day before the vision document that started this
 project. It deserves a written answer rather than an instinct.
 
@@ -49,7 +49,7 @@ the data the product exists to keep local.
 privacy claim that rests on a policy instead of an architecture is worth
 nothing.
 
-**It makes Leonard a wrapper.** If the core loop is `POST /v1/systemone`, the
+**It makes Bobb a wrapper.** If the core loop is `POST /v1/systemone`, the
 defensible asset belongs to the vendor, and the vendor can ship the overlay
 themselves. The overlay is not the moat. Owning the decision is.
 
@@ -70,7 +70,7 @@ know before we present, not after.
 Jev's existence is net positive. It establishes the category, gives the
 mechanism a name people have heard, and defines our position in one line:
 
-> Jev proved typed decisions work. Leonard is the one that runs them on your
+> Jev proved typed decisions work. Bobb is the one that runs them on your
 > machine.
 
 The macOS agents built on Jev are the market evidence. Every one of them ships

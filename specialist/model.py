@@ -9,7 +9,7 @@ option_tokens=96), which is how this module reproduces its 706,048-parameter
 target exactly. Their model has two branches: an entity-pointer branch for
 "fill this field with that document entity" (variable option cardinality per
 example) and a fixed-action branch for "check / click / skip" (constant
-option cardinality). Leonard's action set (`ignore`, `wait`, `prepare`,
+option cardinality). Bobb's action set (`ignore`, `wait`, `prepare`,
 `suggest`) never changes size or membership, so this is the fixed-action
 branch; there is no pointer mechanism here at all, `ACTIONS` is the whole
 option set on every forward pass.
@@ -24,7 +24,7 @@ encoding changes what every existing checkpoint was trained to read, so this
 format is versioned in spirit even though it carries no explicit version
 field: treat any change to this function as invalidating stored checkpoints.
 
-An `event` is a dict shaped like an `leonardd` event: `kind`, `app`,
+An `event` is a dict shaped like an `bobbd` event: `kind`, `app`,
 `ts` (unix seconds), `user_state` (one of `typing`/`reading`/`idle`/
 `meeting`, resolved by the caller — this module has no product-tracking
 logic of its own), and `payload`, a kind-dependent dict. `history` is a
@@ -94,7 +94,7 @@ ACTION_DESCRIPTIONS: dict[str, str] = {
     "it is worth right now",
     "prepare": "prepare: it is worth doing background work now, but "
     "nothing should be shown to the user yet",
-    "suggest": "suggest: Leonard should offer to help right now",
+    "suggest": "suggest: Bobb should offer to help right now",
 }
 
 DEFAULT_CONFIG: dict[str, Any] = {

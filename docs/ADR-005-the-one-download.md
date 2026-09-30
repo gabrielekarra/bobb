@@ -16,12 +16,12 @@ believed.
 
 ## Decision
 
-Leonard makes exactly one kind of network request in its life: downloading
+Bobb makes exactly one kind of network request in its life: downloading
 the model files, from Hugging Face, when the user presses the button in
 onboarding (or, later, "Download again" in Settings).
 
 - **The app downloads, not the engine.** `ModelDownloader` in the Swift app
-  fetches the files; `leonardd` stays networkless and is told to `reload`
+  fetches the files; `bobbd` stays networkless and is told to `reload`
   when the files are in place.
 - **Pinned, verified bytes.** `ModelManifest` pins the repository, the
   revision, and each file's size and SHA-256. A file that does not match is

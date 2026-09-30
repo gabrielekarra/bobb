@@ -2,7 +2,7 @@
 
 A personal assistant for your Mac. Named assistants, connected apps, persistent work and boundaries you control. Local AI by default; an optional cloud brain uses your own key and redacts requests on the Mac.
 
-Bobb continues Leonard. Internal Swift module names, bundle identity and existing data paths remain compatible.
+Bobb uses `BobbApp` and `BobbCore` for the Swift app and `bobbd` for its Python daemon. App data lives in `~/Library/Application Support/Bobb`.
 
 ## What you can do
 
@@ -41,10 +41,10 @@ Desktop work yields when you return and holds one shared screen lease. Browsers 
 ## Tests
 
 ```sh
-cd LeonardApp
+cd BobbApp
 swift test -j 1
 # from the repository root:
-cd leonardd
+cd bobbd
 uv sync --frozen
 uv run pytest -q -m "not slow"
 ```
@@ -53,4 +53,4 @@ Linux daemon tests additionally need the matching `mlx[cpu]` build; CI configure
 
 ## License
 
-MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md). Legacy licensing tools remain for compatibility; Bobb has no paid activation gate. Repository visibility and GitHub repository renaming are separate administration operations.
+MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md). License tools remain available; Bobb has no paid activation gate.

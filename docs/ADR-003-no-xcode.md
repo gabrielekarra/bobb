@@ -9,11 +9,11 @@ unavailable.
 
 ## Decision
 
-`LeonardApp` is a SwiftPM executable target. `scripts/build.sh` assembles the
+`BobbApp` is a SwiftPM executable target. `scripts/build.sh` assembles the
 `.app` bundle by hand — `Contents/MacOS`, `Contents/Resources`, `Info.plist` —
 and ad-hoc signs it with `codesign -s -`.
 
-The bundle identifier is fixed at `com.leonard.app`.
+The bundle identifier is fixed at `com.bobb.app`.
 
 ## Correction, measured 2026-09-20: a stable identifier is not enough
 
@@ -21,7 +21,7 @@ This ADR originally claimed that a fixed bundle identifier plus an ad-hoc
 signature would keep an Accessibility grant across rebuilds. **That is false**,
 and it cost us a confusing hour.
 
-Observed: `LeonardProbe.app`, ad-hoc signed, identifier `com.leonard.probe`.
+Observed: `BobbProbe.app`, ad-hoc signed, identifier `com.bobb.probe`.
 The TCC entry was created, the user enabled it, and the app still reported
 `AXIsProcessTrusted: false`. The signature verified fine — "valid on disk",
 "satisfies its Designated Requirement". The cause was that the binary had been

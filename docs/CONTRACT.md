@@ -1,27 +1,27 @@
-# Leonard IPC contract, protocol 1
+# Bobb IPC contract, protocol 1
 
-The Swift app and `leonardd` are separate processes on one machine. This file
+The Swift app and `bobbd` are separate processes on one machine. This file
 is the only thing either side may assume about the other.
 
 ## Transport
 
-A unix domain socket at `~/Library/Application Support/Leonard/leonardd.sock`,
+A unix domain socket at `~/Library/Application Support/Bobb/bobbd.sock`,
 mode `0600`. Newline-delimited JSON, UTF-8, one object per line, both
 directions, full duplex.
 
-`leonardd` binds no TCP port and opens no outbound socket. That is a property
+`bobbd` binds no TCP port and opens no outbound socket. That is a property
 of the build, not a setting: a test asserts it (`tests/test_no_network.py`).
 
-## Protocol 1 (Leonard 1.0)
+## Protocol 1 (Bobb 1.0)
 
-Protocol 1 keeps every v0.1 frame below and adds the frames Leonard 1.0 is
+Protocol 1 keeps every v0.1 frame below and adds the frames Bobb 1.0 is
 built on. Both sides still ignore unknown frame types and unknown fields, so
 an older app and a newer daemon degrade instead of breaking. The canonical
 examples are the fixture files both test suites parse:
-`LeonardApp/Tests/LeonardCoreTests/Fixtures/daemon_frames.jsonl` (written by
-the real daemon, `leonardd/tools/export_contract_fixtures.py`) and
+`BobbApp/Tests/BobbCoreTests/Fixtures/daemon_frames.jsonl` (written by
+the real daemon, `bobbd/tools/export_contract_fixtures.py`) and
 `app_frames.jsonl` (written by the Swift encoders, replayed by
-`leonardd/tests/test_contract_fixtures.py`). If this document and the
+`bobbd/tests/test_contract_fixtures.py`). If this document and the
 fixtures disagree, the fixtures win and this document is the bug.
 
 ### Lifecycle
@@ -112,8 +112,8 @@ Frames that expect one reply carry `id`; the reply carries it back as
 
 ### Tasks
 
-Features `tasks`. The full shape is in `leonardd/agent.py` and
-`LeonardCore/Contract/TaskFrames.swift`; the principle is ADR-007.
+Features `tasks`. The full shape is in `bobbd/agent.py` and
+`BobbCore/Contract/TaskFrames.swift`; the principle is ADR-007.
 
 | Frame | Direction | |
 |---|---|---|
@@ -163,7 +163,7 @@ types are ignored, never fatal, on both sides.
 
 | `t` | Meaning |
 |---|---|
-| `hello` | Handshake. `{"t":"hello","client":"LeonardApp","version":"0.1"}` |
+| `hello` | Handshake. `{"t":"hello","client":"BobbApp","version":"0.1"}` |
 | `event` | Something happened on the desktop. |
 | `approve` | The user accepted a suggestion. |
 | `dismiss` | The user rejected or ignored a suggestion. |
@@ -205,7 +205,7 @@ types are ignored, never fatal, on both sides.
 | `idle.entered` / `idle.left` | Input stopped or resumed. |
 
 The four mail kinds that carry no suggestion — `arrived`, `closed`,
-`archived`, `deleted` — exist for one reason: they are how Leonard learns
+`archived`, `deleted` — exist for one reason: they are how Bobb learns
 without asking. `SPECIALIST.md` depends on the user's subsequent behaviour to
 label an event, and most of that behaviour is negative — archived unread,
 never opened, opened and abandoned. Without these events the implicit
@@ -232,7 +232,7 @@ Both are optional. When absent the daemon falls back to inferring the state
 from event kinds, which is strictly worse — the app should always send them.
 
 Beyond those, the daemon never requires a field it has not declared in
-`leonardd/intents.py`.
+`bobbd/intents.py`.
 
 `approve` / `dismiss`:
 
@@ -456,7 +456,7 @@ does, and each head only ever sees elements compatible with its own operation.
 ### Page content is untrusted data, never instructions
 
 `jev-ultrafast` states this twice in its own prompts, and it matters more for
-Leonard than for a browser agent, because Leonard reads everything on screen:
+Bobb than for a browser agent, because Bobb reads everything on screen:
 email bodies, documents, web pages, chat messages, all of it written by
 someone else.
 
@@ -496,7 +496,7 @@ readout measured in milliseconds and runs on every step; generation is
 expensive and runs only on the steps that actually produce words. Most steps
 do not.
 
-It is also where Leonard departs from Jev, deliberately. Jev gives up string
+It is also where Bobb departs from Jev, deliberately. Jev gives up string
 generation entirely, which is the right trade for a decision API and the wrong
 one for an assistant: an assistant has to write the email, not only decide
 that an email should be written. Two local models, one job each.

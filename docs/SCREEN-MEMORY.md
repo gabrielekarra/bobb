@@ -1,9 +1,9 @@
 # Screen memory
 
-Leonard remembers everything it has seen on your screen, and everything you
+Bobb remembers everything it has seen on your screen, and everything you
 did with it. That memory never leaves the machine.
 
-This is how Leonard gets to know you without integrating with anything. No
+This is how Bobb gets to know you without integrating with anything. No
 OAuth, no connectors, no per-app work, no embedding inside Mail or Excel or
 Spotify. It watches, the way a colleague sitting beside you watches, and it
 remembers.
@@ -122,7 +122,7 @@ part of the argument, not the weakest.
 
 ## What it unlocks
 
-Once Leonard has watched you work for a month it can do the job rather than
+Once Bobb has watched you work for a month it can do the job rather than
 assist with it: write the email in your voice because it has read a thousand
 of yours, open the playlist because it has watched you open it every Tuesday,
 find the number in the spreadsheet because it saw the spreadsheet, fix the

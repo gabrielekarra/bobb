@@ -10,4 +10,4 @@ Optional cloud belongs to the app, uses a Keychain key, local request-specific r
 
 The optional VM has a separate disk and default-off networking. Its stdio MCP endpoint is reached over explicitly configured SSH, validates fresh candidate IDs and nonce, and independently enforces guest boundaries. No shared folders or credential forwarding.
 
-Bobb is MIT licensed and has a community entitlement. Internal module, bundle and data identifiers remain compatible with Leonard. Liquid Glass uses native macOS 26 APIs when compiled with the new SDK, with system vibrancy fallback and reduced-transparency support.
+Bobb is MIT licensed and has a community entitlement. Swift modules are `BobbApp` and `BobbCore`, the daemon is `bobbd`, the bundle identifier is `com.bobb.app`, and app data lives in `~/Library/Application Support/Bobb`. Liquid Glass uses native macOS 26 APIs when compiled with the new SDK, with system vibrancy fallback and reduced-transparency support.

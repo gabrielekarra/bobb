@@ -1,7 +1,7 @@
 [project]
-name = "leonard-license-tools"
+name = "bobb-license-tools"
 version = "1.0.0"
-description = "Issue and verify Leonard's offline, Ed25519-signed license keys."
+description = "Issue and verify Bobb's offline, Ed25519-signed license keys."
 requires-python = ">=3.11"
 dependencies = ["cryptography>=42"]
 
