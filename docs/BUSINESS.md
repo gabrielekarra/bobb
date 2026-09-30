@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Business
 
 How Leonard makes money, from whom, and why they will pay. Every figure

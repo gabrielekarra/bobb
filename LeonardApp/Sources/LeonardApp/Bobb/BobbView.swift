@@ -193,7 +193,7 @@ struct BobbView: View {
                             HStack { Text(app.name).bold(); Text(app.id).font(.caption).foregroundStyle(.secondary); Spacer()
                                 Button(t("Disconnect", "Scollega"), role: .destructive) { workspace.coordinator.updateSettings { $0.bobb.boundaries.apps.removeAll { $0.id == app.id } } }
                             }
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300))], alignment: .leading) {
                                 ForEach(ActionCategory.allCases, id: \.rawValue) { category in
                                     Picker(categoryName(category), selection: Binding(get: { app.mode(category) }, set: { value in
                                         workspace.coordinator.updateSettings { s in

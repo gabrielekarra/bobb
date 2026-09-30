@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Cosa manca
 
 Stato al 28 settembre 2026, branch `claude/leonard-marketplace-product-g77orn`.

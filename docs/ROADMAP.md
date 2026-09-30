@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Roadmap
 
 VISION.md describes one product, not phases. This is where each part of it

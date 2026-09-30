@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Leonard — the YC argument
 
 Working draft. Everything here is either true today or marked `[TBD]`. Nothing
