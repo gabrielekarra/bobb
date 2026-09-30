@@ -139,17 +139,21 @@ public struct ActionPolicy: Sendable {
             break
         }
         if let bundle = appBundleId, Self.askEveryStepApps.contains(bundle) {
-            if Self.isDeniedPane(window) { return .deny(reason: "protected") }
+            if window.isEmpty || Self.isDeniedPane(window) { return .deny(reason: "protected") }
             if let boundaries { return boundaries.evaluate(category: .settings, bundleId: bundle, name: appName, context: context) }
             return .ask(reason: Reason.settings.rawValue)
         }
         if let boundaries {
             // Explicit boundaries precede historical "always allow" rules.
-            let category = Self.category(operation: operation, label: label, app: appBundleId, submit: submit,
-                                         key: key, defaultButton: defaultButton)
-            let verdict = boundaries.evaluate(category: category, bundleId: appBundleId, name: appName,
-                                               context: context + " " + label + " " + typedText)
-            if verdict != .allow { return verdict }
+            var review: Verdict = .allow
+            for category in Self.categories(operation: operation, label: label, app: appBundleId, submit: submit,
+                                             key: key, defaultButton: defaultButton) {
+                let verdict = boundaries.evaluate(category: category, bundleId: appBundleId, name: appName,
+                                                   context: context + " " + label + " " + typedText)
+                if case .deny = verdict { return verdict }
+                if case .ask = verdict { review = verdict }
+            }
+            if review != .allow { return review }
             if approval == .everyStep { return .ask(reason: Reason.everyStep.rawValue) }
             return .allow
         }
@@ -200,6 +204,7 @@ public struct ActionPolicy: Sendable {
 
     public static func category(operation: ActOperation, label: String, app: String?, submit: Bool,
                                 key: KeyChord?, defaultButton: String) -> ActionCategory {
+        if app?.hasPrefix("mcp:") == true, [.click, .select, .open].contains(operation) { return .execute }
         if let app, terminals.contains(app), [.type, .typeText, .key].contains(operation) { return .execute }
         if operation == .key, key == .returnKey || key == .cmdReturn, let app, messagingApps.contains(app) { return .send }
         if [.type, .typeText].contains(operation), submit { return .send }
@@ -222,13 +227,45 @@ public struct ActionPolicy: Sendable {
         return .navigate
     }
 
+    /// One button can send a payment or publish and delete. Every matching
+    /// boundary must permit it; a generic "Confirm" never masks "purchase".
+    public static func categories(operation: ActOperation, label: String, app: String?, submit: Bool,
+                                  key: KeyChord?, defaultButton: String) -> [ActionCategory] {
+        var result = [category(operation: operation, label: label, app: app, submit: submit,
+                               key: key, defaultButton: defaultButton)]
+        if [.click, .select, .open, .key].contains(operation) || submit {
+            let words = operation == .key ? defaultButton : label
+            for (reason, _) in rules where consequenceWords(words, matching: reason) {
+                let additional: ActionCategory
+                switch reason {
+                case .sends, .sendsMessage: additional = .send
+                case .pays: additional = .pay
+                case .deletes, .closesWithoutSaving: additional = .delete
+                case .publishes: additional = .publish
+                case .signs, .settings: additional = .settings
+                case .runsCommand: additional = .execute
+                default: continue
+                }
+                if !result.contains(additional) { result.append(additional) }
+            }
+        }
+        return result
+    }
+
+    private static func consequenceWords(_ label: String, matching reason: Reason) -> Bool {
+        let normalized = normalizedLabel(label)
+        return rules.first(where: { $0.0 == reason })?.1.contains(where: { normalized.contains(" \($0) ") }) ?? false
+    }
+
+    private static func normalizedLabel(_ label: String) -> String {
+        " " + label.lowercased().replacingOccurrences(of: "’", with: "'")
+            .map { $0.isLetter || $0 == "'" ? String($0) : " " }.joined() + " "
+    }
+
     /// The consequence a label's words announce, if any. Whole words only:
     /// "Sender" is not "send", "Reset zoom" still asks (it says reset).
     public static func consequence(of label: String) -> Reason? {
-        let lowered = " " + label.lowercased()
-            .replacingOccurrences(of: "’", with: "'")
-            .replacingOccurrences(of: "…", with: " ")
-            .map { $0.isLetter || $0 == "'" ? String($0) : " " }.joined() + " "
+        let lowered = normalizedLabel(label)
         for (reason, words) in rules {
             for word in words where lowered.contains(" \(word) ") {
                 return reason

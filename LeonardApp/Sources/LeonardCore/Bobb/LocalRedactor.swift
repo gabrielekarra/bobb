@@ -4,6 +4,7 @@ import Foundation
 /// a random namespace so a page cannot plant a token that restores a secret.
 public struct LocalRedactor: Sendable {
     private var replacements: [String: String] = [:]
+    private var tokens: [String] = []
     private let namespace = UUID().uuidString.replacingOccurrences(of: "-", with: "")
     public init() {}
     public mutating func redact(_ input: String, privateTerms: [String] = []) -> String {
@@ -25,7 +26,9 @@ public struct LocalRedactor: Sendable {
         return value
     }
     public func restore(_ input: String) -> String {
-        replacements.reduce(input) { $0.replacingOccurrences(of: $1.key, with: $1.value) }
+        // A later pattern may redact a larger span containing an earlier
+        // token. Restore the outer spans first, then their contents.
+        tokens.reversed().reduce(input) { $0.replacingOccurrences(of: $1, with: replacements[$1] ?? $1) }
     }
     private mutating func replace(_ input: String, pattern: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return input }
@@ -35,6 +38,7 @@ public struct LocalRedactor: Sendable {
             let original = String(out[range])
             let token = "[PRIVATE_\(namespace)_\(replacements.count)]"
             replacements[token] = original
+            tokens.append(token)
             out.replaceSubrange(range, with: token)
         }
         return out

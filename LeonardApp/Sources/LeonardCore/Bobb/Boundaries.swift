@@ -60,7 +60,12 @@ public struct BoundaryConfiguration: Codable, Equatable, Sendable {
                 // Without an actual recipient in the observation, ask. With
                 // aliases present, apply only to that person.
                 let aliases = mentions.flatMap { $0.value }.filter { !$0.isEmpty }
-                if !aliases.isEmpty && !aliases.contains(where: { normalized.contains(Self.normalize($0)) }) { continue }
+                if !aliases.isEmpty && !aliases.contains(where: { normalized.contains(Self.normalize($0)) }) {
+                    // The screen may omit the recipient or show a nickname.
+                    // Missing evidence cannot grant permission to send.
+                    if mode != .deny { mode = .ask }
+                    continue
+                }
             }
             let asks = ["chied", "ask", "permesso", "approval", "confirm"].contains { rule.contains($0) }
             let denies = ["mai", "never", "viet", "non ", "don't", "do not"].contains { rule.contains($0) }

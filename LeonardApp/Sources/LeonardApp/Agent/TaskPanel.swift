@@ -165,6 +165,8 @@ struct TaskView: View {
         case .sendsMessage: L10n.t(.reasonSendsMessage)
         case .closesWithoutSaving: L10n.t(.reasonClosesWithoutSaving)
         case .everyStep: L10n.t(.reasonEveryStep)
+        case .closes: BobbCopy.t("This closes a window.", "Questo chiude una finestra.")
+        case .settings: BobbCopy.t("This changes the Mac's settings.", "Questo cambia le impostazioni del Mac.")
         case nil: reason
         }
     }
