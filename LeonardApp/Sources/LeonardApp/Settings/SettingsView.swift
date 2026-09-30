@@ -39,12 +39,11 @@ struct SettingsView: View {
             acting.tabItem { Label(L10n.t(.settingsActing), systemImage: "cursorarrow.rays") }.tag(SettingsUIModel.Tab.acting)
             privacy.tabItem { Label(L10n.t(.settingsPrivacy), systemImage: "lock.shield") }.tag(SettingsUIModel.Tab.privacy)
             modelTab.tabItem { Label(L10n.t(.settingsModel), systemImage: "cpu") }.tag(SettingsUIModel.Tab.model)
-            licenseTab.tabItem { Label(L10n.t(.settingsLicense), systemImage: "key") }.tag(SettingsUIModel.Tab.license)
             about.tabItem { Label(L10n.t(.settingsAbout), systemImage: "info.circle") }.tag(SettingsUIModel.Tab.about)
         }
         .padding(20)
         .frame(width: 600, height: 520)
-        .tint(Theme.accent)
+        .bobbWindowStyle()
         .onAppear { permissions.refresh() }
     }
 
@@ -66,6 +65,7 @@ struct SettingsView: View {
 
     private var general: some View {
         Form {
+            Button("Bobb · " + BobbCopy.t("Projects, assignments & boundaries", "Progetti, incarichi e confini"), action: services.openBobb)
             Picker(L10n.t(.settingsLanguage), selection: binding(\.language)) {
                 Text(L10n.t(.settingsLanguageSystem)).tag(AppLanguage.system)
                 Text("English").tag(AppLanguage.en)
@@ -106,7 +106,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
     }
 
     private func permissionRow(_ title: String, _ status: Permissions.Status, open: @escaping () -> Void) -> some View {
@@ -166,7 +166,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
     }
 
     // MARK: Using apps
@@ -224,7 +224,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
     }
 
     // MARK: Privacy
@@ -279,7 +279,7 @@ struct SettingsView: View {
                 if let message = ui.message { hint(message) }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
         .confirmationDialog(L10n.t(.settingsDeleteHistoryConfirm), isPresented: $ui.confirmDeleteHistory) {
             Button(L10n.t(.genericDelete), role: .destructive) {
                 Task {
@@ -337,7 +337,7 @@ struct SettingsView: View {
                 Button(L10n.t(.settingsDaemonRestart)) { services.restartDaemon() }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
     }
 
     private func verify() {
@@ -356,6 +356,8 @@ struct SettingsView: View {
         Form {
             Section {
                 switch license.entitlement {
+                case .community:
+                    Label("Bobb · Open source", systemImage: "heart")
                 case .trial(let days):
                     Label(L10n.t(.licenseTrial, ["days": "\(days)"]), systemImage: "hourglass")
                 case .trialExpired:
@@ -399,7 +401,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .formStyle(.grouped).scrollContentBackground(.hidden)
     }
 
     // MARK: About
@@ -408,7 +410,7 @@ struct SettingsView: View {
         VStack(spacing: 14) {
             Spacer()
             LeonardAppIcon(size: 72)
-            Text("Leonard").font(.system(size: 24, weight: .bold))
+            Text("Bobb").font(.system(size: 24, weight: .bold, design: .rounded))
             Text(L10n.t(.settingsVersion, ["version": "\(BuildInfo.version) (\(BuildInfo.build))"]))
                 .foregroundStyle(.secondary)
             Text(L10n.t(.settingsBuiltWithLlama))
@@ -419,10 +421,8 @@ struct SettingsView: View {
                 Button(L10n.t(.settingsExportDiagnostics)) { services.exportDiagnostics() }
                 Button(L10n.t(.settingsThirdParty)) { services.openNotices() }
             }
-            Text(BuildInfo.supportEmail)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+            Button(BobbCopy.t("Source code and issues", "Codice sorgente e segnalazioni")) { NSWorkspace.shared.open(BuildInfo.website) }
+            Text("MIT · Community").font(.system(size: 11)).foregroundStyle(.secondary)
             Spacer()
         }
         .frame(maxWidth: .infinity)
@@ -437,4 +437,5 @@ struct SettingsServices {
     var exportDiagnostics: () -> Void
     var openNotices: () -> Void
     var entitlementChanged: () -> Void
+    var openBobb: () -> Void = {}
 }

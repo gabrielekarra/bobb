@@ -14,13 +14,14 @@ struct DaemonCommand: Equatable {
     /// `python -m leonardd`. In development, `--daemon-dir <repo>/leonardd`
     /// runs the checkout through `uv` instead, and `--no-daemon` starts
     /// nothing, for a daemon (or `scripts/mockd.py`) the developer runs by hand.
-    static func resolve(dataDir: URL, modelsDir: URL, logFile: URL) -> DaemonCommand? {
+    static func resolve(dataDir: URL, modelsDir: URL, logFile: URL, modelPath: String = "") -> DaemonCommand? {
         if AppPaths.flag("--no-daemon") || AppPaths.flag("--mock-events") { return nil }
         let common = [
             "--data-dir", dataDir.path,
             "--log-file", logFile.path,
             "--parent-pid", String(ProcessInfo.processInfo.processIdentifier),
         ] + (AppPaths.argument("--socket").map { ["--socket", $0] } ?? [])
+          + (modelPath.isEmpty ? [] : ["--model", modelPath])
         var environment = cleanEnvironment()
         environment["LEONARD_MODELS_DIR"] = modelsDir.path
 
@@ -95,10 +96,11 @@ final class DaemonSupervisor {
 
     private(set) var state: State = .idle
 
-    private let command: DaemonCommand?
+    private var command: DaemonCommand?
     private var process: Process?
     private var recentExits: [Date] = []
     private var stopping = false
+    private var generation = 0
     private let lockExitCode: Int32 = 3
 
     init(command: DaemonCommand?) {
@@ -106,6 +108,10 @@ final class DaemonSupervisor {
     }
 
     var isManaged: Bool { command != nil }
+    func reconfigure(_ command: DaemonCommand?) {
+        self.command = command
+        restart()
+    }
 
     func start() {
         guard let command else {
@@ -113,6 +119,8 @@ final class DaemonSupervisor {
             return
         }
         guard process == nil else { return }
+        generation += 1
+        let currentGeneration = generation
         stopping = false
         let process = Process()
         process.executableURL = command.executable
@@ -124,7 +132,10 @@ final class DaemonSupervisor {
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] finished in
             let status = finished.terminationStatus
-            Task { @MainActor [weak self] in self?.processExited(status: status) }
+            Task { @MainActor [weak self] in
+                guard self?.generation == currentGeneration else { return }
+                self?.processExited(status: status)
+            }
         }
         do {
             try process.run()
@@ -137,6 +148,8 @@ final class DaemonSupervisor {
 
     func stop() {
         stopping = true
+        generation += 1
+        state = .idle
         guard let process, process.isRunning else {
             self.process = nil
             return
@@ -145,7 +158,7 @@ final class DaemonSupervisor {
         let pid = process.processIdentifier
         // Give it two seconds to close the socket and the databases cleanly.
         DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
-            if kill(pid, 0) == 0 { kill(pid, SIGKILL) }
+            if process.isRunning { kill(pid, SIGKILL) }
         }
         self.process = nil
     }
@@ -153,8 +166,12 @@ final class DaemonSupervisor {
     func restart() {
         stop()
         recentExits.removeAll()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            MainActor.assumeIsolated { self?.start() }
+        let currentGeneration = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+            MainActor.assumeIsolated {
+                guard self?.generation == currentGeneration else { return }
+                self?.start()
+            }
         }
     }
 
@@ -177,8 +194,12 @@ final class DaemonSupervisor {
         let attempt = recentExits.count
         state = .restarting(attempt: attempt)
         let delay = min(30.0, pow(2.0, Double(attempt)))
+        let currentGeneration = generation
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            MainActor.assumeIsolated { self?.start() }
+            MainActor.assumeIsolated {
+                guard self?.generation == currentGeneration else { return }
+                self?.start()
+            }
         }
     }
 }

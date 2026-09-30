@@ -54,12 +54,21 @@ public enum DriverResult: Sendable, Equatable {
 public protocol TaskDriver: AnyObject {
     func observe() async -> ScreenObservation?
     func installedApps() -> [String]
+    func bundleIdentifier(forApp name: String) -> String?
+    func offeredKeys(for observation: ScreenObservation) -> [KeyChord]
+    func permissionDetail(for action: DriverAction) -> String?
     func perform(_ action: DriverAction) async -> DriverResult
     /// Waits for the screen to stop changing after an action.
     func settle() async
     /// Undoes the last action, through the application's own Undo where it
     /// has one. Returns false when there is nothing Leonard can undo.
     func undoLast() async -> Bool
+}
+
+extension TaskDriver {
+    public func bundleIdentifier(forApp name: String) -> String? { nil }
+    public func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { KeyChord.offered(bundleId: observation.bundleId) }
+    public func permissionDetail(for action: DriverAction) -> String? { nil }
 }
 
 /// The daemon half of a task: plans and decides. Implemented over the
@@ -95,6 +104,9 @@ public final class TaskLoop {
     public var waitDelay: UInt64 = 800_000_000
     /// Called when the user answers "Always allow", to persist the rule.
     public var onAllowAlways: ((ActionAllowRule) -> Void)?
+    /// Live settings and the global desktop lease are checked at each step.
+    public var currentPolicy: (() -> ActionPolicy)?
+    public var shouldStop: (() -> Bool)?
 
     private let brain: TaskBrain
     private let driver: TaskDriver
@@ -157,7 +169,8 @@ public final class TaskLoop {
         var failures = 0
         var waits = 0
         for step in 1...max(1, maxSteps) {
-            if stopped { return await finish(.stopped, detail: "user") }
+            if stopped || Task.isCancelled || shouldStop?() == true { return await finish(.stopped, detail: "user") }
+            if let currentPolicy { policy = currentPolicy() }
             state.task?.phase = .working
             let observation = await driver.observe() ?? ScreenObservation(app: "", bundleId: nil, window: "", elements: [])
             if policy.isProtected(bundleId: observation.bundleId, appName: observation.app), !observation.app.isEmpty {
@@ -168,7 +181,7 @@ public final class TaskLoop {
             let table = CandidateTable(ranked: ranked, observation: step)
             let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app)
             let screenText = String(observation.screenText.prefix(Self.maxScreenText))
-            let keys = KeyChord.offered(bundleId: observation.bundleId)
+            let keys = driver.offeredKeys(for: observation)
             let digest = table.digest(screenText: screenText)
             let frame = TaskObserveFrame(taskId: taskId, step: step, app: observation.app, window: observation.window,
                                          digest: digest, candidates: table.candidates, apps: appChoices,
@@ -203,12 +216,14 @@ public final class TaskLoop {
             }
 
             let element = resolved.element
+            let actionDetail = driver.permissionDetail(for: resolved.action) ?? act.text
             let multiline = element?.role == "AXTextArea" || element?.role == "AXWebArea"
-            let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: resolved.role,
-                                          appBundleId: act.operation == .openApp ? nil : observation.bundleId,
+            let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: element?.role ?? resolved.role,
+                                          appBundleId: act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId,
                                           appName: act.operation == .openApp ? resolved.label : observation.app,
                                           secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
-                                          window: observation.window, key: resolved.key, defaultButton: observation.defaultButton)
+                                          window: observation.window, key: resolved.key, defaultButton: observation.defaultButton,
+                                          context: observation.screenText, typedText: actionDetail ?? "")
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
@@ -216,7 +231,7 @@ public final class TaskLoop {
                 return await finish(.blocked, detail: reason)
             case .ask(let reason):
                 let request = PermissionRequest(operation: act.operation, label: resolved.label, role: resolved.role,
-                                                app: observation.app, reason: reason, text: act.text)
+                                                app: observation.app, reason: reason, text: actionDetail)
                 state.task?.phase = .waitingForPermission(request)
                 let answer = await askPermission()
                 if answer == .deny || stopped {
@@ -224,7 +239,7 @@ public final class TaskLoop {
                     return await finish(.stopped, detail: "declined")
                 }
                 if answer == .allowAlways {
-                    if reason != ActionPolicy.Reason.settings.rawValue {
+                    if reason != ActionPolicy.Reason.settings.rawValue && reason != "visualTarget" && !reason.hasPrefix("boundary:") {
                         let rule = ActionAllowRule(app: observation.bundleId ?? observation.app, operation: act.operation.rawValue, label: resolved.label)
                         policy.allowRules.insert(rule)
                         onAllowAlways?(rule)
@@ -235,9 +250,17 @@ public final class TaskLoop {
                 break
             }
 
+            if stopped || Task.isCancelled || shouldStop?() == true { return await finish(.stopped, detail: "user") }
+            if let currentPolicy {
+                let live = currentPolicy()
+                if live.boundaries != policy.boundaries || live.protectedApps.extraProtected != policy.protectedApps.extraProtected {
+                    return await finish(.blocked, detail: "boundariesChanged")
+                }
+            }
+
             state.task?.phase = .acting
             appendLine(TaskStepLine(id: step, operation: act.operation, target: resolved.label,
-                                    text: act.operation == .type ? act.text : nil, app: observation.app))
+                                    text: actionDetail, app: observation.app))
             let started = Date()
             let result = await driver.perform(resolved.action)
             await driver.settle()

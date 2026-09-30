@@ -1,199 +1,56 @@
-# Leonard
+# Bobb
 
-**The assistant that knows when to stay quiet — and does the work when you ask.**
+A personal assistant for your Mac. Named assistants, connected apps, persistent work and boundaries you control. Local AI by default; an optional cloud brain uses your own key and redacts requests on the Mac.
 
-Leonard lives in your Mac's menu bar. It reads what you read — mail, chats,
-the window in front of you — remembers it as text, and decides with a
-measured confidence whether something deserves your attention. When it does,
-it drafts the reply. When you ask it for something, it does it, in your
-apps, the way you would. When nothing needs you, it says nothing, and shows
-you why. Two local models, one Mac, nothing ever leaves it.
+Bobb continues Leonard. Internal Swift module names, bundle identity and existing data paths remain compatible.
 
-<p align="center">
-  <img src="docs/images/overlay-en.png" width="360" alt="Leonard's card: Marco Rossi is waiting for your reply">
-  &nbsp;
-  <img src="docs/images/task-asking-en.png" width="420" alt="Leonard doing a task, asking before it sends a message">
-</p>
+## What you can do
 
-Built for people whose work is confidential — lawyers, accountants,
-doctors, consultants, founders — and for anyone who would rather their
-assistant knew everything and told no one.
+- Create multiple Bobbs with a name, character and development, secretary or general profile.
+- Connect apps and websites explicitly. Set navigate, write, send, pay, delete, publish, settings and execute to allow, ask or never; add constraints in your words and working hours.
+- Run desktop tasks through Accessibility, with keyboard, cursor and revalidated screen-text targets. Secure fields and protected apps stay blocked. Visual targets always require confirmation.
+- Give each Bobb an isolated, persistent local WebKit browser. Inspect it and sign in yourself when needed.
+- Create projects with reviewed subtasks and saved reports. Schedule standing assignments once, daily, weekly or on an observed event. Failed or interrupted actions require an explicit retry.
+- Review routine suggestions based on repeated completed tasks, then choose whether to create an assignment.
+- Ask from an iPhone through your iMessage self chat and optionally hear spoken answers.
+- Choose a local MLX checkpoint, with RAM guidance, or configure an HTTPS chat-completions API and a Keychain-held key. Inspect the exact redacted cloud request log.
+- Configure optional stdio MCP servers or install an experimental macOS VM and connect its Bobb endpoint through a dedicated SSH identity.
 
-## What it does
+The UI uses native Liquid Glass on macOS 26 with the macOS 26 SDK, and system vibrancy on earlier versions. Reduced transparency is respected. The black glasses mark looks up and left.
 
-| | |
-|---|---|
-| **Knows what needs you** | Open a message in Mail, or a conversation in Slack, WhatsApp, Messages, Teams, Telegram and the rest. If someone is asking you for something, a small card appears once, with a one-line reason. Newsletters, receipts and FYIs never get a word. |
-| **Writes like you** | Replies in the language and register of the message, grounded in what you have seen on screen, with sources. One click turns a draft into a yes, a polite no, a request for time or for details. Figures that appear nowhere else are flagged. It goes into Mail's reply window or the chat's message box; you press Send. |
-| **Does it for you, in any app** | ⌥Space: "put on my Focus playlist", "make a new sheet with these totals", "tell Giulia on Slack I'll be ten minutes late". Leonard plans, then works the apps from outside — pressing, typing, scrolling, opening — one checked step at a time, and asks before anything that sends, pays or deletes. ⎋ stops it; Undo takes the last step back. |
-| **Talk to it** | ⌥⇧Space and just say it. Speech is recognized on the Mac, never on a server. |
-| **Remembers everything you saw** | The text of every window you work in (and, if you allow it, the words in images), searchable and cited in answers. Password managers, Keychain and private windows are never read; card numbers, keys and codes are redacted. Forget an item, an app, the last hour or everything. |
-| **Remembers what you promised** | "I'll send you the contract by Friday" in a mail you sent becomes a promise with a date, waiting under "For you" until you mark it done. |
-| **Briefs you before meetings** | Ten minutes before a meeting with other people: what you saw about it, what you promised them, one question worth asking. From your calendar, read on the Mac. |
-| **Learns you, on your Mac** | Your answers train a personal specialist that decides alone when it is sure — in under a millisecond instead of half a second — and only after it has proved it agrees with you. Tasks that worked, and the ones you show it ("Show me how"), become the way it does them next time. |
-| **Shows its work** | Mind lists every decision, every silence and how close it came, every task and every step, what it learned and how well it agrees with you. |
+## Build and run
 
-<p align="center">
-  <img src="docs/images/ask-en.png" width="520" alt="Ask Leonard answering from screen memory, with sources">
-</p>
+Apple silicon, macOS 14+, Swift 6, Python 3.12 and uv. Xcode 26 is recommended for the native Liquid Glass implementation.
 
-## Private by architecture, not by policy
-
-- **On-device model.** Llama 3.2 3B, 4-bit, running on Apple silicon through
-  MLX. No API keys, no usage caps, works offline.
-- **The engine cannot reach the network.** `leonardd` binds no TCP port and
-  opens no connection; a test fails the build if it can
-  ([ADR-002](docs/ADR-002-the-daemon-binds-no-network-socket.md)).
-- **One download, ever**, started by you: the model, verified by SHA-256
-  ([ADR-005](docs/ADR-005-the-one-download.md)). No telemetry, no account, no
-  crash reporting, no auto-updater.
-- **Voice, calendar and pixels stay local too.** Speech recognition is
-  required to run on-device; the calendar is read through EventKit on the
-  Mac; text in images is recognized by Vision on the Mac and only the text
-  is kept.
-- **It acts from outside, under a permission engine.** Leonard works your
-  apps through the accessibility tree like a person, never through plugins
-  or accounts. The model only ever picks among ids the app offered; anything
-  that sends, pays, deletes or runs a command waits for you
-  ([ADR-007](docs/ADR-007-acting-from-outside.md)).
-- **Offline licenses.** Ed25519-signed keys checked on the Mac.
-
-## Pricing
-
-A one-time purchase, 14-day free trial with every feature.
-
-| Personal | Pro | Firm |
-|---|---|---|
-| **€79** once | **€149** once | **€119** per seat, 5+ |
-| 2 Macs | 3 Macs, priority support | Volume keys, invoicing |
-
-Each license includes a year of updates; versions released in that year keep
-working forever. 30-day refund, no questions. Rationale in
-[BUSINESS.md](docs/BUSINESS.md).
-
-**Requirements:** a Mac with Apple silicon (M1 or later), macOS 14 Sonoma or
-later, 16 GB of memory recommended, 1.8 GB for the model.
-
-## Repository
-
-| Path | What it is |
-|---|---|
-| [`LeonardApp/`](LeonardApp) | The Mac app (Swift 6, SwiftUI + AppKit). `LeonardCore` is platform-independent and tested on Linux too. |
-| [`leonardd/`](leonardd) | The on-device engine (Python, MLX): typed decisions, drafting, screen memory, learning. |
-| [`specialist/`](specialist) | Research: distilling personal specialists from the engine's decisions. |
-| [`tools/license/`](tools/license) | License key tool and the fulfillment worker that emails keys after payment. |
-| [`scripts/`](scripts) | `package.sh` builds the self-contained, signed, notarized DMG. |
-| [`docs/`](docs) | Architecture, protocol, decisions, launch checklist. |
-
-### Build and run
-
-```
-scripts/package.sh --app-only && scripts/run.sh   # dev: app + engine from source (needs uv)
-scripts/package.sh                               # full DMG with the bundled Python runtime
-cd leonardd && uv run pytest -q -m "not slow"    # engine tests
-cd LeonardApp && swift test                      # app tests
+```sh
+scripts/run.sh
 ```
 
-CI (`.github/workflows/ci.yml`) runs every suite on macOS and Linux, builds
-the DMG, smoke-tests the bundled engine and renders the screenshots.
-Tagging `vX.Y.Z` runs `release.yml`: signed, notarized, published.
+This creates `dist/Bobb.app` and uses the checkout's daemon. `scripts/package.sh` creates the self-contained app and DMG. `--release` requires your Apple signing and notarization credentials. GitHub Actions builds and tests the app, daemon, specialist, tools and complete DMG.
 
-## Documents
+Connect apps in **Bobb → Boundaries**, enable acting, then create work. Background work also requires its own switch and an awake, signed-in Mac. Onboarding offers the pinned 3B checkpoint; larger checkpoints are selected from a local directory. Model weights carry their own licenses.
 
-| | |
-|---|---|
-| [`LAUNCH.md`](docs/LAUNCH.md) | **What is left to sell it**: accounts, keys, store, the QA pass |
-| [`BUSINESS.md`](docs/BUSINESS.md) | Who buys it, why, at what price, and how they hear about it |
-| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit, with the reasons |
-| [`CONTRACT.md`](docs/CONTRACT.md) | The app ↔ engine protocol |
-| [`VISION.md`](docs/VISION.md) | The governing logic |
-| [`PRODUCT.md`](docs/PRODUCT.md) · [`ROADMAP.md`](docs/ROADMAP.md) | What the product is becoming |
-| [`SCREEN-MEMORY.md`](docs/SCREEN-MEMORY.md) · [`SENSOR-MAIL.md`](docs/SENSOR-MAIL.md) · [`SPECIALIST.md`](docs/SPECIALIST.md) · [`SYSTEM-ONE.md`](docs/SYSTEM-ONE.md) | Design notes |
-| [`ADR-001`](docs/ADR-001-attention-is-a-typed-decision.md) … [`ADR-008`](docs/ADR-008-tier-zero.md) | Decisions and why |
-| [`leonardd/README.md`](leonardd/README.md) | What was measured, how, and what was not |
-| [`CHANGELOG.md`](CHANGELOG.md) | Releases |
+## Privacy and limits
 
-## Why Leonard exists
+The daemon has no network access. Browser traffic, explicit MCP servers, optional VM networking and opt-in cloud are separate capabilities. API keys stay in Keychain. Cloud redaction recognizes patterns, names and configured private terms; it cannot recognize every sensitive fact. Never assume a redacted request is anonymous.
 
-### The trap everyone else is in
+Desktop work yields when you return and holds one shared screen lease. Browsers can work concurrently across Bobbs. Browser challenges, secret fields, unsupported controls and guest actions that require approval need human intervention. No automatic replay of uncertain side effects. Local 3B capability remains limited; larger models and cloud do not guarantee success.
 
-An assistant is useful in proportion to how much it knows about you. An
-assistant that has read every email you sent, sat through every meeting and
-watched how you actually work is a different category of thing from one you
-paste context into.
+[iMessage, VM and full capability guide](docs/BOBB.md) · [Architecture](docs/ADR-009-bobb-work-and-boundaries.md) · [Contributing](CONTRIBUTING.md)
 
-And that is the trap: **the more it needs to know, the less you can let it
-phone home.** Every competitor's architecture requires your mail, your
-messages and your screen to arrive on their servers. So they stay shallow, or
-they ask for something you should not give.
+## Tests
 
-> Every other assistant has to choose between knowing you and protecting you.
-> Leonard does not have to choose.
+```sh
+cd LeonardApp
+swift test -j 1
+# from the repository root:
+cd leonardd
+uv sync --frozen
+uv run pytest -q -m "not slow"
+```
 
-### Two systems
+Linux daemon tests additionally need the matching `mlx[cpu]` build; CI configures it. Integration with real accounts, API providers, large checkpoints and a macOS guest needs on-device testing.
 
-**System 2** — a resident 4-bit model. Ambiguous requests, unfamiliar plans,
-writing, recovery. Slow, general.
+## License
 
-**System 1** — a fleet of tiny specialists. Every bounded repeated decision:
-interrupt or stay quiet, which app, which field, which contact, reply or
-archive. A closed set of options scored in one forward pass with a calibrated
-probability.
-
-The industry's numbers for the System 1 half, from Cua's open CUA-S1-FORMS:
-706,048 parameters, a 2.8 MB checkpoint, 7–9 ms. In its narrow domain it
-measured 99.7% against hosted Jev's 83.6% — a decision-level result on a
-narrow experiment, with the specialist trained for the task and Jev not, and
-the two latencies measuring different boundaries. Their caveats, kept.
-
-### Why that matters more than it looks
-
-A 2.8 MB model can be **trained on the user's machine, on the user's
-behaviour.**
-
-Leonard does not only run locally. It *learns* locally, and mints its own
-specialists as it goes.
-
-- **Day 1** — the decision goes to the resident general model. Generic
-  judgement. Leonard records what it decided and what you did about it.
-- **Day 30** — it has thousands of your answers, fits a specialist, and
-  answers in single-digit milliseconds, better than the general model was,
-  because it was fitted to you.
-
-**Leonard gets faster the longer you use it.** The latency goes down on a
-chart and the accuracy goes up, and you can watch it happen.
-
-No hosted service can offer that, because training on your behaviour means
-holding your behaviour.
-
-*Where 1.0 is on this path:* it records every decision and your answer to
-it — including the implicit ones, like the reply you started — and mints its
-first personal specialist from them, on the Mac. Once it has proved on your
-own newest answers that it agrees with you at least as well as the general
-model, it decides the confident "this can wait" cases alone, in under a
-millisecond, and Mind shows how often and how well
-([ADR-008](docs/ADR-008-tier-zero.md)). The byte-level transformer in
-[`specialist/`](specialist) is the next specialist, for when there is enough
-data to feed it.
-
-### Silence is the product
-
-Most of the time the right answer is to say nothing. Leonard is built so that
-"nothing" is a measured outcome rather than a missing feature: every candidate
-interruption is a typed decision with a calibrated probability, and a
-confidence floor you control decides what reaches you.
-
-And because silence is invisible, Leonard ships **Mind** — a live window onto
-what it noticed, what it decided, and every time it decided you were not worth
-interrupting, with the confidence that fell short. Near-misses are shown more
-prominently than hits.
-
-## Status
-
-**1.0.0.** The product described in [VISION.md](docs/VISION.md), built and
-green in CI on macOS and Linux: typed attention across mail and chats, tasks
-in any app, voice, screen memory with OCR, promises, meeting briefs, a
-personal specialist and learned procedures. Before the first sale it needs the owner's accounts and one pass on
-a real Mac: see [LAUNCH.md](docs/LAUNCH.md). Quality measurements and their
-limits are in [`leonardd/README.md`](leonardd/README.md); numbers quoted from
-other projects are theirs, on their conditions.
+MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md). Legacy licensing tools remain for compatibility; Bobb has no paid activation gate. Repository visibility and GitHub repository renaming are separate administration operations.

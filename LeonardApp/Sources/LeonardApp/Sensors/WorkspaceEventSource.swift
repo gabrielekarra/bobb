@@ -18,11 +18,13 @@ public final class WorkspaceEventSource: EventSource {
     public var idleThreshold: TimeInterval
     public var typingThreshold: TimeInterval
     public var pollInterval: TimeInterval
+    public var permittedApp: ((String?, String) -> Bool)?
 
     private var activationObserver: NSObjectProtocol?
     private var idleTimer: Timer?
     private var isIdle = false
     private var previousAppName = ""
+    private var previousBundleID: String?
 
     public init(idleThreshold: TimeInterval = 90, typingThreshold: TimeInterval = 2, pollInterval: TimeInterval = 1) {
         self.idleThreshold = idleThreshold
@@ -35,7 +37,10 @@ public final class WorkspaceEventSource: EventSource {
 
     public func start() {
         guard activationObserver == nil else { return }
-        previousAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
+        let front = NSWorkspace.shared.frontmostApplication
+        previousAppName = front?.localizedName ?? ""
+        previousBundleID = front?.bundleIdentifier
+        if permittedApp?(previousBundleID, previousAppName) != true { previousAppName = ""; previousBundleID = nil }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -43,11 +48,12 @@ public final class WorkspaceEventSource: EventSource {
         ) { [weak self] notification in
             let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             let name = app?.localizedName ?? app?.bundleIdentifier ?? "unknown"
+            let bundleID = app?.bundleIdentifier
             // `queue: .main` guarantees this always runs on the main thread;
             // the notification-center API itself predates actor isolation
             // and cannot express that in its type, so only the already-
             // extracted, Sendable `name` crosses into actor-isolated code.
-            MainActor.assumeIsolated { self?.handleActivation(appName: name) }
+            MainActor.assumeIsolated { self?.handleActivation(appName: name, bundleID: bundleID) }
         }
         idleTimer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pollIdle() }
@@ -66,13 +72,16 @@ public final class WorkspaceEventSource: EventSource {
         idleTimer = nil
     }
 
-    private func handleActivation(appName name: String) {
+    private func handleActivation(appName name: String, bundleID: String?) {
+        guard permittedApp?(bundleID, name) == true else { previousAppName = ""; previousBundleID = nil; return }
+        if permittedApp?(previousBundleID, previousAppName) != true { previousAppName = "" }
         let snapshot = activitySnapshot()
         let payload = EventPayload(
             typing: snapshot.typing, idle: snapshot.idle,
-            fields: ["previous_app": .string(previousAppName), "title": ""]
+            fields: ["previous_app": .string(previousAppName), "title": "", "bundle_id": bundleID.map(JSONValue.string) ?? .null]
         )
         previousAppName = name
+        previousBundleID = bundleID
         continuation.yield(EventFrame(kind: .appActivated, app: name, payload: payload))
     }
 
@@ -81,9 +90,8 @@ public final class WorkspaceEventSource: EventSource {
         guard snapshot.idle != isIdle else { return }
         isIdle = snapshot.idle
         let kind: EventKind = snapshot.idle ? .idleEntered : .idleLeft
-        let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? ""
         let payload = EventPayload(typing: snapshot.typing, idle: snapshot.idle, fields: [:])
-        continuation.yield(EventFrame(kind: kind, app: app, payload: payload))
+        continuation.yield(EventFrame(kind: kind, app: "", payload: payload))
     }
 
     private func activitySnapshot() -> (typing: Bool, idle: Bool) {

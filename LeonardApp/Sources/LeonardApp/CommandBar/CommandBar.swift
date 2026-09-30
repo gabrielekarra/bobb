@@ -180,7 +180,7 @@ struct CommandBarView: View {
             hint
         }
         .frame(width: 680)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .bobbGlass(radius: 24)
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
         .tint(Theme.accent)
     }

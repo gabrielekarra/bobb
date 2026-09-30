@@ -1,6 +1,6 @@
-"""Draws Leonard's app icon and writes a macOS .iconset.
+"""Draws Bobb's app icon and writes a macOS .iconset.
 
-The mark is a pair of round glasses whose eyes look up: white on black, on
+The mark is a pair of round glasses whose eyes look up and left: black on a soft white tile, on
 the macOS rounded square. The same geometry, in unit coordinates, is drawn
 by `LeonardApp/Sources/LeonardApp/UI/Glasses.swift` for the menu bar and the
 interface, so the three never drift apart. Drawn at 4x and downsampled, so
@@ -24,15 +24,15 @@ HEIGHT = 0.46
 LENS_R = 0.2
 LENS_DX = 0.255          # lens centers at 0.5 ± LENS_DX
 LENS_Y = 0.25
-PUPIL_R = 0.078
-PUPIL_TRAVEL = 0.088     # how far a pupil moves from the lens center
+PUPIL_R = 0.074
+PUPIL_TRAVEL = 0.082     # how far a pupil moves from the lens center
 LINE = 0.05              # stroke width, in glyph widths
 BRIDGE_LIFT = 0.045      # how far the bridge arches above its ends
 BRIDGE_DEG = 28          # where the bridge meets each lens, degrees above horizontal
 TEMPLE_DEG = 22          # where each temple leaves its lens
 TEMPLE = (0.05, 0.035)   # temple stub: dx outwards, dy upwards
 
-WHITE = (255, 255, 255, 255)
+BLACK = (0, 0, 0, 255)
 
 
 def _quad(p0, c, p1, steps=48):
@@ -65,7 +65,7 @@ def _on_lens(cx: float, degrees: float) -> tuple[float, float]:
 
 
 def draw_glyph(draw: ImageDraw.ImageDraw, origin: tuple[float, float], width: float,
-               look: tuple[float, float] = (0.0, -1.0), fill=WHITE) -> None:
+               look: tuple[float, float] = (-math.sqrt(0.5), -math.sqrt(0.5)), fill=BLACK) -> None:
     ox, oy = origin
 
     def P(x, y):
@@ -110,9 +110,9 @@ def draw(size: int = 1024, scale: int = 4) -> Image.Image:
     canvas.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(s * 0.012)))
 
     tile = ImageDraw.Draw(canvas)
-    tile.rounded_rectangle(box, radius, fill=(0, 0, 0, 255))
+    tile.rounded_rectangle(box, radius, fill=(248, 249, 252, 255))
     # A hairline edge so the black tile still reads on a dark Dock.
-    tile.rounded_rectangle(box, radius, outline=(255, 255, 255, 30), width=max(1, int(s * 0.002)))
+    tile.rounded_rectangle(box, radius, outline=(0, 0, 0, 18), width=max(1, int(s * 0.002)))
 
     glyph_w = s * 0.66
     origin = ((s - glyph_w) / 2, (s - HEIGHT * glyph_w) / 2 + s * 0.01)
@@ -130,6 +130,9 @@ def main(out: Path) -> None:
             name = f"icon_{points}x{points}{'@2x' if factor == 2 else ''}.png"
             master.resize((pixels, pixels), Image.LANCZOS).save(out / name)
     master.save(out.parent / "AppIcon-1024.png")
+    mark = Image.new("RGBA", (2048, 1024), (0, 0, 0, 0))
+    draw_glyph(ImageDraw.Draw(mark), (64, (1024 - HEIGHT * 1920) / 2), 1920)
+    mark.resize((1024, 512), Image.LANCZOS).save(out.parent / "BobbMark.png")
 
 
 if __name__ == "__main__":

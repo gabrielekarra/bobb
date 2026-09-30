@@ -1,3 +1,10 @@
+# Unreleased — Bobb
+
+- Named assistants, explicit boundaries, persistent projects, assignments and routine suggestions.
+- Isolated local browsers, opt-in redacted cloud, iMessage self chat, voice and local model selection.
+- MCP and experimental virtual Mac control.
+- Liquid Glass UI, black glasses mark looking up-left, Bobb app/DMG and MIT license.
+
 # Changelog
 
 ## 1.0.0 — 2026-09-28

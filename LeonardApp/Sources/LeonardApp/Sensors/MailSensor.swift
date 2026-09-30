@@ -17,6 +17,7 @@ final class MailSensor {
 
     var onEvent: ((EventFrame) -> Void)?
     var onPermissionDenied: (() -> Void)?
+    var permitted: (() -> Bool)?
 
     private let tracker = MailSessionTracker(openAfter: 1.2)
     private let compose = ComposeWatcher()
@@ -80,6 +81,7 @@ final class MailSensor {
     }
 
     private func tick() {
+        guard permitted?() != false else { cachedId = nil; cachedMessage = nil; return }
         let now = Date()
         guard mailIsFrontmost else {
             emit(tracker.update(selected: nil, at: now))

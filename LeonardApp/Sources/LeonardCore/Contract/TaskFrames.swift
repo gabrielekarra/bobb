@@ -84,6 +84,9 @@ public struct AppCandidate: Codable, Sendable, Equatable, Identifiable {
 
 /// App → daemon `task.start`.
 public struct TaskStartFrame: Codable, Sendable, Equatable {
+    public var agentName: String?
+    public var character: String?
+    public var profile: String?
     public var id: String
     public var taskId: String
     public var goal: String
@@ -92,7 +95,8 @@ public struct TaskStartFrame: Codable, Sendable, Equatable {
     public var apps: [String]
 
     enum CodingKeys: String, CodingKey {
-        case id, goal, app, window, apps
+        case id, goal, app, window, apps, character, profile
+        case agentName = "agent_name"
         case taskId = "task_id"
     }
 
@@ -103,6 +107,7 @@ public struct TaskStartFrame: Codable, Sendable, Equatable {
         self.app = app
         self.window = window
         self.apps = apps
+        self.agentName = nil; self.character = nil; self.profile = nil
     }
 
     public static func newTaskID() -> String {

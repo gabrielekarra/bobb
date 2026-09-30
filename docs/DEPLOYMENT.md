@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Deploying Leonard on managed Macs
 
 For firms rolling Leonard out with an MDM (Jamf Pro, Kandji, Mosyle, Intune,

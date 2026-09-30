@@ -52,7 +52,7 @@ final class LicenseController {
     }
 
     func evaluate(now: Date = Date()) {
-        entitlement = Entitlement.evaluate(license: license, trialStart: trialStart, buildDate: BuildInfo.buildDate, now: now)
+        entitlement = .community
     }
 
     /// Verifies and stores a pasted key. Returns true on success.

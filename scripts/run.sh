@@ -6,5 +6,5 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 "$ROOT/scripts/build.sh"
-echo "==> launching $ROOT/dist/Leonard.app"
-open "$ROOT/dist/Leonard.app" --args --daemon-dir "$ROOT/leonardd" "$@"
+echo "==> launching $ROOT/dist/Bobb.app"
+open "$ROOT/dist/Bobb.app" --args --daemon-dir "$ROOT/leonardd" "$@"

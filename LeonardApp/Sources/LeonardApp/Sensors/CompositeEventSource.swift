@@ -10,6 +10,9 @@ final class CompositeEventSource: EventSource {
     private let continuation: AsyncStream<EventFrame>.Continuation
     private let workspace: WorkspaceEventSource
     let mail: MailSensor
+    var permittedApp: ((String?, String) -> Bool)? {
+        didSet { workspace.permittedApp = permittedApp }
+    }
     private var forwarding: Task<Void, Never>?
 
     init(workspace: WorkspaceEventSource = WorkspaceEventSource(), mail: MailSensor = MailSensor()) {

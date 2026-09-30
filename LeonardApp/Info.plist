@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Leonard</string>
+    <string>Bobb</string>
     <key>CFBundleDisplayName</key>
-    <string>Leonard</string>
+    <string>Bobb</string>
     <key>CFBundleIdentifier</key>
     <string>com.leonard.app</string>
     <key>CFBundleVersion</key>
@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>LeonardApp</string>
+    <string>BobbApp</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleDevelopmentRegion</key>
@@ -36,16 +36,16 @@
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
     <key>NSHumanReadableCopyright</key>
-    <string>© 2026 Leonard. All rights reserved.</string>
+    <string>© 2026 Gabriele Karra and contributors. MIT License.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>Leonard reads your calendar on this Mac to brief you before meetings and to answer questions about your schedule. It never changes your calendar.</string>
+    <string>Bobb reads your calendar on this Mac to brief you before meetings and to answer questions about your schedule. It never changes your calendar.</string>
     <key>NSCalendarsUsageDescription</key>
-    <string>Leonard reads your calendar on this Mac to brief you before meetings. It never changes your calendar.</string>
+    <string>Bobb reads your calendar on this Mac to brief you before meetings. It never changes your calendar.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>When you talk to Leonard, it listens through the microphone. Your voice is turned into text on this Mac and never sent anywhere.</string>
+    <string>When you talk to Bobb, it listens through the microphone. Your voice is turned into text on this Mac and never sent anywhere.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Leonard turns what you say into text on this Mac, with on-device recognition only. Nothing is sent to Apple or anyone else.</string>
+    <string>Bobb turns what you say into text on this Mac, with on-device recognition only. Nothing is sent to Apple or anyone else.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Leonard reads the message you open in Mail and opens a reply window with its draft. It never sends anything.</string>
+    <string>Bobb uses Mail and Messages only when connected in Boundaries. Sending follows your allow, ask or never rules.</string>
 </dict>
 </plist>

@@ -121,26 +121,26 @@ struct TaskView: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
             if let text = request.text, !text.isEmpty {
-                Text(text)
-                    .font(.system(size: 11.5))
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: Theme.smallCorner))
-                    .lineLimit(6)
+                ScrollView {
+                    Text(text).font(.system(size: 11.5)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                }.frame(maxHeight: 160)
             }
             HStack {
                 Button(L10n.t(.taskStop)) { actions.allow(.deny) }
                     .buttonStyle(QuietButtonStyle())
                 Spacer()
-                Button(L10n.t(.taskAllowAlways, ["app": request.app])) { actions.allow(.allowAlways) }
-                    .buttonStyle(QuietButtonStyle())
+                if !request.reason.hasPrefix("boundary:") && request.reason != "visualTarget" {
+                    Button(L10n.t(.taskAllowAlways, ["app": request.app])) { actions.allow(.allowAlways) }
+                        .buttonStyle(QuietButtonStyle())
+                }
                 Button(L10n.t(.taskAllow)) { actions.allow(.allowOnce) }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(10)
-        .background(Theme.attention.opacity(0.10), in: RoundedRectangle(cornerRadius: Theme.corner))
+        .bobbGlass(tint: Theme.attention.opacity(0.10))
     }
 
     static func question(_ request: PermissionRequest) -> String {
@@ -155,7 +155,10 @@ struct TaskView: View {
     }
 
     static func reason(_ reason: String) -> String {
-        switch ActionPolicy.Reason(rawValue: reason) {
+        if reason == "visualTarget" {
+            return BobbCopy.t("This target was read from the screen. Check it before clicking.", "Questo bersaglio è stato letto dallo schermo. Controllalo prima del clic.")
+        }
+        return switch ActionPolicy.Reason(rawValue: reason) {
         case .sends: L10n.t(.reasonSends)
         case .pays: L10n.t(.reasonPays)
         case .deletes: L10n.t(.reasonDeletes)
@@ -165,6 +168,8 @@ struct TaskView: View {
         case .sendsMessage: L10n.t(.reasonSendsMessage)
         case .closesWithoutSaving: L10n.t(.reasonClosesWithoutSaving)
         case .everyStep: L10n.t(.reasonEveryStep)
+        case .closes: BobbCopy.t("This closes a window.", "Questo chiude una finestra.")
+        case .settings: BobbCopy.t("This changes the Mac's settings.", "Questo cambia le impostazioni del Mac.")
         case nil: reason
         }
     }
@@ -200,7 +205,7 @@ struct TaskView: View {
             }
         }
         .padding(10)
-        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.corner))
+        .bobbGlass(tint: Theme.accent.opacity(0.08))
     }
 
     static func outcome(status: TaskStatus, detail: String) -> String {
@@ -298,6 +303,8 @@ final class TaskController {
     private var escapeMonitors: [Any] = []
     private var hideTask: Task<Void, Never>?
     let driver = AXDriver()
+    var brainFactory: (() -> any TaskBrain)?
+    private var leaseId: String?
 
     init(state: AppState, coordinator: LeonardCoordinator) {
         self.state = state
@@ -315,13 +322,24 @@ final class TaskController {
         guard state.settings.actingEnabled else { return L10n.t(.taskDisabled) }
         guard AXIsProcessTrusted() else { return L10n.t(.taskNotTrusted) }
         guard state.entitlement.allowsAssistance else { return L10n.t(.statusTrialExpired) }
+        if let leaseId { ScreenLease.shared.release(leaseId) }
         loop?.stop()
         running?.cancel()
+        let id = TaskStartFrame.newTaskID()
+        guard ScreenLease.shared.acquire(id) else { return BobbCopy.t("The desktop is busy. Stop its current task in Bobb Activity.", "Lo schermo è occupato. Ferma l’incarico attuale in Attività di Bobb.") }
+        leaseId = id
+        driver.settings = { [weak self] in self?.state.settings ?? LeonardSettings() }
+        driver.stillOwnsScreen = { ScreenLease.shared.owner == id }
 
         let settings = state.settings
         let policy = ActionPolicy(approval: settings.actingApproval, allowRules: settings.actionAllowRules,
-                                  extraProtected: settings.extraProtectedApps)
-        let loop = TaskLoop(goal: trimmed, state: state, brain: coordinator, driver: driver, policy: policy)
+                                  extraProtected: settings.extraProtectedApps, boundaries: settings.bobb.boundaries)
+        let loop = TaskLoop(goal: trimmed, state: state, brain: brainFactory?() ?? coordinator, driver: driver, policy: policy, taskId: id)
+        loop.currentPolicy = { [weak self] in
+            let s = self?.state.settings ?? LeonardSettings()
+            return ActionPolicy(approval: s.actingApproval, allowRules: s.actionAllowRules, extraProtected: s.extraProtectedApps, boundaries: s.bobb.boundaries)
+        }
+        loop.shouldStop = { [weak self] in self?.state.settings.actingEnabled != true || ScreenLease.shared.owner != id }
         loop.onAllowAlways = { [weak self] rule in
             self?.coordinator.updateSettings { settings in
                 if !settings.actionAllowRules.contains(rule) { settings.actionAllowRules.append(rule) }
@@ -333,7 +351,8 @@ final class TaskController {
         installEscape()
         running = Task { [weak self] in
             let status = await loop.run()
-            self?.finished(status)
+            ScreenLease.shared.release(id)
+            if self?.leaseId == id { self?.leaseId = nil; self?.finished(status) }
         }
         return nil
     }
@@ -417,7 +436,7 @@ final class TaskController {
                 showMe: { [weak self] in self?.startShowing() },
                 finishShowing: { [weak self] keep in self?.finishShowing(keep: keep) }
             ))
-            let hosting = NSHostingView(rootView: view.background(.regularMaterial))
+            let hosting = NSHostingView(rootView: view.bobbGlass(radius: 20))
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 120),
                                 styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
                                 backing: .buffered, defer: false)

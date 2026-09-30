@@ -77,6 +77,9 @@ class Settings:
     history_retention_days: int = 90
     protected_apps: frozenset[str] = DEFAULT_PROTECTED_APPS
     extra_protected_apps: frozenset[str] = field(default_factory=frozenset)
+    timezone: str = "UTC"
+    # Legacy clients omit the field; Bobb always sends an explicit list.
+    connected_apps: frozenset[str] | None = None
 
     @property
     def all_protected_apps(self) -> frozenset[str]:
@@ -104,6 +107,8 @@ class Settings:
             "memory_retention_days": self.memory_retention_days,
             "history_retention_days": self.history_retention_days,
             "extra_protected_apps": sorted(self.extra_protected_apps),
+            "timezone": self.timezone,
+            "connected_apps": sorted(self.connected_apps) if self.connected_apps is not None else None,
         }
 
 
@@ -145,6 +150,13 @@ def apply(settings: Settings, frame: dict[str, Any]) -> Settings:
         changes["floor"] = floor
     if frame.get("locale") in SUPPORTED_LOCALES:
         changes["locale"] = frame["locale"]
+    if isinstance(frame.get("timezone"), str):
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        try:
+            ZoneInfo(frame["timezone"])
+            changes["timezone"] = frame["timezone"]
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
     if "proactive_kinds" in frame and (kinds := _valid_strings(frame["proactive_kinds"])) is not None:
         changes["proactive_kinds"] = kinds
     if "quiet_hours" in frame and (hours := _valid_hours(frame["quiet_hours"])) is not False:
@@ -158,6 +170,8 @@ def apply(settings: Settings, frame: dict[str, Any]) -> Settings:
         changes["history_retention_days"] = days
     if "extra_protected_apps" in frame and (apps := _valid_strings(frame["extra_protected_apps"])) is not None:
         changes["extra_protected_apps"] = apps
+    if "connected_apps" in frame and (apps := _valid_strings(frame["connected_apps"])) is not None:
+        changes["connected_apps"] = apps
     return replace(settings, **changes) if changes else settings
 
 
@@ -184,7 +198,9 @@ def save(settings: Settings, path: Path) -> None:
 
 def is_protected(settings: Settings, *, app: str | None, bundle_id: str | None) -> bool:
     protected = settings.all_protected_apps
-    return bool((bundle_id and bundle_id in protected) or (app and app in protected))
+    return bool((bundle_id and bundle_id in protected) or (app and app in protected)
+                or (settings.connected_apps is not None
+                    and bundle_id not in settings.connected_apps and app not in settings.connected_apps))
 
 
 __all__ = [

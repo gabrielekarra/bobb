@@ -1,3 +1,5 @@
+> Historical Leonard document. For current Bobb capabilities, licensing and setup, see [BOBB.md](BOBB.md) and the [README](../README.md).
+
 # Launching Leonard
 
 Everything that can be built, tested and automated is in this repository.

@@ -20,6 +20,8 @@ struct MenuBarPopoverView: View {
             askField
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
+            Button("Bobb · " + BobbCopy.t("Projects, assignments & boundaries", "Progetti, incarichi e confini"), action: actions.openBobb)
+                .buttonStyle(.plain).font(.system(size: 11, weight: .medium)).padding(12)
             forYou
             Divider()
             footer
@@ -146,12 +148,12 @@ struct MenuBarPopoverView: View {
                     .foregroundStyle(.tertiary)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 4))
             }
             .font(.system(size: 12))
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -212,7 +214,7 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
     static func promiseDetail(_ promise: Commitment) -> String {
@@ -264,7 +266,7 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
     // MARK: Footer
@@ -315,6 +317,7 @@ struct MenuBarActions {
     var quit: () -> Void
     /// A promise: "done", "not a promise", or "tomorrow".
     var promise: (Commitment, PromiseAction) -> Void = { _, _ in }
+    var openBobb: () -> Void = {}
 }
 
 enum PromiseAction {

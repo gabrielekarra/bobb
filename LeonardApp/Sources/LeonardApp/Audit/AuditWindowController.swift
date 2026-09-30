@@ -13,10 +13,13 @@ final class AuditWindowController: NSWindowController {
         )
         window.title = L10n.t(.auditTitle)
         window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.minSize = NSSize(width: 600, height: 380)
         window.center()
         super.init(window: window)
-        window.contentView = NSHostingView(rootView: AuditView(auditPath: auditPath))
+        window.contentView = NSHostingView(rootView: AuditView(auditPath: auditPath).bobbWindowStyle())
     }
 
     @available(*, unavailable)

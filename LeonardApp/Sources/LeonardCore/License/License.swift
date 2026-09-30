@@ -150,6 +150,7 @@ public enum LicenseDates {
 
 /// What the user may do right now.
 public enum Entitlement: Sendable, Equatable {
+    case community
     case trial(daysLeft: Int)
     case trialExpired
     case licensed(LicensePayload)
@@ -162,7 +163,7 @@ public enum Entitlement: Sendable, Equatable {
     /// deletion always work: the user's own data is never held hostage.
     public var allowsAssistance: Bool {
         switch self {
-        case .trial, .licensed: true
+        case .community, .trial, .licensed: true
         case .trialExpired, .updatesExpired: false
         }
     }

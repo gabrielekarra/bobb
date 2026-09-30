@@ -422,6 +422,7 @@ public enum IncomingFrame: Sendable, Equatable {
     case commitment(CommitmentFoundFrame)
     case commitments(CommitmentsFrame)
     case procedures(ProceduresFrame)
+    case workspace(WorkspaceStateFrame)
     case unknown(type: String)
 
     public static func decode(from data: Data) throws -> IncomingFrame {
@@ -447,6 +448,7 @@ public enum IncomingFrame: Sendable, Equatable {
         case "commitment": return .commitment(try FrameCodec.payload(CommitmentFoundFrame.self, from: data))
         case "commitments": return .commitments(try FrameCodec.payload(CommitmentsFrame.self, from: data))
         case "procedures": return .procedures(try FrameCodec.payload(ProceduresFrame.self, from: data))
+        case "bobb.state": return .workspace(try FrameCodec.payload(WorkspaceStateFrame.self, from: data))
         default: return .unknown(type: type)
         }
     }

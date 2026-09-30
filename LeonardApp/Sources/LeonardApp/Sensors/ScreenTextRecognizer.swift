@@ -11,6 +11,14 @@ import Foundation
 /// needs the Screen Recording permission, which macOS asks for.
 @MainActor
 enum ScreenTextRecognizer {
+    struct Control: Sendable, Equatable {
+        var text: String
+        var frame: CGRect
+    }
+    struct Readout: Sendable {
+        var controls: [Control]
+        var text: String { controls.map(\.text).joined(separator: "\n") }
+    }
     static var isAllowed: Bool { CGPreflightScreenCaptureAccess() }
 
     static func requestPermission() {
@@ -19,6 +27,10 @@ enum ScreenTextRecognizer {
 
     /// The text visible in the front window of `pid`, top to bottom.
     static func read(pid: pid_t, windowTitle: String) async -> String? {
+        await readout(pid: pid, windowTitle: windowTitle)?.text
+    }
+
+    static func readout(pid: pid_t, windowTitle: String) async -> Readout? {
         guard isAllowed else { return nil }
         guard let content = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) else { return nil }
         let candidates = content.windows.filter { $0.owningApplication?.processID == pid && $0.isOnScreen && $0.frame.width > 200 }
@@ -31,7 +43,28 @@ enum ScreenTextRecognizer {
         configuration.height = Int(window.frame.height * scale)
         configuration.showsCursor = false
         guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration) else { return nil }
-        return await recognize(image)
+        return await recognizeControls(image, windowFrame: window.frame)
+    }
+
+    private nonisolated static func recognizeControls(_ image: CGImage, windowFrame: CGRect) async -> Readout? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate; request.usesLanguageCorrection = true
+                request.recognitionLanguages = ["it-IT", "en-US"]
+                do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([request]) }
+                catch { continuation.resume(returning: nil); return }
+                let controls = (request.results ?? []).sorted { $0.boundingBox.midY > $1.boundingBox.midY }.prefix(200).compactMap { result -> Control? in
+                    guard let text = result.topCandidates(1).first, text.confidence >= 0.5 else { return nil }
+                    let box = result.boundingBox
+                    let frame = CGRect(x: windowFrame.minX + box.minX * windowFrame.width,
+                                       y: windowFrame.minY + (1 - box.maxY) * windowFrame.height,
+                                       width: box.width * windowFrame.width, height: box.height * windowFrame.height)
+                    return Control(text: text.string, frame: frame)
+                }
+                continuation.resume(returning: controls.isEmpty ? nil : Readout(controls: controls))
+            }
+        }
     }
 
     nonisolated static func recognize(_ image: CGImage) async -> String? {

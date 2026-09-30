@@ -429,6 +429,8 @@ public struct StatsFrame: Codable, Sendable, Equatable {
 /// `settings`: the user's choices, sent after every `hello`. The daemon
 /// validates each field on its own and persists what it enforces.
 public struct DaemonSettingsFrame: Sendable, Equatable {
+    public var timezone: String?
+    public var connectedApps: [String]?
     public var floor: Double
     public var locale: String
     public var proactiveKinds: [String]
@@ -441,7 +443,8 @@ public struct DaemonSettingsFrame: Sendable, Equatable {
 
     public init(
         floor: Double, locale: String, proactiveKinds: [String], quietHours: [Int]?, adaptive: Bool,
-        memoryEnabled: Bool, memoryRetentionDays: Int, historyRetentionDays: Int, extraProtectedApps: [String]
+        memoryEnabled: Bool, memoryRetentionDays: Int, historyRetentionDays: Int, extraProtectedApps: [String], timezone: String? = nil,
+        connectedApps: [String]? = nil
     ) {
         self.floor = floor
         self.locale = locale
@@ -452,18 +455,21 @@ public struct DaemonSettingsFrame: Sendable, Equatable {
         self.memoryRetentionDays = memoryRetentionDays
         self.historyRetentionDays = historyRetentionDays
         self.extraProtectedApps = extraProtectedApps
+        self.timezone = timezone
+        self.connectedApps = connectedApps
     }
 }
 
 extension DaemonSettingsFrame: Codable {
     enum CodingKeys: String, CodingKey {
-        case floor, locale, adaptive
+        case floor, locale, adaptive, timezone
         case proactiveKinds = "proactive_kinds"
         case quietHours = "quiet_hours"
         case memoryEnabled = "memory_enabled"
         case memoryRetentionDays = "memory_retention_days"
         case historyRetentionDays = "history_retention_days"
         case extraProtectedApps = "extra_protected_apps"
+        case connectedApps = "connected_apps"
     }
 
     /// `quiet_hours` is written as an explicit `null` when off: absent means
@@ -483,6 +489,8 @@ extension DaemonSettingsFrame: Codable {
         try c.encode(memoryRetentionDays, forKey: .memoryRetentionDays)
         try c.encode(historyRetentionDays, forKey: .historyRetentionDays)
         try c.encode(extraProtectedApps, forKey: .extraProtectedApps)
+        try c.encodeIfPresent(timezone, forKey: .timezone)
+        try c.encodeIfPresent(connectedApps, forKey: .connectedApps)
     }
 }
 
@@ -693,6 +701,7 @@ extension IncomingFrame {
         case .tasksResults(let f): f.requestId
         case .commitments(let f): f.requestId
         case .procedures(let f): f.requestId
+        case .workspace(let f): f.requestId
         default: nil
         }
     }

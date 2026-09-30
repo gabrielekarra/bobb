@@ -38,6 +38,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
     public var actingEnabled: Bool = true
     public var actingApproval: ActingApproval = .important
     public var actionAllowRules: [ActionAllowRule] = []
+    public var bobb = BobbSettings()
 
     public init() {}
 
@@ -67,14 +68,16 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
             memoryEnabled: memoryEnabled,
             memoryRetentionDays: memoryRetentionDays,
             historyRetentionDays: historyRetentionDays,
-            extraProtectedApps: extraProtectedApps
+            extraProtectedApps: extraProtectedApps,
+            timezone: TimeZone.current.identifier,
+            connectedApps: bobb.boundaries.apps.flatMap { [$0.id, $0.name] }
         )
     }
 
     enum CodingKeys: String, CodingKey {
         case language, floor, adaptive, mailProactive, chatProactive, meetingPrep, trackPromises, toneCheck, quietHoursEnabled, quietFrom, quietTo,
              overlaySeconds, memoryEnabled, readImages, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
-             hotkey, talkHotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules
+             hotkey, talkHotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules, bobb
     }
 
     public init(from decoder: Decoder) throws {
@@ -108,6 +111,7 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
         if let v = read(.actingEnabled, Bool.self) { s.actingEnabled = v }
         if let v = read(.actingApproval, ActingApproval.self) { s.actingApproval = v }
         if let v = read(.actionAllowRules, [ActionAllowRule].self) { s.actionAllowRules = v }
+        if let v = read(.bobb, BobbSettings.self) { s.bobb = v }
         self = s
     }
 }

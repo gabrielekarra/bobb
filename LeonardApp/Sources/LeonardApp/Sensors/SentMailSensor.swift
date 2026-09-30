@@ -10,6 +10,7 @@ import LeonardCore
 final class SentMailSensor {
     var onEvent: ((EventFrame) -> Void)?
     var interval: TimeInterval = 600
+    var permitted: () -> Bool = { false }
 
     private var timer: Timer?
     private var tracker: SentMailTracker
@@ -67,6 +68,7 @@ final class SentMailSensor {
     }
 
     private func look() {
+        guard permitted() else { return }
         guard NSRunningApplication.runningApplications(withBundleIdentifier: MailEvents.bundleId).first != nil else { return }
         guard let raw = try? runner.run(Self.script), !raw.isEmpty else { return }
         let fresh = tracker.fresh(MailScriptFormat.parseSent(raw))

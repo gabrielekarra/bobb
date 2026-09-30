@@ -14,8 +14,8 @@ enum Glasses {
     static let lensRadius: CGFloat = 0.2
     static let lensDX: CGFloat = 0.255
     static let lensY: CGFloat = 0.25
-    static let pupilRadius: CGFloat = 0.078
-    static let pupilTravel: CGFloat = 0.088
+    static let pupilRadius: CGFloat = 0.074
+    static let pupilTravel: CGFloat = 0.082
     static let line: CGFloat = 0.05
     static let bridgeLift: CGFloat = 0.045
     static let bridgeDegrees: CGFloat = 28
@@ -28,7 +28,7 @@ enum Glasses {
         case closed
         case none
 
-        static let up = Eyes.look(CGVector(dx: 0, dy: -1))
+        static let up = Eyes.look(CGVector(dx: -0.7071, dy: -0.7071))
     }
 
     struct Paths {

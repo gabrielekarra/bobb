@@ -18,6 +18,7 @@ final class CalendarSensor {
     private(set) var access: Access = .notDetermined
     @ObservationIgnored var onEvent: ((EventFrame) -> Void)?
     @ObservationIgnored var onMemory: ((MemoryObserveFrame) -> Void)?
+    @ObservationIgnored var permitted: () -> Bool = { false }
 
     @ObservationIgnored private let store = EKEventStore()
     @ObservationIgnored private var timer: Timer?
@@ -61,6 +62,7 @@ final class CalendarSensor {
     }
 
     private func tick() {
+        guard permitted() else { return }
         refreshAccess()
         guard access == .granted else { return }
         let now = Date()

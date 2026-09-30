@@ -22,6 +22,8 @@ public final class LeonardCoordinator {
     public var onSettingsChanged: ((LeonardSettings) -> Void)?
     /// Called for every screen-memory frame an app-side sensor produces.
     public var memorySink: ((MemoryObserveFrame) -> Void)?
+    public var onAnswer: ((AnswerFrame) -> Void)?
+    public var answerProvider: ((AskFrame) async -> AnswerFrame?)?
 
     private var stateTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
@@ -60,7 +62,7 @@ public final class LeonardCoordinator {
         eventTask = Task { [weak self] in
             guard let self else { return }
             for await event in self.eventSource.events {
-                guard self.state.watching, self.state.entitlement.allowsAssistance else { continue }
+                guard self.state.watching, self.state.entitlement.allowsAssistance, self.permits(event) else { continue }
                 self.state.recordEvent(event)
                 await self.client.send(event: event)
             }
@@ -92,7 +94,7 @@ public final class LeonardCoordinator {
     /// An event produced outside the event source (the conversation
     /// tracker rides on the screen sensor's reads).
     public func submit(_ event: EventFrame) {
-        guard state.watching, state.entitlement.allowsAssistance else { return }
+        guard state.watching, state.entitlement.allowsAssistance, permits(event) else { return }
         state.recordEvent(event)
         let ipc = client
         Task { await ipc.send(event: event) }
@@ -124,6 +126,7 @@ public final class LeonardCoordinator {
             state.applyAnswerDelta(delta)
         case .answer(let answer):
             state.applyAnswer(answer)
+            if state.ask.requestId == answer.requestId, answer.ok, answer.cancelled != true { onAnswer?(answer) }
         case .stats(let stats):
             state.stats = stats
         case .error(let error):
@@ -136,7 +139,7 @@ public final class LeonardCoordinator {
             state.commitments = list.items
         case .procedures(let list):
             state.procedures = list.items
-        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .unknown:
+        case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .workspace, .unknown:
             break
         }
     }
@@ -216,6 +219,10 @@ public final class LeonardCoordinator {
         state.beginAsk(frame, mode: mode)
         let ipc = client
         Task { [weak self] in
+            if let provider = self?.answerProvider, let answer = await provider(frame) {
+                if self?.state.ask.requestId == frame.id, self?.state.ask.streaming == true { self?.handle(.answer(answer)) }
+                return
+            }
             let sent = await ipc.send(.ask(frame))
             if !sent {
                 self?.state.applyError(ErrorFrame(ts: Date().timeIntervalSince1970, detail: L10n.t(.askNotReady), requestId: frame.id))
@@ -232,9 +239,19 @@ public final class LeonardCoordinator {
     // MARK: Memory
 
     public func observe(_ frame: MemoryObserveFrame) {
-        guard state.settings.memoryEnabled, state.watching, state.entitlement.allowsAssistance else { return }
+        guard state.settings.memoryEnabled, state.watching, state.entitlement.allowsAssistance,
+              state.settings.bobb.boundaries.app(bundleId: frame.bundleId, name: frame.app) != nil else { return }
         memorySink?(frame)
         Task { await client.send(.memoryObserve(frame)) }
+    }
+
+    private func permits(_ event: EventFrame) -> Bool {
+        if event.app.isEmpty, event.kind == .idleEntered || event.kind == .idleLeft { return true }
+        let kind = event.kind.rawValue
+        let bundle = event.payload.fields["bundle_id"]?.stringValue
+            ?? (kind.hasPrefix("mail.") ? "com.apple.mail" : kind.hasPrefix("calendar.") ? "com.apple.iCal" : nil)
+        return state.settings.bobb.boundaries.app(bundleId: bundle, name: event.app) != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: bundle, appName: event.app)
     }
 
     public func searchMemory(_ query: String, app: String? = nil) async -> MemoryResultsFrame? {
@@ -328,10 +345,14 @@ public final class LeonardCoordinator {
     // MARK: Request plumbing
 
     func request(_ frame: OutgoingFrame, id: String, timeout: Double = 8) async -> IncomingFrame? {
-        let sent = await client.send(frame)
-        guard sent else { return nil }
         return await withCheckedContinuation { (continuation: CheckedContinuation<IncomingFrame?, Never>) in
             waiting[id] = continuation
+            // Register before sending: a fast local reply can arrive while
+            // send() suspends, otherwise its continuation is lost.
+            Task { [weak self] in
+                guard let self else { return }
+                if !(await self.client.send(frame)) { self.timeOut(id) }
+            }
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
                 self?.timeOut(id)
@@ -341,6 +362,18 @@ public final class LeonardCoordinator {
 
     private func timeOut(_ id: String) {
         waiting.removeValue(forKey: id)?.resume(returning: nil)
+    }
+
+    public func workspace(_ op: String = "list", payload: JSONValue = .object([:])) async -> WorkspaceStateFrame? {
+        let frame = WorkspaceCommandFrame(op: op, payload: payload)
+        if case .workspace(let result)? = await request(.workspace(frame), id: frame.id, timeout: op == "plan_project" ? 120 : 8) { return result }
+        return nil
+    }
+
+    public func answer(_ frame: AskFrame) async -> AnswerFrame? {
+        if let answerProvider, let result = await answerProvider(frame) { return result }
+        if case .answer(let answer)? = await request(.ask(frame), id: frame.id, timeout: 120) { return answer }
+        return nil
     }
 }
 

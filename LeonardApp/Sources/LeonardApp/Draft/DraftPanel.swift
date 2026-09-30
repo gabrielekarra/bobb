@@ -136,7 +136,7 @@ struct DraftView: View {
             }
         }
         .padding(10)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: Theme.smallCorner, style: .continuous))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.smallCorner, style: .continuous))
     }
 
     private var variants: some View {
@@ -248,7 +248,7 @@ final class DraftPanelController {
                 replyInMail: { [weak self] messageId, body in self?.replyInMail(messageId: messageId, body: body) },
                 insert: { [weak self] text in self?.insert(text) }
             )
-            let hosting = NSHostingView(rootView: view)
+            let hosting = NSHostingView(rootView: view.bobbGlass(radius: 20))
             let panel = NSPanel(
                 contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                 styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel, .utilityWindow],

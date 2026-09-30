@@ -36,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let memoryModel = MemoryBrowserModel()
     private let onboardingModel = OnboardingModel()
     private var housekeeping: Timer?
+    private var bobb: BobbWorkspace!
+    private var configuredModelPath = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -62,8 +64,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor = DaemonSupervisor(command: DaemonCommand.resolve(
             dataDir: AppPaths.dataDirectory, modelsDir: AppPaths.modelsDirectory,
-            logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log")
+            logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log"), modelPath: settings.bobb.localModelPath
         ))
+        configuredModelPath = settings.bobb.localModelPath
 
         let client = IPCClient(socketPath: AppPaths.socketPath)
         let eventSource: EventSource
@@ -71,7 +74,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             eventSource = MockEventSource(scenario: MockEventSource.demoScenario())
         } else {
             let composite = CompositeEventSource()
+            composite.permittedApp = { [weak self] id, name in self?.permitsSensor(id, name) ?? false }
             composite.mail.onPermissionDenied = { [weak self] in self?.permissions.refresh() }
+            composite.mail.permitted = { [weak self] in
+                guard let self else { return false }
+                return self.state.settings.watching && self.state.settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil
+                    && !ScreenMemoryPolicy(extraProtected: self.state.settings.extraProtectedApps).isProtected(bundleId: "com.apple.mail", appName: "Mail")
+            }
             eventSource = composite
         }
         let coordinator = LeonardCoordinator(state: state, client: client, eventSource: eventSource)
@@ -79,11 +88,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.onSettingsChanged = { [weak self] settings in self?.settingsChanged(settings) }
 
         screenSensor = ScreenMemorySensor(policy: ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps))
+        screenSensor.permitsApp = { [weak self] id, name in
+            guard let self else { return false }
+            return self.state.settings.bobb.boundaries.app(bundleId: id, name: name) != nil
+        }
         screenSensor.onFrame = { [weak coordinator] frame in coordinator?.observe(frame) }
         screenSensor.onWindowText = { [weak self] text in self?.windowRead(text) }
         sentMail = SentMailSensor(seenFile: AppPaths.dataDirectory.appendingPathComponent("sent-seen.json"))
+        sentMail.permitted = { [weak self] in self?.permitsSensor("com.apple.mail", "Mail") ?? false }
         sentMail.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
         calendar = CalendarSensor()
+        calendar.permitted = { [weak self] in self?.permitsSensor("com.apple.iCal", "Calendar") ?? false }
         calendar.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
         calendar.onMemory = { [weak coordinator] frame in coordinator?.observe(frame) }
 
@@ -91,6 +106,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
         commandBar = CommandBarController(state: state, coordinator: coordinator)
         tasks = TaskController(state: state, coordinator: coordinator)
+        bobb = BobbWorkspace(state: state, coordinator: coordinator)
+        tasks.brainFactory = { [weak self] in
+            guard let self else { return coordinator }
+            let agent = self.bobb.activeAgent
+            if self.state.settings.bobb.cloud.enabled {
+                return CloudBrain(coordinator: coordinator, settings: { [weak self] in self?.state.settings ?? LeonardSettings() }, agent: agent)
+            }
+            return ProfileBrain(coordinator: coordinator, agent: agent)
+        }
         commandBar.startTask = { [weak self] goal in self?.tasks.start(goal: goal) }
         mindWindowController = MindWindowController(state: state, coordinator: coordinator)
         auditWindowController = AuditWindowController(auditPath: AppPaths.auditDatabase)
@@ -105,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor.start()
         coordinator.start()
+        bobb.start()
         if Self.needsScreenSensor(settings) { screenSensor.start() }
         syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
@@ -113,12 +138,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.refreshEntitlement() }
         }
 
-        if !settings.onboardingCompleted || !downloader.isInstalled {
+        if !settings.onboardingCompleted || (!downloader.isInstalled && settings.bobb.localModelPath.isEmpty && !settings.bobb.cloud.enabled) {
             showOnboarding()
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        bobb?.stop()
+        tasks?.stop()
         coordinator?.stop()
         screenSensor?.stop()
         supervisor?.stop()
@@ -140,12 +167,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
+        bobb?.settingsChanged()
+        if configuredModelPath != settings.bobb.localModelPath {
+            configuredModelPath = settings.bobb.localModelPath
+            supervisor.reconfigure(DaemonCommand.resolve(dataDir: AppPaths.dataDirectory, modelsDir: AppPaths.modelsDirectory,
+                logFile: AppPaths.logsDirectory.appendingPathComponent("leonardd.log"), modelPath: configuredModelPath))
+        }
     }
 
     private func syncSensors(_ settings: LeonardSettings) {
         screenSensor.readImages = settings.readImages && settings.memoryEnabled
-        if settings.watching && settings.trackPromises { sentMail.start() } else { sentMail.stop() }
-        if settings.watching && (settings.meetingPrep || settings.memoryEnabled) { calendar.start() } else { calendar.stop() }
+        let policy = ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps)
+        let mail = settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil
+            && !policy.isProtected(bundleId: "com.apple.mail", appName: "Mail")
+        let agenda = settings.bobb.boundaries.app(bundleId: "com.apple.iCal", name: "Calendar") != nil
+            && !policy.isProtected(bundleId: "com.apple.iCal", appName: "Calendar")
+        if settings.watching && settings.trackPromises && mail { sentMail.start() } else { sentMail.stop() }
+        if settings.watching && (settings.meetingPrep || settings.memoryEnabled) && agenda { calendar.start() } else { calendar.stop() }
     }
 
     /// The screen sensor's reads feed both screen memory and the
@@ -212,7 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             openLicense: { [weak self, weak controller] in
                 controller?.closePopover()
-                self?.showSettings(tab: .license)
+                self?.bobb.show()
             },
             openOnboarding: { [weak self, weak controller] in
                 controller?.closePopover()
@@ -227,7 +265,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: Date()))!
                     self?.coordinator.updateCommitment(promise.id, dueTs: tomorrow.addingTimeInterval(18 * 3600).timeIntervalSince1970)
                 }
-            }
+            },
+            openBobb: { [weak self, weak controller] in controller?.closePopover(); self?.bobb.show() }
         )
     }
 
@@ -241,6 +280,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Windows
 
+    private func permitsSensor(_ id: String?, _ name: String) -> Bool {
+        state.settings.watching && state.settings.bobb.boundaries.app(bundleId: id, name: name) != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: id, appName: name)
+    }
+
     private func showSettings(tab: SettingsUIModel.Tab) {
         settingsUI.tab = tab
         if settingsWindow == nil {
@@ -253,7 +297,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     restartDaemon: { [weak self] in self?.supervisor.restart() },
                     exportDiagnostics: { [weak self] in self?.exportDiagnostics() },
                     openNotices: { Self.openNotices() },
-                    entitlementChanged: { [weak self] in self?.refreshEntitlement() }
+                    entitlementChanged: { [weak self] in self?.refreshEntitlement() },
+                    openBobb: { [weak self] in self?.bobb.show() }
                 )
             )
             settingsWindow = WindowPresenter.makeWindow(title: L10n.t(.settingsTitle), size: NSSize(width: 600, height: 520), resizable: false, content: view)
@@ -278,7 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 startDownload: { [weak self] in self?.startDownload() },
                 finish: { [weak self] in self?.finishOnboarding() }
             )
-            let window = WindowPresenter.makeWindow(title: "Leonard", size: NSSize(width: 640, height: 520), resizable: false, content: view)
+            let window = WindowPresenter.makeWindow(title: "Bobb", size: NSSize(width: 640, height: 520), resizable: false, content: view)
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             onboardingWindow = window
@@ -292,6 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finishOnboarding() {
         coordinator.updateSettings { $0.onboardingCompleted = true }
         onboardingWindow?.close()
+        bobb.show()
     }
 
     private func startDownload() {
@@ -318,17 +364,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// machine's basics. No memory, no history, no drafts.
     private func exportDiagnostics() {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "Leonard-diagnostics.zip"
+        panel.nameFieldStringValue = "Bobb-diagnostics.zip"
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         let fm = FileManager.default
-        let staging = fm.temporaryDirectory.appendingPathComponent("Leonard-diagnostics-\(UUID().uuidString)", isDirectory: true)
+        let staging = fm.temporaryDirectory.appendingPathComponent("Bobb-diagnostics-\(UUID().uuidString)", isDirectory: true)
         try? fm.createDirectory(at: staging, withIntermediateDirectories: true)
         if let logs = try? fm.contentsOfDirectory(at: AppPaths.logsDirectory, includingPropertiesForKeys: nil) {
             for log in logs { try? fm.copyItem(at: log, to: staging.appendingPathComponent(log.lastPathComponent)) }
         }
-        try? fm.copyItem(at: AppPaths.settingsFile, to: staging.appendingPathComponent("app-settings.json"))
+        let summary: [String: Any] = ["language": state.settings.language.rawValue,
+            "watching": state.settings.watching, "memory_enabled": state.settings.memoryEnabled,
+            "cloud_enabled": state.settings.bobb.cloud.enabled, "background_enabled": state.settings.bobb.backgroundEnabled]
+        if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted]) {
+            try? data.write(to: staging.appendingPathComponent("app-settings.json"))
+        }
         let info = """
-        Leonard \(BuildInfo.version) (\(BuildInfo.build))
+        Bobb \(BuildInfo.version) (\(BuildInfo.build))
         macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
         Memory: \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB
         Model installed: \(downloader.isInstalled)

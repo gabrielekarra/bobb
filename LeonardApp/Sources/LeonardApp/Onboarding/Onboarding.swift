@@ -54,7 +54,7 @@ struct OnboardingView: View {
                 .background(Color.primary.opacity(0.03))
         }
         .frame(width: 640, height: 520)
-        .tint(Theme.accent)
+        .bobbWindowStyle()
     }
 
     // MARK: Steps
@@ -145,7 +145,7 @@ struct OnboardingView: View {
             }
         }
         .padding(14)
-        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
     }
 
     private var modelStep: some View {
