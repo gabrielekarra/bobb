@@ -54,7 +54,9 @@ public enum DriverResult: Sendable, Equatable {
 public protocol TaskDriver: AnyObject {
     func observe() async -> ScreenObservation?
     func installedApps() -> [String]
+    func bundleIdentifier(forApp name: String) -> String?
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord]
+    func permissionDetail(for action: DriverAction) -> String?
     func perform(_ action: DriverAction) async -> DriverResult
     /// Waits for the screen to stop changing after an action.
     func settle() async
@@ -64,7 +66,9 @@ public protocol TaskDriver: AnyObject {
 }
 
 extension TaskDriver {
+    public func bundleIdentifier(forApp name: String) -> String? { nil }
     public func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { KeyChord.offered(bundleId: observation.bundleId) }
+    public func permissionDetail(for action: DriverAction) -> String? { nil }
 }
 
 /// The daemon half of a task: plans and decides. Implemented over the
@@ -212,13 +216,14 @@ public final class TaskLoop {
             }
 
             let element = resolved.element
+            let actionDetail = driver.permissionDetail(for: resolved.action) ?? act.text
             let multiline = element?.role == "AXTextArea" || element?.role == "AXWebArea"
-            let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: resolved.role,
-                                          appBundleId: act.operation == .openApp ? nil : observation.bundleId,
+            let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: element?.role ?? resolved.role,
+                                          appBundleId: act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId,
                                           appName: act.operation == .openApp ? resolved.label : observation.app,
                                           secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
                                           window: observation.window, key: resolved.key, defaultButton: observation.defaultButton,
-                                          context: observation.screenText, typedText: act.text ?? "")
+                                          context: observation.screenText, typedText: actionDetail ?? "")
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
@@ -226,7 +231,7 @@ public final class TaskLoop {
                 return await finish(.blocked, detail: reason)
             case .ask(let reason):
                 let request = PermissionRequest(operation: act.operation, label: resolved.label, role: resolved.role,
-                                                app: observation.app, reason: reason, text: act.text)
+                                                app: observation.app, reason: reason, text: actionDetail)
                 state.task?.phase = .waitingForPermission(request)
                 let answer = await askPermission()
                 if answer == .deny || stopped {
@@ -234,7 +239,7 @@ public final class TaskLoop {
                     return await finish(.stopped, detail: "declined")
                 }
                 if answer == .allowAlways {
-                    if reason != ActionPolicy.Reason.settings.rawValue && !reason.hasPrefix("boundary:") {
+                    if reason != ActionPolicy.Reason.settings.rawValue && reason != "visualTarget" && !reason.hasPrefix("boundary:") {
                         let rule = ActionAllowRule(app: observation.bundleId ?? observation.app, operation: act.operation.rawValue, label: resolved.label)
                         policy.allowRules.insert(rule)
                         onAllowAlways?(rule)
@@ -255,7 +260,7 @@ public final class TaskLoop {
 
             state.task?.phase = .acting
             appendLine(TaskStepLine(id: step, operation: act.operation, target: resolved.label,
-                                    text: act.operation == .type ? act.text : nil, app: observation.app))
+                                    text: actionDetail, app: observation.app))
             let started = Date()
             let result = await driver.perform(resolved.action)
             await driver.settle()

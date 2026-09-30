@@ -154,10 +154,12 @@ public struct ActionPolicy: Sendable {
                 if case .ask = verdict { review = verdict }
             }
             if review != .allow { return review }
+            if role == UIElementSnapshot.visualTextRole { return .ask(reason: "visualTarget") }
             if approval == .everyStep { return .ask(reason: Reason.everyStep.rawValue) }
             return .allow
         }
         let app = appBundleId ?? appName
+        if role == UIElementSnapshot.visualTextRole { return .ask(reason: "visualTarget") }
         if allowRules.contains(ActionAllowRule(app: app, operation: operation.rawValue, label: label)) {
             return .allow
         }

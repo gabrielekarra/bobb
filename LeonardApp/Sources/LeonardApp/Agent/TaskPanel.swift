@@ -121,19 +121,19 @@ struct TaskView: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(.secondary)
             if let text = request.text, !text.isEmpty {
-                Text(text)
-                    .font(.system(size: 11.5))
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: Theme.smallCorner))
-                    .lineLimit(6)
+                ScrollView {
+                    Text(text).font(.system(size: 11.5)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                }.frame(maxHeight: 160)
             }
             HStack {
                 Button(L10n.t(.taskStop)) { actions.allow(.deny) }
                     .buttonStyle(QuietButtonStyle())
                 Spacer()
-                Button(L10n.t(.taskAllowAlways, ["app": request.app])) { actions.allow(.allowAlways) }
-                    .buttonStyle(QuietButtonStyle())
+                if !request.reason.hasPrefix("boundary:") && request.reason != "visualTarget" {
+                    Button(L10n.t(.taskAllowAlways, ["app": request.app])) { actions.allow(.allowAlways) }
+                        .buttonStyle(QuietButtonStyle())
+                }
                 Button(L10n.t(.taskAllow)) { actions.allow(.allowOnce) }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)
@@ -155,7 +155,10 @@ struct TaskView: View {
     }
 
     static func reason(_ reason: String) -> String {
-        switch ActionPolicy.Reason(rawValue: reason) {
+        if reason == "visualTarget" {
+            return BobbCopy.t("This target was read from the screen. Check it before clicking.", "Questo bersaglio è stato letto dallo schermo. Controllalo prima del clic.")
+        }
+        return switch ActionPolicy.Reason(rawValue: reason) {
         case .sends: L10n.t(.reasonSends)
         case .pays: L10n.t(.reasonPays)
         case .deletes: L10n.t(.reasonDeletes)

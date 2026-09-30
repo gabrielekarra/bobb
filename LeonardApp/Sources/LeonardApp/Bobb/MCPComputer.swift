@@ -135,10 +135,16 @@ final class MCPComputer: TaskDriver {
             descriptions.append("\(name): \(tool["description"]?.stringValue ?? "")\nArguments schema: \(String(decoding: schema, as: UTF8.self))")
         }
         return ScreenObservation(app: "MCP \(id)", bundleId: "mcp:\(id)", window: id, elements: elements,
-                                 screenText: descriptions.joined(separator: "\n") + "\nLast tool result:\n" + report)
+                                 screenText: "Last tool result:\n" + report + "\n" + descriptions.joined(separator: "\n"))
     }
     func installedApps() -> [String] { [] }
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { [] }
+    func permissionDetail(for action: DriverAction) -> String? {
+        switch action {
+        case .press(let key), .open(let key): return arguments[key / 2, default: "{}"]
+        default: return nil
+        }
+    }
     func perform(_ action: DriverAction) async -> DriverResult {
         guard enabled() else { connection.disconnect(); return .failed("connectorDisabled") }
         switch action {

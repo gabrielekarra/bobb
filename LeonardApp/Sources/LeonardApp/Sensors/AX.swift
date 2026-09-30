@@ -259,6 +259,8 @@ enum Keyboard {
         if command { flags.insert(.maskCommand) }
         if shift { flags.insert(.maskShift) }
         down?.flags = flags; up?.flags = flags
+        down?.setIntegerValueField(.eventSourceUserData, value: DesktopActivity.eventMarker)
+        up?.setIntegerValueField(.eventSourceUserData, value: DesktopActivity.eventMarker)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }

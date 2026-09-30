@@ -61,6 +61,7 @@ final class BobbWorkspace {
     }
 
     func start() {
+        DesktopActivity.shared.start()
         ticker = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.poll()
@@ -155,9 +156,7 @@ final class BobbWorkspace {
     }
 
     private static var desktopIdle: Bool {
-        [CGEventType.keyDown, .mouseMoved, .leftMouseDown, .rightMouseDown].allSatisfy {
-            CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) > 60
-        }
+        DesktopActivity.shared.isIdle
     }
     private func claim(runId: String? = nil, foreground: Bool) async {
         guard state.settings.actingEnabled, state.settings.bobb.boundaries.canWork() else { return }
@@ -228,7 +227,10 @@ final class BobbWorkspace {
         _ = await command("update_run", .object(["id": .string(run.id), "owner": .string(owner), "status": "waiting", "report": .string(reason)]))
         message = reason
     }
-    func stop(_ execution: WorkExecution) { execution.loop.stop() }
+    func stop(_ execution: WorkExecution) {
+        execution.loop.stop(); execution.task?.cancel()
+        (execution.driver as? MCPComputer)?.close()
+    }
     func allow(_ answer: PermissionAnswer, execution: WorkExecution) {
         if answer != .deny { execution.foreground = true }
         execution.loop.answerPermission(answer)

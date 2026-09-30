@@ -24,6 +24,7 @@ final class AXDriver: TaskDriver {
     var stillOwnsScreen: (() -> Bool)?
     private var fingerprints: [Int: String] = [:]
     private var windowTitle = ""
+    private var visualTargets: [Int: ScreenTextRecognizer.Control] = [:]
 
     static let maxNodes = 2600
     static let maxDepth = 40
@@ -38,13 +39,14 @@ final class AXDriver: TaskDriver {
         if let settings {
             let s = settings()
             guard s.bobb.boundaries.app(bundleId: front.bundleIdentifier, name: front.localizedName ?? "") != nil,
-                  !ScreenMemoryPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: front.bundleIdentifier, appName: front.localizedName ?? "") else {
+                  !ActionPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: front.bundleIdentifier, appName: front.localizedName ?? "") else {
                 return ScreenObservation(app: front.localizedName ?? "", bundleId: front.bundleIdentifier, window: "", elements: [])
             }
         }
         let app = AX.application(front.processIdentifier)
         AX.enableFullTree(app, pid: front.processIdentifier)
         elements.removeAll(keepingCapacity: true)
+        visualTargets.removeAll(keepingCapacity: true)
         frames.removeAll(keepingCapacity: true)
         let window = AX.element(app, "AXFocusedWindow") ?? AX.element(app, "AXMainWindow")
         let title = window.flatMap { AX.string($0, "AXTitle") } ?? ""
@@ -67,8 +69,17 @@ final class AXDriver: TaskDriver {
         fingerprints = Dictionary(uniqueKeysWithValues: elements.map { ($0.key, Self.fingerprint($0.value)) })
         var text = WindowReader.read(pid: front.processIdentifier, appName: front.localizedName ?? "",
                                       bundleId: front.bundleIdentifier, windowTitle: title)?.text ?? ""
-        if text.count < 40, settings?().readImages == true {
-            text = await ScreenTextRecognizer.read(pid: front.processIdentifier, windowTitle: title) ?? text
+        let hasControls = snapshots.contains { !$0.isMenuItem && ElementClassifier.kind(of: $0) == .press }
+        if text.count < 40 || !hasControls, settings?().readImages == true,
+           let readout = await ScreenTextRecognizer.readout(pid: front.processIdentifier, windowTitle: title) {
+            text = readout.text
+            if !hasControls {
+                for control in readout.controls {
+                    let key = nextKey; nextKey += 1; visualTargets[key] = control
+                    snapshots.append(UIElementSnapshot(key: key, role: UIElementSnapshot.visualTextRole, title: control.text,
+                                                       frame: Self.screenRect(control.frame)))
+                }
+            }
         }
         let defaultButton = window.flatMap { AX.element($0, "AXDefaultButton") }.flatMap { AX.string($0, "AXTitle") } ?? ""
         return ScreenObservation(app: front.localizedName ?? front.bundleIdentifier ?? "", bundleId: front.bundleIdentifier,
@@ -240,9 +251,11 @@ final class AXDriver: TaskDriver {
         case .openApp(let name):
             return await openApp(name)
         case .press(let key):
+            if visualTargets[key] != nil { return await pressVisual(key: key, count: 1) }
             guard let element = live(key) else { return .stale }
             return await press(element, key: key)
         case .open(let key):
+            if visualTargets[key] != nil { return await pressVisual(key: key, count: 2) }
             guard let element = live(key), !AX.isSecure(element) else { return .stale }
             if Self.actionNames(element).contains("AXOpen"), AXUIElementPerformAction(element, "AXOpen" as CFString) == .success { return .ok }
             guard let frame = Self.rect(of: element) else { return .stale }
@@ -261,6 +274,19 @@ final class AXDriver: TaskDriver {
     }
 
     /// The element for `key`, if it still exists.
+    private func pressVisual(key: Int, count: Int) async -> DriverResult {
+        let configuration = settings?()
+        guard let target = visualTargets[key], let pid = lastApp, settings?().readImages == true,
+              let current = await ScreenTextRecognizer.readout(pid: pid, windowTitle: windowTitle),
+              let live = current.controls.first(where: { $0.text == target.text && abs($0.frame.midX - target.frame.midX) < 6 && abs($0.frame.midY - target.frame.midY) < 6 }),
+              !Task.isCancelled, stillOwnsScreen?() != false, settings?() == configuration,
+              let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier == pid,
+              settings?().bobb.boundaries.app(bundleId: front.bundleIdentifier, name: front.localizedName ?? "") != nil,
+              let window = AX.element(AX.application(pid), "AXFocusedWindow"), (AX.string(window, "AXTitle") ?? "") == windowTitle else { return .stale }
+        Pointer.click(at: CGPoint(x: live.frame.midX, y: live.frame.midY), count: count)
+        return .ok
+    }
+
     private func live(_ key: Int) -> AXUIElement? {
         guard let element = elements[key] else { return nil }
         var role: CFTypeRef?
@@ -427,6 +453,10 @@ final class AXDriver: TaskDriver {
         }
     }
 
+    func bundleIdentifier(forApp name: String) -> String? {
+        InstalledApps.shared.url(for: name).flatMap { Bundle(url: $0)?.bundleIdentifier }
+    }
+
     // MARK: Helpers
 
     /// The first words inside an element, for controls that name themselves
@@ -494,6 +524,8 @@ enum Pointer {
             let up = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left)
             down?.setIntegerValueField(.mouseEventClickState, value: Int64(index))
             up?.setIntegerValueField(.mouseEventClickState, value: Int64(index))
+            down?.setIntegerValueField(.eventSourceUserData, value: DesktopActivity.eventMarker)
+            up?.setIntegerValueField(.eventSourceUserData, value: DesktopActivity.eventMarker)
             down?.post(tap: .cghidEventTap)
             up?.post(tap: .cghidEventTap)
         }
@@ -503,6 +535,7 @@ enum Pointer {
         let source = CGEventSource(stateID: .combinedSessionState)
         guard let event = CGEvent(scrollWheelEvent2Source: source, units: .line, wheelCount: 1, wheel1: lines, wheel2: 0, wheel3: 0) else { return }
         event.location = point
+        event.setIntegerValueField(.eventSourceUserData, value: DesktopActivity.eventMarker)
         event.post(tap: .cghidEventTap)
     }
 }

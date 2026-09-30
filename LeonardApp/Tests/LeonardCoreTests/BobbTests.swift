@@ -111,3 +111,40 @@ import Testing
     #expect(MessagesCommandDecoder.decode(plain: nil, attributedBody: Data(archive.dropLast())) == nil)
     #expect(MessagesCommandDecoder.decode(plain: nil, attributedBody: Data([0x84, 1, 0x2b, 0xff])) == nil)
 }
+
+@MainActor
+@Test func visualTargetsAskOnEveryObservationAndNeverPersistAlways() async {
+    let screen = ScreenObservation(app: "Canvas", bundleId: "canvas", window: "Canvas", elements: [
+        UIElementSnapshot(key: 1, role: UIElementSnapshot.visualTextRole, title: "Continue")
+    ])
+    let state = AppState(), driver = FakeDriver(screens: [screen])
+    let click: (TaskObserveFrame) -> ActFrame? = { frame in
+        ActFrame(ts: 0, observationId: frame.id, operation: .click, candidateId: frame.candidates[0].id,
+                 confidence: 0.9, schemaMass: 0.99, taskId: frame.taskId)
+    }
+    let brain = FakeBrain([click, click, { frame in
+        ActFrame(ts: 0, observationId: frame.id, operation: .done, candidateId: "", confidence: 1, schemaMass: 1, taskId: frame.taskId)
+    }])
+    var boundaries = BoundaryConfiguration()
+    boundaries.apps = [AppBoundary(id: "canvas", name: "Canvas")]
+    let loop = TaskLoop(goal: "Continue", state: state, brain: brain, driver: driver, policy: ActionPolicy(boundaries: boundaries))
+    var saved: [ActionAllowRule] = []
+    loop.onAllowAlways = { saved.append($0) }
+    let running = Task { await loop.run() }
+    for expectedCount in 0...1 {
+        for _ in 0..<2000 {
+            if driver.performed.count == expectedCount, case .waitingForPermission = state.task?.phase { break }
+            await Task.yield()
+        }
+        guard case .waitingForPermission(let request) = state.task?.phase else {
+            Issue.record("A visual target executed without asking"); loop.stop(); _ = await running.value; return
+        }
+        #expect(request.reason == "visualTarget")
+        #expect(driver.performed.count == expectedCount)
+        loop.answerPermission(expectedCount == 0 ? .allowAlways : .allowOnce)
+        while driver.performed.count <= expectedCount, !state.task!.isFinished { await Task.yield() }
+    }
+    #expect(await running.value == .done)
+    #expect(saved.isEmpty)
+    #expect(driver.performed.count == 2)
+}
