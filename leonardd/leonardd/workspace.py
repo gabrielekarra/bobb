@@ -179,6 +179,8 @@ class Workspace:
 
     def delete(self, kind, identifier):
         self.get(kind, identifier)
+        if kind == "agent" and len(self.entities("agent")) <= 1:
+            raise ValueError("at least one Bobb must remain")
         if kind == "agent" and any(e.get("agent_id") == identifier for k in ("job", "project") for e in self.entities(k)):
             raise ValueError("remove the agent's jobs and projects first")
         if self.conn.execute("SELECT 1 FROM bobb_runs WHERE status='running' AND (agent_id=? OR source_id=? OR project_id=?)",
@@ -263,7 +265,16 @@ class Workspace:
                 task_id = f"work_{uuid.uuid4().hex}"
                 self.conn.execute("UPDATE bobb_runs SET status='running',owner=?,lease=?,updated=?,task_id=? WHERE id=? AND status='queued'",
                                   (owner, now + 300, now, task_id, run["id"]))
-                claimed = {**run, "status": "running", "owner": owner, "task_id": task_id}
+                context = []
+                if run["project_id"]:
+                    project = self.get("project", run["project_id"])
+                    context.append("Project objective: " + project["goal"][:1000])
+                    completed = list(self.conn.execute("SELECT step,goal,report FROM bobb_runs WHERE project_id=? AND status='done' ORDER BY step DESC LIMIT 4", (run["project_id"],)))
+                    for previous in reversed(completed):
+                        context.append(f"Completed subtask {previous[0] + 1}: {previous[1][:300]}\nVerified report: {previous[2][:600]}")
+                if run["report"]:
+                    context.append("Previous attempt: " + run["report"][:1000] + "\nInspect the actual state before resuming. Never repeat an irreversible action merely because the previous attempt was interrupted.")
+                claimed = {**run, "status": "running", "owner": owner, "task_id": task_id, "context": "\n".join(context)}
                 break
             self.conn.commit()
             return claimed
@@ -338,6 +349,11 @@ class Workspace:
                 result = self.queue(job)
                 self.conn.execute("UPDATE bobb_runs SET source_id=NULL WHERE id=?", (result,))
                 self.conn.execute("DELETE FROM bobb_entities WHERE kind='job' AND id=?", (job["id"],))
+        elif op == "heartbeat":
+            # A late heartbeat cannot resurrect a completed run.
+            with self.conn:
+                self.conn.execute("UPDATE bobb_runs SET lease=?,updated=? WHERE id=? AND owner=? AND status IN ('running','waiting')",
+                                  (time.time() + 300, time.time(), payload.get("id"), payload.get("owner")))
         elif op == "update_run":
             self.update_run(payload.get("id"), payload.get("owner"), payload.get("status"), payload.get("report", ""))
         elif op == "retry":

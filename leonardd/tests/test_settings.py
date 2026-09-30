@@ -64,3 +64,17 @@ def test_unreadable_file_falls_back_to_defaults(tmp_path):
     path.write_text("{not json")
     assert load(path) == Settings()
     assert settings_mod.load(tmp_path / "missing.json") == Settings()
+
+
+def test_bobb_connections_are_explicit_and_round_trip(tmp_path):
+    from leonardd.settings import is_protected
+    settings = apply(Settings(), {"connected_apps": []})
+    assert is_protected(settings, app="Mail", bundle_id="com.apple.mail")
+    settings = apply(settings, {"connected_apps": ["com.apple.mail"]})
+    assert not is_protected(settings, app="Mail", bundle_id="com.apple.mail")
+    assert is_protected(settings, app="Safari", bundle_id="com.apple.Safari")
+    assert is_protected(apply(settings, {"connected_apps": ["com.apple.Passwords"]}), app="Passwords", bundle_id="com.apple.Passwords")
+    path = tmp_path / "settings.json"
+    save(settings, path)
+    assert load(path).connected_apps == frozenset({"com.apple.mail"})
+    assert apply(settings, {"connected_apps": "all"}).connected_apps == settings.connected_apps

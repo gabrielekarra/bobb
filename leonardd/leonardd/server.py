@@ -388,6 +388,12 @@ class LeonardServer:
     # ------------------------------------------------------------ attention
 
     async def _on_event(self, event: dict, client: _Client) -> None:
+        payload = event.get("payload") or {}
+        kind = event.get("kind", "")
+        bundle = payload.get("bundle_id") or ("com.apple.mail" if kind.startswith("mail.")
+                                               else "com.apple.iCal" if kind.startswith("calendar.") else None)
+        if settings_mod.is_protected(self.settings, app=event.get("app"), bundle_id=bundle):
+            return
         if event.get("id") and isinstance(event.get("kind"), str):
             self.workspace.event(event["kind"], str(event["id"]))
         obs = mail_observation(event)

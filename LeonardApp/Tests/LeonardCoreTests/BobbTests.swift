@@ -2,6 +2,14 @@ import Foundation
 import Testing
 @testable import LeonardCore
 
+@Test func aMixedActionMustRespectEveryBoundary() {
+    var boundaries = BoundaryConfiguration()
+    boundaries.apps = [AppBoundary(id: "shop", name: "Shop", actions: ["send": .allow, "pay": .deny])]
+    let policy = ActionPolicy(boundaries: boundaries)
+    #expect(policy.evaluate(operation: .click, label: "Confirm purchase", role: "AXButton", appBundleId: "shop", appName: "Shop") == .deny(reason: "boundary:pay"))
+    #expect(LeonardSettings().daemonFrame().connectedApps == [])
+}
+
 @Test func bobbDefaultsRequireExplicitConnectionsAndCloudConsent() {
     let settings = LeonardSettings()
     #expect(!settings.bobb.cloud.enabled)
@@ -35,7 +43,7 @@ import Testing
     boundaries.rules = ["non scrivere mai al mio capo senza chiedermelo"]
     boundaries.people = ["capo": ["Marco Rossi", "marco@firm.test"]]
     #expect(boundaries.evaluate(category: .send, bundleId: "mail", name: "Mail", context: "To Marco Rossi") == .ask(reason: "boundary:send"))
-    #expect(boundaries.evaluate(category: .send, bundleId: "mail", name: "Mail", context: "To Anna") == .allow)
+    #expect(boundaries.evaluate(category: .send, bundleId: "mail", name: "Mail", context: "To Anna") == .ask(reason: "boundary:send"))
     boundaries.rules = ["never delete anything"]
     #expect(boundaries.evaluate(category: .delete, bundleId: "mail", name: "Mail", context: "") == .deny(reason: "boundary:delete"))
     boundaries.rules = ["an unsupported constraint"]
@@ -89,4 +97,17 @@ import Testing
     #expect(settings.floor == 0.7); #expect(!settings.bobb.cloud.enabled)
     #expect(Entitlement.community.allowsAssistance)
     #expect(try JSONDecoder().decode(LeonardSettings.self, from: JSONEncoder().encode(settings)) == settings)
+}
+
+@Test func messagesCommandsAreBoundedAndArchivesAreNotExecuted() {
+    #expect(MessagesCommandDecoder.decode(plain: "/bobb status", attributedBody: nil) == "status")
+    #expect(MessagesCommandDecoder.decode(plain: "[Bobb] status", attributedBody: nil) == nil)
+    #expect(MessagesCommandDecoder.decode(plain: "/bobb " + String(repeating: "x", count: 4000), attributedBody: nil) == nil)
+    var archive = Data([4, 11]) + Data("streamtyped".utf8)
+    let text = Data("/bobb controlla il caffè".utf8)
+    archive += Data([0x84, 1, 0x2b, UInt8(text.count)]) + text
+    #expect(MessagesCommandDecoder.decode(plain: nil, attributedBody: archive) == "controlla il caffè")
+    #expect(MessagesCommandDecoder.decode(plain: "/bobb different", attributedBody: archive) == nil)
+    #expect(MessagesCommandDecoder.decode(plain: nil, attributedBody: Data(archive.dropLast())) == nil)
+    #expect(MessagesCommandDecoder.decode(plain: nil, attributedBody: Data([0x84, 1, 0x2b, 0xff])) == nil)
 }

@@ -81,12 +81,12 @@ final class MCPConnection {
         while let end = buffer.firstIndex(of: 10) {
             let line = Data(buffer[..<end]); buffer.removeSubrange(...end)
             guard let value = try? JSONDecoder().decode(JSONValue.self, from: line), value["jsonrpc"]?.stringValue == "2.0" else { continue }
-            guard let id = value["id"]?.stringValue else { continue }
-            if let pending = waiting.removeValue(forKey: id) {
+            guard let rawID = value["id"], rawID != .null else { continue }
+            if let id = rawID.stringValue, let pending = waiting.removeValue(forKey: id) {
                 if let result = value["result"] { pending.resume(returning: result) }
                 else { pending.resume(throwing: CloudError.response) }
             } else if value["method"] != nil {
-                try? send(.object(["jsonrpc": "2.0", "id": .string(id), "error": .object(["code": -32601, "message": "Host requests are not supported"])]))
+                try? send(.object(["jsonrpc": "2.0", "id": rawID, "error": .object(["code": -32601, "message": "Host requests are not supported"])]))
             }
         }
     }

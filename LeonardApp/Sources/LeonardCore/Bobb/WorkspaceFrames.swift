@@ -46,9 +46,10 @@ public struct WorkRun: Codable, Sendable, Equatable, Identifiable {
     public var status: String
     public var report: String
     public var taskId: String?
+    public var context: String?
     public var created: Double
     enum CodingKeys: String, CodingKey {
-        case id, goal, surface, url, status, report, created
+        case id, goal, surface, url, status, report, created, context
         case agentId = "agent_id", projectId = "project_id", taskId = "task_id"
     }
 }

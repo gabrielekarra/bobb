@@ -20,8 +20,9 @@ from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import mlx.core as mx  # noqa: E402

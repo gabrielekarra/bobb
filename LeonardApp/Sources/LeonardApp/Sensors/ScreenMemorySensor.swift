@@ -17,6 +17,7 @@ final class ScreenMemorySensor {
     /// looks at the same text.
     var onWindowText: ((WindowText) -> Void)?
     var policy: ScreenMemoryPolicy
+    var permitsApp: ((String?, String) -> Bool)?
     var interval: TimeInterval = 6
     var idleAfter: TimeInterval = 60
     /// Read text from pixels when a window exposes almost none (Settings).
@@ -71,19 +72,20 @@ final class ScreenMemorySensor {
         let name = front.localizedName ?? front.bundleIdentifier ?? ""
         let bundleId = front.bundleIdentifier
         // Decided before a single attribute is read.
-        guard !policy.isProtected(bundleId: bundleId, appName: name) else { return }
+        guard !policy.isProtected(bundleId: bundleId, appName: name), permitsApp?(bundleId, name) != false else { return }
         let pid = front.processIdentifier
         reading = true
         Task { [weak self] in
             var text = await Self.read(pid: pid, appName: name, bundleId: bundleId)
             guard let self else { return }
+            guard self.permitsApp?(bundleId, name) != false else { self.reading = false; return }
             var source = "screen"
             if (text?.text.count ?? 0) < 80, let recognized = await self.recognize(pid: pid, app: name, bundleId: bundleId, window: text?.window) {
                 text = recognized
                 source = "ocr"
             }
             self.reading = false
-            guard let text else { return }
+            guard let text, self.permitsApp?(bundleId, name) != false else { return }
             self.onWindowText?(text)
             if var frame = self.policy.frame(app: text.app, bundleId: text.bundleId, window: text.window, text: text.text, url: text.url) {
                 frame.source = source
@@ -95,7 +97,7 @@ final class ScreenMemorySensor {
     /// Text from the window's pixels, at most once a minute and a half per
     /// window, when the accessibility tree had almost nothing to say.
     private func recognize(pid: pid_t, app: String, bundleId: String?, window: String?) async -> WindowText? {
-        guard readImages, ScreenTextRecognizer.isAllowed else { return nil }
+        guard readImages, ScreenTextRecognizer.isAllowed, permitsApp?(bundleId, app) != false else { return nil }
         let title = window ?? AX.element(AX.application(pid), "AXFocusedWindow").flatMap { AX.string($0, "AXTitle") } ?? ""
         guard policy.mayRead(bundleId: bundleId, appName: app, windowTitle: title) else { return nil }
         let key = "\(bundleId ?? app)|\(title)"

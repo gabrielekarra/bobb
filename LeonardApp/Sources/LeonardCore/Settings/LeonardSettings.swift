@@ -69,7 +69,8 @@ public struct LeonardSettings: Codable, Sendable, Equatable {
             memoryRetentionDays: memoryRetentionDays,
             historyRetentionDays: historyRetentionDays,
             extraProtectedApps: extraProtectedApps,
-            timezone: TimeZone.current.identifier
+            timezone: TimeZone.current.identifier,
+            connectedApps: bobb.boundaries.apps.flatMap { [$0.id, $0.name] }
         )
     }
 

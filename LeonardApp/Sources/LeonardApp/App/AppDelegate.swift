@@ -75,6 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let composite = CompositeEventSource()
             composite.mail.onPermissionDenied = { [weak self] in self?.permissions.refresh() }
+            composite.mail.permitted = { [weak self] in
+                guard let self else { return false }
+                return self.state.settings.watching && self.state.settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil
+                    && !ScreenMemoryPolicy(extraProtected: self.state.settings.extraProtectedApps).isProtected(bundleId: "com.apple.mail", appName: "Mail")
+            }
             eventSource = composite
         }
         let coordinator = LeonardCoordinator(state: state, client: client, eventSource: eventSource)
@@ -82,6 +87,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.onSettingsChanged = { [weak self] settings in self?.settingsChanged(settings) }
 
         screenSensor = ScreenMemorySensor(policy: ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps))
+        screenSensor.permitsApp = { [weak self] id, name in
+            guard let self else { return false }
+            return self.state.settings.bobb.boundaries.app(bundleId: id, name: name) != nil
+        }
         screenSensor.onFrame = { [weak coordinator] frame in coordinator?.observe(frame) }
         screenSensor.onWindowText = { [weak self] text in self?.windowRead(text) }
         sentMail = SentMailSensor(seenFile: AppPaths.dataDirectory.appendingPathComponent("sent-seen.json"))
@@ -165,8 +174,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func syncSensors(_ settings: LeonardSettings) {
         screenSensor.readImages = settings.readImages && settings.memoryEnabled
-        if settings.watching && settings.trackPromises { sentMail.start() } else { sentMail.stop() }
-        if settings.watching && (settings.meetingPrep || settings.memoryEnabled) { calendar.start() } else { calendar.stop() }
+        let policy = ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps)
+        let mail = settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil
+            && !policy.isProtected(bundleId: "com.apple.mail", appName: "Mail")
+        let agenda = settings.bobb.boundaries.app(bundleId: "com.apple.iCal", name: "Calendar") != nil
+            && !policy.isProtected(bundleId: "com.apple.iCal", appName: "Calendar")
+        if settings.watching && settings.trackPromises && mail { sentMail.start() } else { sentMail.stop() }
+        if settings.watching && (settings.meetingPrep || settings.memoryEnabled) && agenda { calendar.start() } else { calendar.stop() }
     }
 
     /// The screen sensor's reads feed both screen memory and the

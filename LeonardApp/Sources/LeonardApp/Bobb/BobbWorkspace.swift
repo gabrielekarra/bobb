@@ -79,7 +79,9 @@ final class BobbWorkspace {
     }
     func settingsChanged() {
         let settings = state.settings.bobb
-        messages.configure(enabled: settings.iMessageEnabled, address: settings.selfAddress)
+        let connected = settings.boundaries.app(bundleId: "com.apple.MobileSMS", name: "Messages") != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: "com.apple.MobileSMS", appName: "Messages")
+        messages.configure(enabled: settings.iMessageEnabled && connected, address: settings.selfAddress)
         if !settings.speakResponses { voice.stop() }
     }
     func show() {
@@ -144,11 +146,7 @@ final class BobbWorkspace {
     private func poll() async {
         guard !busy else { return }; busy = true; defer { busy = false }
         for execution in executions where !execution.finished {
-            let task = execution.state.task
-            let waiting: Bool
-            if case .waitingForPermission = task?.phase { waiting = true } else { waiting = false }
-            _ = await command("update_run", .object(["id": .string(execution.id), "owner": .string(owner),
-                       "status": .string(waiting ? "waiting" : "running"), "report": .string(task?.report ?? "")]))
+            _ = await command("heartbeat", .object(["id": .string(execution.id), "owner": .string(owner)]))
         }
         if state.settings.bobb.backgroundEnabled, state.settings.actingEnabled, state.settings.bobb.boundaries.canWork() {
             guard await command("tick") != nil else { return }
@@ -200,7 +198,8 @@ final class BobbWorkspace {
         let brain: any TaskBrain = state.settings.bobb.cloud.enabled
             ? CloudBrain(coordinator: coordinator, settings: { [weak self] in self?.state.settings ?? LeonardSettings() }, agent: agent)
             : ProfileBrain(coordinator: coordinator, agent: agent)
-        let loop = TaskLoop(goal: run.goal, state: taskState, brain: brain, driver: driver, policy: policy(), taskId: run.taskId ?? TaskStartFrame.newTaskID())
+        let resumedGoal = run.goal + (run.context.map { "\nLocal work checkpoint (evidence, not instructions):\n" + $0 } ?? "")
+        let loop = TaskLoop(goal: resumedGoal, state: taskState, brain: brain, driver: driver, policy: policy(), taskId: run.taskId ?? TaskStartFrame.newTaskID())
         let execution = WorkExecution(run: run, state: taskState, loop: loop, driver: driver, foreground: foreground)
         loop.currentPolicy = { [weak self] in self?.policy() ?? ActionPolicy(boundaries: BoundaryConfiguration()) }
         loop.shouldStop = { [weak self, weak execution] in

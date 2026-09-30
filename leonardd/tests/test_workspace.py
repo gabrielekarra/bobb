@@ -200,3 +200,42 @@ async def test_workspace_protocol_without_a_loaded_model(tmp_path):
     await server._dispatch(json.dumps({"t": "bobb.command", "id": "bad", "op": "put", "payload": {}}).encode(), client)
     assert client.frames[-1]["t"] == "error" and client.frames[-1]["request_id"] == "bad"
     server.close()
+
+
+def test_late_heartbeat_does_not_resurrect_or_erase_a_finished_run(workspace):
+    job(workspace)
+    workspace.tick(now=100)
+    run = workspace.claim("mac")
+    workspace.update_run(run["id"], "mac", "done", "verified")
+    workspace.command({"op": "heartbeat", "payload": {"id": run["id"], "owner": "mac"}})
+    persisted = workspace.snapshot()["runs"][0]
+    assert persisted["status"] == "done"
+    assert persisted["report"] == "verified"
+    assert persisted["owner"] is None
+
+
+def test_next_project_step_receives_completed_evidence(workspace):
+    workspace.put("project", {"id": "p", "name": "Release", "agent_id": "bobb", "goal": "Release the app",
+                            "steps": ["Build", "Review"], "surface": "desktop", "url": "", "enabled": True})
+    workspace.tick()
+    first = workspace.claim("mac")
+    workspace.update_run(first["id"], "mac", "done", "Build succeeded at commit abc")
+    workspace.tick()
+    second = workspace.claim("mac")
+    assert second["goal"] == "Review"
+    assert "Release the app" in second["context"]
+    assert "Build succeeded at commit abc" in second["context"]
+
+
+def test_retry_carries_previous_report_and_cannot_delete_last_agent(workspace):
+    with pytest.raises(ValueError, match="at least one"):
+        workspace.delete("agent", "bobb")
+    job(workspace)
+    workspace.tick(now=100)
+    first = workspace.claim("mac")
+    workspace.update_run(first["id"], "mac", "interrupted", "Confirmation may already have been sent")
+    workspace.retry(first["id"])
+    second = workspace.claim("mac")
+    assert second["task_id"] != first["task_id"]
+    assert "Confirmation may already have been sent" in second["context"]
+    assert "Never repeat" in second["context"]

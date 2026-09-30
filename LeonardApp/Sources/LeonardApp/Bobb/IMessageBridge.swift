@@ -13,6 +13,7 @@ final class IMessageBridge {
     private var timer: Timer?
     private var lastRow: Int64 = 0
     private var address = ""
+    private var needsBaseline = true
     private let cursorURL = AppPaths.dataDirectory.appendingPathComponent("imessage-cursor.json")
 
     func configure(enabled: Bool, address: String) {
@@ -22,17 +23,18 @@ final class IMessageBridge {
         self.address = address
         if let data = try? Data(contentsOf: cursorURL), let cursor = try? JSONDecoder().decode(Cursor.self, from: data), cursor.address == address {
             lastRow = cursor.row
+            needsBaseline = false
         } else {
             // Start at the newest message, never turn old notes into requests.
-            lastRow = newestRow() ?? 0
-            saveCursor()
+            needsBaseline = true
+            if let newest = newestRow() { lastRow = newest; needsBaseline = false; saveCursor() }
         }
         poll()
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
     }
-    func stop() { timer?.invalidate(); timer = nil; address = ""; status = "Disabled" }
+    func stop() { timer?.invalidate(); timer = nil; address = ""; needsBaseline = true; status = "Disabled" }
     private struct Cursor: Codable { var address: String; var row: Int64 }
     private func saveCursor() {
         if let data = try? JSONEncoder().encode(Cursor(address: address, row: lastRow)) {
@@ -57,9 +59,14 @@ final class IMessageBridge {
         return sqlite3_step(statement) == SQLITE_ROW ? sqlite3_column_int64(statement, 0) : nil
     }
     private func poll() {
-        guard !address.isEmpty, let db = database() else { return }; defer { sqlite3_close(db) }
+        guard !address.isEmpty else { return }
+        if needsBaseline {
+            guard let newest = newestRow() else { return }
+            lastRow = newest; needsBaseline = false; saveCursor()
+        }
+        guard let db = database() else { return }; defer { sqlite3_close(db) }
         let sql = """
-        SELECT m.ROWID,m.text FROM message m
+        SELECT m.ROWID,m.text,m.attributedBody FROM message m
         JOIN chat_message_join cm ON cm.message_id=m.ROWID
         JOIN chat c ON c.ROWID=cm.chat_id
         WHERE m.ROWID>? AND m.service='iMessage' AND c.style=45 AND c.chat_identifier=?
@@ -77,10 +84,16 @@ final class IMessageBridge {
             lastRow = max(lastRow, sqlite3_column_int64(statement, 0))
             // Commit before dispatch; a crash cannot duplicate a remote send.
             saveCursor()
-            guard let value = sqlite3_column_text(statement, 1) else { continue }
-            let message = String(cString: value)
-            guard message.hasPrefix("/bobb "), message.count <= 4000 else { continue }
-            onCommand?(String(message.dropFirst(6)), address)
+            var plain = sqlite3_column_text(statement, 1).map { String(cString: $0) }
+            let count = Int(sqlite3_column_bytes(statement, 2))
+            let body = count > 0 && count <= 65536 ? sqlite3_column_blob(statement, 2).map { Data(bytes: $0, count: count) } : nil
+            if plain == nil, let body, body.starts(with: Data("bplist".utf8)),
+               let value = try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [NSAttributedString.self, NSMutableAttributedString.self, NSString.self,
+                  NSMutableString.self, NSDictionary.self, NSArray.self, NSNumber.self], from: body) as? NSAttributedString {
+                plain = value.string
+            }
+            guard let command = MessagesCommandDecoder.decode(plain: plain, attributedBody: body) else { continue }
+            onCommand?(command, address)
         }
         status = "Listening to your self chat. Start commands with /bobb."
     }

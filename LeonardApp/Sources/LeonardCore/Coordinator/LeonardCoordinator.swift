@@ -62,7 +62,7 @@ public final class LeonardCoordinator {
         eventTask = Task { [weak self] in
             guard let self else { return }
             for await event in self.eventSource.events {
-                guard self.state.watching, self.state.entitlement.allowsAssistance else { continue }
+                guard self.state.watching, self.state.entitlement.allowsAssistance, self.permits(event) else { continue }
                 self.state.recordEvent(event)
                 await self.client.send(event: event)
             }
@@ -94,7 +94,7 @@ public final class LeonardCoordinator {
     /// An event produced outside the event source (the conversation
     /// tracker rides on the screen sensor's reads).
     public func submit(_ event: EventFrame) {
-        guard state.watching, state.entitlement.allowsAssistance else { return }
+        guard state.watching, state.entitlement.allowsAssistance, permits(event) else { return }
         state.recordEvent(event)
         let ipc = client
         Task { await ipc.send(event: event) }
@@ -239,9 +239,18 @@ public final class LeonardCoordinator {
     // MARK: Memory
 
     public func observe(_ frame: MemoryObserveFrame) {
-        guard state.settings.memoryEnabled, state.watching, state.entitlement.allowsAssistance else { return }
+        guard state.settings.memoryEnabled, state.watching, state.entitlement.allowsAssistance,
+              state.settings.bobb.boundaries.app(bundleId: frame.bundleId, name: frame.app) != nil else { return }
         memorySink?(frame)
         Task { await client.send(.memoryObserve(frame)) }
+    }
+
+    private func permits(_ event: EventFrame) -> Bool {
+        let kind = event.kind.rawValue
+        let bundle = event.payload.fields["bundle_id"]?.stringValue
+            ?? (kind.hasPrefix("mail.") ? "com.apple.mail" : kind.hasPrefix("calendar.") ? "com.apple.iCal" : nil)
+        return state.settings.bobb.boundaries.app(bundleId: bundle, name: event.app) != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: bundle, appName: event.app)
     }
 
     public func searchMemory(_ query: String, app: String? = nil) async -> MemoryResultsFrame? {
