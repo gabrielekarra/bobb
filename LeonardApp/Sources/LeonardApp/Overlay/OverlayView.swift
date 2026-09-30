@@ -51,7 +51,7 @@ struct OverlayView: View {
         }
         .padding(14)
         .frame(width: 340, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+        .bobbGlass()
         .overlay(
             RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)

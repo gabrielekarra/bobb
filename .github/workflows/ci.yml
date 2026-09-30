@@ -92,7 +92,7 @@ jobs:
         run: swift test -j 1
 
   package:
-    name: Leonard.dmg (bundle, daemon smoke test, DMG)
+    name: Bobb.dmg (bundle, daemon smoke test, DMG)
     runs-on: macos-latest
     needs: [app, daemon]
     steps:
@@ -108,11 +108,11 @@ jobs:
         run: scripts/package.sh
       - name: Render screenshots of the real views
         run: |
-          dist/Leonard.app/Contents/MacOS/LeonardApp --render-docs dist/screenshots || true
+          dist/Bobb.app/Contents/MacOS/BobbApp --render-docs dist/screenshots || true
           ls -la dist/screenshots || true
       - uses: actions/upload-artifact@v4
         with:
-          name: Leonard-dmg
+          name: Bobb-dmg
           path: |
             dist/*.dmg
             dist/*.sha256

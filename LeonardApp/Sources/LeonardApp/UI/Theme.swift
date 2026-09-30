@@ -11,8 +11,8 @@ enum Theme {
     static let nearMiss = Color.red
     static let calm = Color.secondary
 
-    static let corner: CGFloat = 12
-    static let smallCorner: CGFloat = 8
+    static let corner: CGFloat = 18
+    static let smallCorner: CGFloat = 10
 
     static func sectionTitle(_ text: String) -> some View {
         Text(text.uppercased())
@@ -32,7 +32,7 @@ struct Pill: View {
             .foregroundStyle(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 2.5)
-            .background(color.opacity(0.12), in: Capsule())
+            .bobbGlass(radius: 20, tint: color.opacity(0.12))
     }
 }
 
@@ -40,10 +40,11 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Theme.accent.opacity(configuration.isPressed ? 0.8 : 1), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .foregroundStyle(Theme.accent)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .bobbGlass(radius: 20, tint: Theme.accent.opacity(configuration.isPressed ? 0.3 : 0.16), interactive: true)
+            .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }
 
@@ -51,10 +52,11 @@ struct QuietButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12))
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.primary.opacity(configuration.isPressed ? 0.1 : 0.05), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .foregroundStyle(configuration.role == .destructive ? Color.red : Color.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .bobbGlass(radius: 18, interactive: true)
+            .opacity(configuration.isPressed ? 0.65 : 1)
     }
 }
 
@@ -70,7 +72,7 @@ struct CheckChip: View {
         .foregroundStyle(Theme.attention)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(Theme.attention.opacity(0.12), in: Capsule())
+        .bobbGlass(radius: 20, tint: Theme.attention.opacity(0.12))
     }
 }
 
@@ -149,7 +151,10 @@ enum WindowPresenter {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: style, backing: .buffered, defer: false)
         window.title = title
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: content.tint(Theme.accent))
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.contentView = NSHostingView(rootView: content.bobbWindowStyle())
         window.center()
         return window
     }

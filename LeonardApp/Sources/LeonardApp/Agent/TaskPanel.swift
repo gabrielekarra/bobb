@@ -140,7 +140,7 @@ struct TaskView: View {
             }
         }
         .padding(10)
-        .background(Theme.attention.opacity(0.10), in: RoundedRectangle(cornerRadius: Theme.corner))
+        .bobbGlass(tint: Theme.attention.opacity(0.10))
     }
 
     static func question(_ request: PermissionRequest) -> String {
@@ -205,7 +205,7 @@ struct TaskView: View {
             }
         }
         .padding(10)
-        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.corner))
+        .bobbGlass(tint: Theme.accent.opacity(0.08))
     }
 
     static func outcome(status: TaskStatus, detail: String) -> String {
@@ -436,7 +436,7 @@ final class TaskController {
                 showMe: { [weak self] in self?.startShowing() },
                 finishShowing: { [weak self] keep in self?.finishShowing(keep: keep) }
             ))
-            let hosting = NSHostingView(rootView: view.background(.regularMaterial))
+            let hosting = NSHostingView(rootView: view.bobbGlass(radius: 20))
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 120),
                                 styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
                                 backing: .buffered, defer: false)

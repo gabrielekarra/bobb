@@ -32,7 +32,7 @@ final class StatusItemController {
             button.addSubview(iconView)
             button.target = self
             button.action = #selector(togglePopover)
-            button.setAccessibilityLabel("Leonard")
+            button.setAccessibilityLabel("Bobb")
         }
 
         observeState()
@@ -45,7 +45,7 @@ final class StatusItemController {
             popover.performClose(nil)
             return
         }
-        popover.contentViewController = NSHostingController(rootView: MenuBarPopoverView(state: state, actions: makeActions(self)))
+        popover.contentViewController = NSHostingController(rootView: MenuBarPopoverView(state: state, actions: makeActions(self)).bobbWindowStyle())
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
@@ -69,6 +69,6 @@ final class StatusItemController {
     private func refreshIcon() {
         iconView.activityState = state.activityState
         iconView.watching = state.watching
-        statusItem.button?.toolTip = "Leonard"
+        statusItem.button?.toolTip = "Bobb"
     }
 }

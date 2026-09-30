@@ -39,7 +39,7 @@ var targets: [Target] = extraTargets + [
 ]
 
 #if os(macOS)
-products.append(.executable(name: "LeonardApp", targets: ["LeonardApp"]))
+products.append(.executable(name: "BobbApp", targets: ["LeonardApp"]))
 targets.append(
     .executableTarget(
         name: "LeonardApp",

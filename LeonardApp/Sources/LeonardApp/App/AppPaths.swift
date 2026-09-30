@@ -85,10 +85,10 @@ enum BuildInfo {
 
     static let developmentLicenseKey = "pKVQLNy-XRirFvGnkNLtDBOHwpeMoz81bSN3RwGKy08"
 
-    static var isDevelopmentBuild: Bool { licensePublicKey == developmentLicenseKey }
+    static var isDevelopmentBuild: Bool { !Bundle.main.bundleURL.path.hasSuffix(".app") }
 
-    static let website = URL(string: "https://leonard.app")!
-    static let buyURL = URL(string: "https://leonard.app/buy")!
-    static let releasesURL = URL(string: "https://leonard.app/releases")!
+    static let website = URL(string: "https://github.com/gabrielekarra/leonard")!
+    static let buyURL = website
+    static let releasesURL = URL(string: "https://github.com/gabrielekarra/leonard/releases")!
     static let supportEmail = "support@leonard.app"
 }

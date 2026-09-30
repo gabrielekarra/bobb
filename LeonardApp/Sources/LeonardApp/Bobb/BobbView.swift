@@ -29,6 +29,20 @@ struct BobbView: View {
     @State private var connectorExecutable = ""
     @State private var connectorArguments = ""
 
+    init(workspace: BobbWorkspace, initialTab: String = "identity") {
+        self.workspace = workspace
+        _tab = State(initialValue: initialTab)
+    }
+
+    private var pages: [(id: String, title: String, icon: String)] {
+        [("identity", t("Your Bobb", "Il tuo Bobb"), "person.crop.circle"),
+         ("boundaries", t("Boundaries", "Confini"), "hand.raised"),
+         ("work", t("Work", "Lavoro"), "checklist"),
+         ("activity", t("Activity", "Attività"), "clock"),
+         ("brain", t("Brain", "Cervello"), "cpu"),
+         ("computers", t("Computers", "Computer"), "desktopcomputer")]
+    }
+
     private var state: AppState { workspace.state }
     private func t(_ en: String, _ it: String) -> String { BobbCopy.t(en, it) }
     private func binding<T>(_ path: WritableKeyPath<BobbSettings, T>) -> Binding<T> {
@@ -37,31 +51,82 @@ struct BobbView: View {
     private func hint(_ text: String) -> some View { Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text("Bobb").font(.title2.bold())
-                Picker(t("Active Bobb", "Bobb attivo"), selection: binding(\.activeAgent)) {
-                    ForEach(workspace.agents) { agent in Text(agent.name).tag(agent.id) }
-                }.frame(width: 240)
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 14) {
+                    LeonardMark(size: 64)
+                    Text("Bobb").font(.system(size: 28, weight: .bold, design: .rounded))
+                    Text(t("A little help.\nRoom for big ideas.", "Un piccolo aiuto.\nSpazio alle grandi idee."))
+                        .font(.callout).foregroundStyle(.secondary)
+                }.padding(.horizontal, 12).padding(.top, 12)
+                BobbGlassGroup {
+                    VStack(spacing: 6) {
+                        ForEach(pages, id: \.id) { page in
+                            Button {
+                                tab = page.id
+                            } label: {
+                                Label(page.title, systemImage: page.icon)
+                                    .font(.system(size: 13, weight: tab == page.id ? .semibold : .regular))
+                                    .foregroundStyle(tab == page.id ? Theme.accent : .primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 14).padding(.vertical, 12)
+                                    .background {
+                                        if tab == page.id {
+                                            Color.clear.bobbGlass(radius: 14, tint: Theme.accent.opacity(0.14), interactive: true)
+                                        }
+                                    }
+                            }.buttonStyle(.plain)
+                                .accessibilityAddTraits(tab == page.id ? .isSelected : [])
+                        }
+                    }
+                }
                 Spacer()
-                Toggle(t("Background work", "Lavoro in background"), isOn: binding(\.backgroundEnabled)).toggleStyle(.switch)
-            }.padding()
-            if let message = workspace.message {
-                HStack { Text(message).foregroundStyle(.orange); Spacer(); Button(t("Dismiss", "Chiudi")) { workspace.message = nil } }.padding(.horizontal)
+                Label(t("Your Mac. Your boundaries.", "Il tuo Mac. I tuoi confini."), systemImage: "lock.shield")
+                    .font(.caption).foregroundStyle(.secondary).padding(12)
             }
-            TabView(selection: $tab) {
-                identity.tabItem { Label(t("Your Bobb", "Il tuo Bobb"), systemImage: "person.crop.circle") }.tag("identity")
-                boundaries.tabItem { Label(t("Boundaries", "Confini"), systemImage: "hand.raised") }.tag("boundaries")
-                work.tabItem { Label(t("Work", "Lavoro"), systemImage: "checklist") }.tag("work")
-                activity.tabItem { Label(t("Activity", "Attività"), systemImage: "clock") }.tag("activity")
-                brain.tabItem { Label(t("Brain", "Cervello"), systemImage: "cpu") }.tag("brain")
-                computers.tabItem { Label(t("Computers", "Computer"), systemImage: "desktopcomputer") }.tag("computers")
-            }.padding()
+            .padding(12).frame(width: 190).bobbGlass(radius: 24)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(pages.first { $0.id == tab }?.title ?? "Bobb")
+                            .font(.system(size: 25, weight: .bold, design: .rounded))
+                        Text(workspace.activeAgent.name).font(.callout).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker(t("Active Bobb", "Bobb attivo"), selection: binding(\.activeAgent)) {
+                        ForEach(workspace.agents) { agent in Text(agent.name).tag(agent.id) }
+                    }.labelsHidden().frame(width: 130).help(t("Active Bobb", "Bobb attivo"))
+                    Toggle(t("Background", "Background"), isOn: binding(\.backgroundEnabled))
+                        .toggleStyle(.switch).font(.caption).fixedSize()
+                }.padding(.horizontal, 8)
+                if let message = workspace.message {
+                    HStack(alignment: .top) {
+                        Label(message, systemImage: "info.circle").font(.callout)
+                        Spacer()
+                        Button(t("Dismiss", "Chiudi")) { workspace.message = nil }
+                    }.padding(12).bobbGlass(tint: Theme.attention.opacity(0.10))
+                }
+                pageContent.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .scrollContentBackground(.hidden)
+            }.padding(.vertical, 12)
         }
+        .padding(20)
         .frame(minWidth: 820, minHeight: 660)
+        .bobbWindowStyle()
         .onAppear { loadIdentity(); loadAliases() }
         .onChange(of: workspace.activeAgent.id) { _, _ in loadIdentity() }
         .onChange(of: workspace.snapshot?.agents) { _, _ in loadIdentity() }
+    }
+
+    @ViewBuilder private var pageContent: some View {
+        switch tab {
+        case "boundaries": boundaries
+        case "work": work
+        case "activity": activity
+        case "brain": brain
+        case "computers": computers
+        default: identity
+        }
     }
 
     private var identity: some View {

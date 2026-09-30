@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.refreshEntitlement() }
         }
 
-        if !settings.onboardingCompleted || !downloader.isInstalled {
+        if !settings.onboardingCompleted || (!downloader.isInstalled && settings.bobb.localModelPath.isEmpty && !settings.bobb.cloud.enabled) {
             showOnboarding()
         }
     }
@@ -247,7 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             openLicense: { [weak self, weak controller] in
                 controller?.closePopover()
-                self?.showSettings(tab: .license)
+                self?.bobb.show()
             },
             openOnboarding: { [weak self, weak controller] in
                 controller?.closePopover()
@@ -315,7 +315,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 startDownload: { [weak self] in self?.startDownload() },
                 finish: { [weak self] in self?.finishOnboarding() }
             )
-            let window = WindowPresenter.makeWindow(title: "Leonard", size: NSSize(width: 640, height: 520), resizable: false, content: view)
+            let window = WindowPresenter.makeWindow(title: "Bobb", size: NSSize(width: 640, height: 520), resizable: false, content: view)
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             onboardingWindow = window
@@ -356,17 +356,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// machine's basics. No memory, no history, no drafts.
     private func exportDiagnostics() {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "Leonard-diagnostics.zip"
+        panel.nameFieldStringValue = "Bobb-diagnostics.zip"
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         let fm = FileManager.default
-        let staging = fm.temporaryDirectory.appendingPathComponent("Leonard-diagnostics-\(UUID().uuidString)", isDirectory: true)
+        let staging = fm.temporaryDirectory.appendingPathComponent("Bobb-diagnostics-\(UUID().uuidString)", isDirectory: true)
         try? fm.createDirectory(at: staging, withIntermediateDirectories: true)
         if let logs = try? fm.contentsOfDirectory(at: AppPaths.logsDirectory, includingPropertiesForKeys: nil) {
             for log in logs { try? fm.copyItem(at: log, to: staging.appendingPathComponent(log.lastPathComponent)) }
         }
-        try? fm.copyItem(at: AppPaths.settingsFile, to: staging.appendingPathComponent("app-settings.json"))
+        let summary: [String: Any] = ["language": state.settings.language.rawValue,
+            "watching": state.settings.watching, "memory_enabled": state.settings.memoryEnabled,
+            "cloud_enabled": state.settings.bobb.cloud.enabled, "background_enabled": state.settings.bobb.backgroundEnabled]
+        if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted]) {
+            try? data.write(to: staging.appendingPathComponent("app-settings.json"))
+        }
         let info = """
-        Leonard \(BuildInfo.version) (\(BuildInfo.build))
+        Bobb \(BuildInfo.version) (\(BuildInfo.build))
         macOS \(ProcessInfo.processInfo.operatingSystemVersionString)
         Memory: \(ProcessInfo.processInfo.physicalMemory / 1_073_741_824) GB
         Model installed: \(downloader.isInstalled)

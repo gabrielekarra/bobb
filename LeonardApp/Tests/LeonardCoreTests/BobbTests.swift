@@ -120,10 +120,10 @@ import Testing
     let state = AppState(), driver = FakeDriver(screens: [screen])
     let click: (TaskObserveFrame) -> ActFrame? = { frame in
         ActFrame(ts: 0, observationId: frame.id, operation: .click, candidateId: frame.candidates[0].id,
-                 confidence: 0.9, schemaMass: 0.99, taskId: frame.taskId)
+                 confidence: 0.9, schemaMass: 0.99, latencyMs: 0, taskId: frame.taskId)
     }
     let brain = FakeBrain([click, click, { frame in
-        ActFrame(ts: 0, observationId: frame.id, operation: .done, candidateId: "", confidence: 1, schemaMass: 1, taskId: frame.taskId)
+        ActFrame(ts: 0, observationId: frame.id, operation: .done, candidateId: "", confidence: 1, schemaMass: 1, latencyMs: 0, taskId: frame.taskId)
     }])
     var boundaries = BoundaryConfiguration()
     boundaries.apps = [AppBoundary(id: "canvas", name: "Canvas")]

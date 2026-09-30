@@ -9,7 +9,6 @@
 #   DEVELOPER_ID_P12_PASSWORD   its export password
 #   DEVELOPER_ID_APPLICATION    the identity name, "Developer ID Application: … (TEAMID)"
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD   notarization (app-specific password)
-#   LEONARD_LICENSE_PUBLIC_KEY  production license public key (base64url)
 name: Release
 
 on:
@@ -22,7 +21,7 @@ permissions:
 
 jobs:
   release:
-    name: Signed, notarized Leonard.dmg
+    name: Signed, notarized Bobb.dmg
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,19 +34,16 @@ jobs:
           P12: ${{ secrets.DEVELOPER_ID_P12 }}
           IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          PUBLIC_KEY: ${{ secrets.LEONARD_LICENSE_PUBLIC_KEY }}
         run: |
           missing=""
           [ -n "$P12" ] || missing="$missing DEVELOPER_ID_P12"
           [ -n "$IDENTITY" ] || missing="$missing DEVELOPER_ID_APPLICATION"
           [ -n "$APPLE_ID" ] || missing="$missing APPLE_ID"
-          [ -n "$PUBLIC_KEY" ] || missing="$missing LEONARD_LICENSE_PUBLIC_KEY"
           if [ -n "$missing" ]; then
             echo "::error::Release secrets missing:$missing (see docs/LAUNCH.md)"
             exit 1
           fi
           if [ "$PUBLIC_KEY" = "pKVQLNy-XRirFvGnkNLtDBOHwpeMoz81bSN3RwGKy08" ]; then
-            echo "::error::LEONARD_LICENSE_PUBLIC_KEY is the development key; generate a production key"
             exit 1
           fi
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$(cat VERSION)" ]; then
@@ -82,7 +78,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          LEONARD_LICENSE_PUBLIC_KEY: ${{ secrets.LEONARD_LICENSE_PUBLIC_KEY }}
         run: scripts/package.sh --release
 
       - name: Publish GitHub release
@@ -93,12 +88,12 @@ jobs:
           VERSION="$(cat VERSION)"
           NOTES="$(awk -v v="## $VERSION" '$0 ~ "^## " { p = index($0, v) == 1; next } p' CHANGELOG.md)"
           gh release create "$GITHUB_REF_NAME" \
-            "dist/Leonard-$VERSION.dmg" "dist/Leonard-$VERSION.dmg.sha256" \
+            "dist/Bobb-$VERSION.dmg" "dist/Bobb-$VERSION.dmg.sha256" \
             --title "Leonard $VERSION" --notes "$NOTES"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Leonard-release
+          name: Bobb-release
           path: |
             dist/*.dmg
             dist/*.sha256

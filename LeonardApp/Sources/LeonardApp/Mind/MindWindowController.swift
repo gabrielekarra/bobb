@@ -13,10 +13,13 @@ final class MindWindowController: NSWindowController {
         )
         window.title = "Mind"
         window.isReleasedWhenClosed = false
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
         window.minSize = NSSize(width: 720, height: 440)
         window.center()
         super.init(window: window)
-        window.contentView = NSHostingView(rootView: MindView(state: state, coordinator: coordinator))
+        window.contentView = NSHostingView(rootView: MindView(state: state, coordinator: coordinator).bobbWindowStyle())
     }
 
     @available(*, unavailable)

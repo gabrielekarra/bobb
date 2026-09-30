@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds Leonard.app and, unless --app-only, the complete, self-contained
+# Builds Bobb.app and, unless --app-only, the complete, self-contained
 # product: the Swift app, a relocatable Python with leonardd and its locked
 # dependencies inside the bundle, code signatures, a DMG, and notarization.
 #
@@ -11,7 +11,6 @@
 # Environment:
 #   LEONARD_VERSION              marketing version (default: ./VERSION)
 #   LEONARD_BUILD                build number (default: git commit count)
-#   LEONARD_LICENSE_PUBLIC_KEY   production license key (required: --release)
 #   DEVELOPER_ID_APPLICATION     codesign identity, e.g. "Developer ID
 #                                Application: Leonard S.r.l. (TEAMID)"
 #   NOTARY_PROFILE               notarytool keychain profile, or
@@ -24,7 +23,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_SRC="$ROOT/LeonardApp"
 DIST="$ROOT/dist"
 WORK="$DIST/work"
-APP="$DIST/Leonard.app"
+APP="$DIST/Bobb.app"
 PYTHON_SERIES="3.12"
 
 MODE="full"
@@ -43,7 +42,6 @@ BUILD_DATE="$(date -u +%Y-%m-%d)"
 IDENTITY="${DEVELOPER_ID_APPLICATION:--}"
 
 if [[ $RELEASE == 1 ]]; then
-    [[ -n "${LEONARD_LICENSE_PUBLIC_KEY:-}" ]] || { echo "error: --release needs LEONARD_LICENSE_PUBLIC_KEY (the development key must never ship)" >&2; exit 1; }
     [[ "$IDENTITY" != "-" ]] || { echo "error: --release needs DEVELOPER_ID_APPLICATION" >&2; exit 1; }
     [[ "$MODE" == "full" ]] || { echo "error: --release builds the full bundle" >&2; exit 1; }
 fi
@@ -57,7 +55,7 @@ mkdir -p "$WORK" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 step "swift build (release, arm64)"
 (cd "$APP_SRC" && swift build -c release --arch arm64)
 BIN="$(cd "$APP_SRC" && swift build -c release --arch arm64 --show-bin-path)"
-cp "$BIN/LeonardApp" "$APP/Contents/MacOS/LeonardApp"
+cp "$BIN/BobbApp" "$APP/Contents/MacOS/BobbApp"
 
 step "Info.plist ($VERSION, build $BUILD, $BUILD_DATE)"
 cp "$APP_SRC/Info.plist" "$APP/Contents/Info.plist"
@@ -65,14 +63,12 @@ PLIST="$APP/Contents/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$PLIST"
 plutil -replace CFBundleVersion -string "$BUILD" "$PLIST"
 plutil -replace LeonardBuildDate -string "$BUILD_DATE" "$PLIST"
-if [[ -n "${LEONARD_LICENSE_PUBLIC_KEY:-}" ]]; then
-    plutil -replace LeonardLicensePublicKey -string "$LEONARD_LICENSE_PUBLIC_KEY" "$PLIST"
-fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 step "resources"
 iconutil -c icns "$APP_SRC/Resources/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 cp -R "$APP_SRC/Resources/en.lproj" "$APP_SRC/Resources/it.lproj" "$APP/Contents/Resources/"
+cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 # ---------------------------------------------------------------- the daemon
@@ -154,7 +150,7 @@ codesign --verify --deep --strict --verbose=1 "$APP"
 
 # ---------------------------------------------------------------- DMG
 step "DMG"
-DMG="$DIST/Leonard-$VERSION.dmg"
+DMG="$DIST/Bobb-$VERSION.dmg"
 STAGE="$WORK/dmg"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"

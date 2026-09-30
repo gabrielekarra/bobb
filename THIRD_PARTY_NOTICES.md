@@ -1,6 +1,7 @@
 # Third-party notices
 
-Leonard is proprietary software. It includes, or downloads with your
+Bobb's source code is distributed under the MIT License (see LICENSE).
+It includes, or downloads with your
 permission, the following third-party components under their own licenses.
 
 ## The language model
