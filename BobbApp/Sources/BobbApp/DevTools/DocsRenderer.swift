@@ -1,14 +1,16 @@
 import AppKit
 import SwiftUI
 import BobbCore
+import ScreenCaptureKit
 
 /// Renders the real production views to PNG with fixture data, in English
 /// and Italian, for the docs and the website. Draws into an off-screen
-/// bitmap (`NSView.cacheDisplay`), so it needs no Screen Recording grant;
-/// the window it renders from is parked off every screen and never
-/// activated. Invoked only via `BobbApp --render-docs [output-dir]`.
+/// bitmap by default. `--render-native` captures only the process's own
+/// fixture window through ScreenCaptureKit, against a synthetic backdrop,
+/// to include native glass without a Screen Recording grant. Invoked only
+/// via `BobbApp --render-docs [output-dir]`.
 @MainActor
-func renderDocsScreenshots() {
+func renderDocsScreenshots() async {
     let output: URL
     if let dir = AppPaths.argument("--render-docs") {
         output = URL(fileURLWithPath: dir, isDirectory: true)
@@ -20,7 +22,7 @@ func renderDocsScreenshots() {
     try? FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
 
     for dark in [false, true] {
-        render(MarkSheet(), size: nil, appearance: NSAppearance(named: dark ? .darkAqua : .aqua),
+        await render(MarkSheet(), size: nil, appearance: NSAppearance(named: dark ? .darkAqua : .aqua),
                to: output.appendingPathComponent("mark\(dark ? "-dark" : "").png"))
     }
 
@@ -39,38 +41,49 @@ func renderDocsScreenshots() {
                 AppBoundary(id: "bobb.browser", name: "Bobb Browser"),
             ]
             let workspace = BobbWorkspace(state: state, coordinator: coordinator)
-            for page in ["identity", "boundaries", "work", "activity", "brain", "computers"] {
-                render(BobbView(workspace: workspace, initialTab: page), size: NSSize(width: 1040, height: 800),
+            let initiative: [String: Any] = [
+                "id": "fixture-initiative", "app": "Project Studio", "window": "Cortile",
+                "source_id": 101, "source_ts": Date().timeIntervalSince1970,
+                "title": language == "it" ? "Prepara la richiesta delle misure del lotto" : "Prepare a request for the plot measurements",
+                "reason": language == "it" ? "Servono le misure aggiornate prima di confrontare le due alternative." : "Updated measurements are needed before comparing the two alternatives.",
+                "quote": language == "it" ? "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto." : "The updated plot measurements are missing and are needed before preparing the comparison.",
+                "draft": language == "it" ? "Buongiorno [nome], puoi condividere le misure aggiornate del lotto? Ci servono per confrontare le due alternative per il cortile. Grazie." : "Hello [name], could you share the updated plot measurements? We need them to compare the two courtyard alternatives. Thank you."
+            ]
+            let fixtureSnapshot: [String: Any] = ["agents": [], "jobs": [], "projects": [], "runs": [], "routines": [], "initiatives": [initiative]]
+            if let data = try? JSONSerialization.data(withJSONObject: fixtureSnapshot) {
+                workspace.snapshot = try? JSONDecoder().decode(WorkspaceStateFrame.self, from: data)
+            }
+            for page in ["today", "identity", "boundaries", "work", "activity", "brain", "computers"] {
+                await render(BobbView(workspace: workspace, initialTab: page), size: NSSize(width: 1040, height: 800),
                        appearance: appearance, to: output.appendingPathComponent("bobb-\(page)-\(suffix).png"))
             }
 
-            render(OverlayView(suggestion: fixtures.suggestion, explanation: fixtures.explanation, onPrepare: {}, onDismiss: {}).tint(Theme.accent),
+            await render(OverlayView(suggestion: fixtures.suggestion, explanation: fixtures.explanation, onPrepare: {}, onDismiss: {}).tint(Theme.accent),
                    size: nil, appearance: appearance, background: .clear, to: output.appendingPathComponent("overlay-\(suffix).png"))
 
-            render(MenuBarPopoverView(state: state, actions: .empty).background(.regularMaterial),
+            await render(MenuBarPopoverView(state: state, actions: .empty),
                    size: nil, appearance: appearance, to: output.appendingPathComponent("menu-\(suffix).png"))
 
             let bar = CommandBarModel()
             bar.selection = nil
             bar.input = fixtures.question
             state.ask = fixtures.answer
-            render(CommandBarView(state: state, model: bar, submit: {}, close: {}, apply: { _ in }, stop: {}),
+            await render(CommandBarView(state: state, model: bar, submit: {}, close: {}, apply: { _ in }, stop: {}),
                    size: nil, appearance: appearance, background: .clear, to: output.appendingPathComponent("ask-\(suffix).png"))
 
             state.draft = fixtures.draft
             let editor = DraftEditor()
             editor.sync(with: state.draft)
-            render(DraftView(state: state, editor: editor, coordinator: coordinator, close: {}, replyInMail: { _, _ in }, insert: { _ in })
-                .background(.regularMaterial),
+            await render(DraftView(state: state, editor: editor, coordinator: coordinator, close: {}, replyInMail: { _, _ in }, insert: { _ in }),
                    size: nil, appearance: appearance, to: output.appendingPathComponent("draft-\(suffix).png"))
 
-            render(MindView(state: state, coordinator: coordinator, uiState: MindUIState(expandedIDs: ["evt_2"])),
+            await render(MindView(state: state, coordinator: coordinator, uiState: MindUIState(expandedIDs: ["evt_2"])),
                    size: NSSize(width: 1040, height: 860), appearance: appearance, to: output.appendingPathComponent("mind-\(suffix).png"))
 
             let noActions = TaskActions(stop: {}, allow: { _ in }, undo: {}, close: {})
             for (name, task) in fixtures.tasks {
                 state.task = task
-                render(TaskView(state: state, actions: noActions).background(.regularMaterial),
+                await render(TaskView(state: state, actions: noActions),
                        size: nil, appearance: appearance, to: output.appendingPathComponent("task-\(name)-\(suffix).png"))
             }
             state.task = nil
@@ -81,18 +94,20 @@ func renderDocsScreenshots() {
                 AppMemoryCount(app: "Mail", rows: 512), AppMemoryCount(app: "Safari", rows: 388),
                 AppMemoryCount(app: "Slack", rows: 241), AppMemoryCount(app: "Pages", rows: 143),
             ])
-            render(MemoryView(state: state, model: memory, coordinator: coordinator),
+            await render(MemoryView(state: state, model: memory, coordinator: coordinator),
                    size: NSSize(width: 900, height: 560), appearance: appearance, to: output.appendingPathComponent("memory-\(suffix).png"))
         }
     }
 }
 
 @MainActor
-private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?, background: NSColor = .windowBackgroundColor, to url: URL) {
+private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?, background: NSColor = .windowBackgroundColor, to url: URL) async {
+    if let filter = AppPaths.argument("--render-filter"), !url.lastPathComponent.contains(filter) { return }
     // Resolve dynamic colors against the requested appearance, not the
     // renderer process's own: an off-screen window otherwise paints a light
     // background under dark-mode text.
     let dark = appearance?.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    let native = CommandLine.arguments.contains("--render-native")
     var resolved = background
     if background != .clear, let appearance {
         appearance.performAsCurrentDrawingAppearance {
@@ -101,22 +116,55 @@ private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?
     }
     let hosting = NSHostingView(rootView: view.bobbWindowStyle()
         .environment(\.colorScheme, dark ? .dark : .light)
-        .background(background == .clear ? Color.clear : Color(nsColor: resolved)))
+        .background(native || background == .clear ? Color.clear : Color(nsColor: resolved)))
     hosting.appearance = appearance
     let fitting = size ?? hosting.fittingSize
     hosting.frame = NSRect(origin: .zero, size: fitting)
+    let surface: NSView = native ? BobbGlassHostingView(hosting, radius: 24, clear: background == .clear) : hosting
+    surface.appearance = appearance
+    surface.frame = hosting.frame
 
     let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
     window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
     window.appearance = appearance
-    window.contentView = hosting
-    window.backgroundColor = resolved
-    window.isOpaque = background != .clear
+    window.contentView = surface
+    window.backgroundColor = native ? .clear : resolved
+    window.isOpaque = !native && background != .clear
+    var backdrop: NSWindow?
+    if native {
+        // Capture only our fixture window against an owned, synthetic
+        // backdrop. No desktop/app contents or Screen Recording grant.
+        let rect = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 1000)
+        let owned = NSWindow(contentRect: rect, styleMask: [.borderless], backing: .buffered, defer: false)
+        owned.contentView = FixtureBackdrop(frame: NSRect(origin: .zero, size: rect.size))
+        owned.orderFrontRegardless(); backdrop = owned
+        window.center()
+    }
     window.orderFrontRegardless()
+    try? await Task.sleep(for: .milliseconds(500))
+    surface.layoutSubtreeIfNeeded()
+    defer { window.orderOut(nil); backdrop?.orderOut(nil) }
 
-    RunLoop.current.run(until: Date().addingTimeInterval(0.5))
-    hosting.layoutSubtreeIfNeeded()
+    if native, #available(macOS 14.4, *) {
+        do {
+            let content = try await SCShareableContent.currentProcess
+            guard let own = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) && $0.owningApplication?.processID == getpid() }) else {
+                print("render failed: fixture window unavailable"); return
+            }
+            let config = SCStreamConfiguration()
+            let scale = window.backingScaleFactor
+            config.width = Int(fitting.width * scale); config.height = Int(fitting.height * scale)
+            config.showsCursor = false
+            let captured = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: own), configuration: config)
+            let rep = NSBitmapImageRep(cgImage: captured)
+            guard let data = rep.representation(using: .png, properties: [:]) else { return }
+            try data.write(to: url); print("wrote native \(url.path)")
+        } catch { print("native render failed: \(error)") }
+        return
+    }
 
+    // Native glass is composed by WindowServer and is not captured by
+    // NSView's bitmap cache. Cache the hosting content for fixture previews.
     guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
         print("render failed: no bitmap rep for \(url.lastPathComponent)")
         return
@@ -132,7 +180,15 @@ private func render<V: View>(_ view: V, size: NSSize?, appearance: NSAppearance?
     } catch {
         print("render failed writing \(url.path): \(error)")
     }
-    window.orderOut(nil)
+}
+
+@MainActor
+private final class FixtureBackdrop: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        NSGradient(colors: [NSColor(srgbRed: 0.02, green: 0.12, blue: 0.09, alpha: 1),
+                            NSColor(srgbRed: 0.11, green: 0.43, blue: 0.25, alpha: 1),
+                            NSColor(srgbRed: 0.07, green: 0.19, blue: 0.30, alpha: 1)])?.draw(in: bounds, angle: 25)
+    }
 }
 
 /// A plausible morning, in either language.
@@ -242,8 +298,7 @@ private struct Fixtures {
 
     func state() -> AppState {
         let state = AppState()
-        state.connection = .ready(ReadyFrame(ts: now, model: "mlx-community/Llama-3.2-3B-Instruct-4bit", primeMs: 477, decideMs: 612, floor: 0.6, protocolVersion: 1))
-        state.settings.onboardingCompleted = true
+        state.connection = .ready(ReadyFrame(ts: now, model: "mlx-community/Qwen3.5-4B-4bit", primeMs: 477, decideMs: 612, floor: 0.6, protocolVersion: 1))
         state.entitlement = .licensed(LicensePayload(id: "lic", name: "Studio Rossi", email: "", edition: "pro", seats: 3, issued: "2026-09-28", updatesUntil: "2027-09-28"))
         state.stats = StatsFrame(
             ts: now,

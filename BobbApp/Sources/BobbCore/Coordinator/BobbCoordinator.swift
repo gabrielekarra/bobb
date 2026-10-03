@@ -23,7 +23,8 @@ public final class BobbCoordinator {
     /// Called for every screen-memory frame an app-side sensor produces.
     public var memorySink: ((MemoryObserveFrame) -> Void)?
     public var onAnswer: ((AnswerFrame) -> Void)?
-    public var answerProvider: ((AskFrame) async -> AnswerFrame?)?
+    /// Returning true consumes the gesture in the native inline-mail flow.
+    public var onMailReplyStarted: ((EventFrame) -> Bool)?
 
     private var stateTask: Task<Void, Never>?
     private var frameTask: Task<Void, Never>?
@@ -64,7 +65,9 @@ public final class BobbCoordinator {
             for await event in self.eventSource.events {
                 guard self.state.watching, self.state.entitlement.allowsAssistance, self.permits(event) else { continue }
                 self.state.recordEvent(event)
-                await self.client.send(event: event)
+                var outgoing = event
+                if event.kind == .mailReplyStarted, self.onMailReplyStarted?(event) == true { outgoing.payload.fields["inline_handled"] = .bool(true) }
+                await self.client.send(event: outgoing)
             }
         }
         housekeeping = Task { [weak self] in
@@ -96,8 +99,10 @@ public final class BobbCoordinator {
     public func submit(_ event: EventFrame) {
         guard state.watching, state.entitlement.allowsAssistance, permits(event) else { return }
         state.recordEvent(event)
+        var outgoing = event
+        if event.kind == .mailReplyStarted, onMailReplyStarted?(event) == true { outgoing.payload.fields["inline_handled"] = .bool(true) }
         let ipc = client
-        Task { await ipc.send(event: event) }
+        Task { await ipc.send(event: outgoing) }
     }
 
     // MARK: Incoming
@@ -130,6 +135,7 @@ public final class BobbCoordinator {
         case .stats(let stats):
             state.stats = stats
         case .error(let error):
+            if error.requestId?.hasPrefix("email_") == true { state.emailError = error.detail; state.emailWriting?.streaming = false }
             state.applyError(error)
         case .tasksResults(let results):
             state.recentTasks = results.tasks
@@ -139,6 +145,22 @@ public final class BobbCoordinator {
             state.commitments = list.items
         case .procedures(let list):
             state.procedures = list.items
+        case .email(let email):
+            if let result = email.result, result.resultKind != "notice" {
+                if state.emailWriting?.requestId == email.requestId, state.emailWriting?.streaming == true {
+                    state.emailWriting?.text = result.text
+                    state.emailWriting?.result = result
+                    state.emailWriting?.streaming = false
+                    state.emailError = result.error
+                }
+            } else if email.result?.operation == "ingest", state.email != nil {
+                state.email?.counts = email.counts
+                state.email?.preferences = email.preferences
+            } else { state.email = email }
+        case .emailDelta(let delta):
+            if state.emailWriting?.requestId == delta.requestId, state.emailWriting?.streaming == true {
+                state.emailWriting?.text += delta.text
+            }
         case .memoryResults, .memoryDeleted, .memoryStats, .historyDeleted, .act, .taskPlan, .workspace, .unknown:
             break
         }
@@ -210,19 +232,17 @@ public final class BobbCoordinator {
 
     /// `route` lets the daemon decide between answering and doing: a
     /// confident "do" arrives as an answer with `resultKind == "task"`.
-    public func ask(prompt: String, mode: AskMode, selection: String = "", app: String = "", window: String = "", route: Bool = false) {
+    public func ask(prompt: String, mode: AskMode, selection: String = "", app: String = "", window: String = "", route: Bool = false,
+                    inputSource: AskInputSource = .keyboard) {
         guard state.entitlement.allowsAssistance else { return }
         if let previous = state.ask.requestId, state.ask.streaming {
             Task { await client.send(.cancel(CancelFrame(requestId: previous))) }
         }
-        let frame = AskFrame(prompt: prompt, mode: mode, selection: selection, app: app, window: window, route: route)
-        state.beginAsk(frame, mode: mode)
+        let frame = AskFrame(prompt: prompt, mode: mode, selection: selection, app: app, window: window, route: route,
+                             continuationID: mode == .auto ? state.ask.continuationID : nil)
+        state.beginAsk(frame, mode: mode, inputSource: inputSource)
         let ipc = client
         Task { [weak self] in
-            if let provider = self?.answerProvider, let answer = await provider(frame) {
-                if self?.state.ask.requestId == frame.id, self?.state.ask.streaming == true { self?.handle(.answer(answer)) }
-                return
-            }
             let sent = await ipc.send(.ask(frame))
             if !sent {
                 self?.state.applyError(ErrorFrame(ts: Date().timeIntervalSince1970, detail: L10n.t(.askNotReady), requestId: frame.id))
@@ -231,6 +251,7 @@ public final class BobbCoordinator {
     }
 
     public func cancelAsk() {
+        state.endVoiceConversation()
         guard let id = state.ask.requestId, state.ask.streaming else { return }
         state.ask.streaming = false
         Task { await client.send(.cancel(CancelFrame(requestId: id))) }
@@ -240,7 +261,8 @@ public final class BobbCoordinator {
 
     public func observe(_ frame: MemoryObserveFrame) {
         guard state.settings.memoryEnabled, state.watching, state.entitlement.allowsAssistance,
-              state.settings.bobb.boundaries.app(bundleId: frame.bundleId, name: frame.app) != nil else { return }
+              state.settings.bobb.boundaries.app(bundleId: frame.bundleId, name: frame.app) != nil,
+              !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: frame.bundleId, appName: frame.app) else { return }
         memorySink?(frame)
         Task { await client.send(.memoryObserve(frame)) }
     }
@@ -370,8 +392,67 @@ public final class BobbCoordinator {
         return nil
     }
 
+    public var permitsEmail: Bool {
+        state.entitlement.allowsAssistance && state.settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil
+            && !ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: "com.apple.mail", appName: "Mail")
+    }
+
+    /// Explicit UI actions may satisfy an ask rule, but never a deny rule.
+    public func permitsEmailAction(_ category: ActionCategory, context: String) -> Bool {
+        guard permitsEmail, state.settings.actingEnabled else { return false }
+        if case .deny = state.settings.bobb.boundaries.evaluate(category: category, bundleId: "com.apple.mail", name: "Mail", context: context) { return false }
+        return true
+    }
+
+    public func email(_ op: String = "list", payload: JSONValue = .object([:])) async -> EmailStateFrame? {
+        guard permitsEmail else { state.emailError = L10n.code == "it" ? "Mail è esclusa nei Confini." : "Mail is excluded in Boundaries."; return nil }
+        state.emailError = nil
+        let frame = EmailCommandFrame(op: op, payload: payload)
+        if case .email(let result)? = await request(.email(frame), id: frame.id, timeout: 15) { return result }
+        if state.emailError == nil { state.emailError = L10n.code == "it" ? "Bobb non è connesso. Riprova." : "Bobb is not connected. Try again." }
+        return nil
+    }
+
+    public func generateInlineEmail(_ payload: JSONValue, id: String) async -> EmailOutput? {
+        guard permitsEmail else { return nil }
+        let frame = EmailCommandFrame(op: "reply", payload: payload, id: id)
+        if case .email(let result)? = await request(.email(frame), id: id, timeout: 120) { return result.result }
+        return nil
+    }
+
+    public func cancelInlineEmail(_ id: String) {
+        timeOut(id)
+        Task { await client.send(.cancel(CancelFrame(requestId: id))) }
+    }
+
+    public func permitsAutomaticEmail(context: String) -> Bool {
+        guard permitsEmail, state.watching, state.settings.mailProactive, state.settings.mailInlineReplies,
+              state.settings.actingEnabled, state.settings.actingApproval != .everyStep, state.task == nil else { return false }
+        if case .allow = state.settings.bobb.boundaries.evaluate(category: .write, bundleId: "com.apple.mail", name: "Mail", context: context) { return true }
+        return false
+    }
+
+    public func writeEmail(_ op: String, payload: JSONValue) {
+        guard permitsEmail else { return }
+        cancelEmailWriting()
+        let frame = EmailCommandFrame(op: op, payload: payload)
+        state.emailError = nil
+        state.emailWriting = EmailWritingSession(requestId: frame.id, operation: op)
+        Task {
+            if !(await client.send(.email(frame))), state.emailWriting?.requestId == frame.id {
+                state.emailWriting?.streaming = false
+                state.emailError = L10n.code == "it" ? "Bobb non è connesso. Riprova." : "Bobb is not connected. Try again."
+            }
+        }
+    }
+
+    public func cancelEmailWriting() {
+        guard let session = state.emailWriting, session.streaming else { return }
+        state.emailWriting?.streaming = false
+        Task { await client.send(.cancel(CancelFrame(requestId: session.requestId))) }
+    }
+
     public func answer(_ frame: AskFrame) async -> AnswerFrame? {
-        if let answerProvider, let result = await answerProvider(frame) { return result }
         if case .answer(let answer)? = await request(.ask(frame), id: frame.id, timeout: 120) { return answer }
         return nil
     }

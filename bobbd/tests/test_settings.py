@@ -66,7 +66,7 @@ def test_unreadable_file_falls_back_to_defaults(tmp_path):
     assert settings_mod.load(tmp_path / "missing.json") == Settings()
 
 
-def test_bobb_connections_are_explicit_and_round_trip(tmp_path):
+def test_legacy_connection_allowlists_are_still_understood(tmp_path):
     from bobbd.settings import is_protected
     settings = apply(Settings(), {"connected_apps": []})
     assert is_protected(settings, app="Mail", bundle_id="com.apple.mail")
@@ -78,3 +78,21 @@ def test_bobb_connections_are_explicit_and_round_trip(tmp_path):
     save(settings, path)
     assert load(path).connected_apps == frozenset({"com.apple.mail"})
     assert apply(settings, {"connected_apps": "all"}).connected_apps == settings.connected_apps
+
+
+def test_automatic_app_access_clears_saved_allowlist_and_preserves_exclusions(tmp_path):
+    legacy = apply(Settings(), {"connected_apps": ["com.apple.mail"]})
+    assert is_protected(legacy, app="Notes", bundle_id="com.apple.Notes")
+    automatic = apply(legacy, {
+        "connected_apps": None,
+        "extra_protected_apps": ["com.apple.Notes", "Private App"],
+    })
+    assert automatic.connected_apps is None
+    assert not is_protected(automatic, app="Mail", bundle_id="com.apple.mail")
+    assert not is_protected(automatic, app="Safari", bundle_id="com.apple.Safari")
+    assert is_protected(automatic, app="Notes", bundle_id="com.apple.Notes")
+    assert is_protected(automatic, app="Private App", bundle_id="custom.app")
+    assert is_protected(automatic, app="Passwords", bundle_id="com.apple.Passwords")
+    path = tmp_path / "settings.json"
+    save(automatic, path)
+    assert load(path) == automatic

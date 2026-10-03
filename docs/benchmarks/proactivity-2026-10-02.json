@@ -1,0 +1,128 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "mlx-community/Qwen3.5-4B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta procura firmata al cliente Rossi",
+        "reason": "La pratica è incompleta perché manca la procura firmata necessaria per il deposito.",
+        "quote": "Pratica cliente Rossi: manca la procura firmata. Prima di predisporre il deposito, chiedere al cliente il documento mancante.",
+        "draft": "Oggetto: Richiesta procura firmata per pratica Rossi\nGentile cliente,\nLa nostra pratica è in attesa della Sua procura firmata per procedere al deposito.\nPotrebbe gentilmente inviarla via email o portarla in studio entro [data scadenza]?\nGrazie, [Nome Avvocato]"
+      },
+      "matched": true,
+      "seconds": 6.752
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta copia fattura cliente Alfa",
+        "reason": "Manca la fattura del bonifico di 450 euro per chiudere il riepilogo in sospeso.",
+        "quote": "Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro. Non abbiamo ancora chiesto copia del documento al cliente.",
+        "draft": "Oggetto: Richiesta copia fattura bonifico 450 euro\nGentile Cliente Alfa,\nLa nostra riconciliazione mostra che manca la fattura relativa al bonifico di 450 euro.\nPotrebbe gentilmente inviarci copia del documento per chiudere il riepilogo in sospeso?\nGrazie.\n[Il Tuo Nome]"
+      },
+      "matched": true,
+      "seconds": 7.342
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta di misure del lotto",
+        "reason": "Il cliente richiede un confronto delle alternative ma mancano le misure aggiornate del lotto necessarie.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+        "draft": "Oggetto: Richiesta misure aggiornate lotto per progetto cortile\nGentile [Nome Committente],\nPer procedere con il confronto delle due alternative per il cortile, è necessario ricevere le misure aggiornate del lotto. Potete inviarle via email o fornirle in un file CAD/planimetria aggiornata?\nGrazie,\n[Il tuo nome]"
+      },
+      "matched": true,
+      "seconds": 6.603
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara il modulo invoice_parser",
+        "reason": "Il build log mostra che manca il modulo 'invoice_parser' necessario all'avvio.",
+        "quote": "Build failed: ModuleNotFoundError: No module named invoice_parser. The new invoice import command fails on startup.",
+        "draft": "Controlla se il modulo 'invoice_parser' è installabile. Se necessario, aggiungi la dipendenza al file requirements.txt e reinstalla il pacchetto."
+      },
+      "matched": true,
+      "seconds": 4.975
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara messaggio per chiedere allergie",
+        "reason": "Due ospiti non hanno ancora comunicato eventuali allergie alimentari per la cena di domani.",
+        "quote": "Due invitati non ci hanno ancora detto se hanno allergie.",
+        "draft": "Ciao, per la cena di domani con gli otto ospiti, potresti confermarmi se hai allergie alimentari o intolleranze specifiche? Ti ringrazio!"
+      },
+      "matched": true,
+      "seconds": 4.697
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara il messaggio di reminder per la firma",
+        "reason": "Il cliente richiede un breve reminder per l'approvazione firmata del layout della cucina.",
+        "quote": "We still need the signed approval for the kitchen layout. Could you prepare a short reminder for the client?",
+        "draft": "Oggetto: Richiesta approvazione firmata - Layout cucina\nGentile [Nome Cliente],\nCome concordato, stiamo completando il design review del layout della cucina. Per procedere con la fase successiva, abbiamo bisogno di ricevere l'approvazione firmata del progetto. Potrebbe gentilmente confermarne la disponibilità o inviarci il documento firmato entro [data scadenza]?\nGrazie,\n[Il tuo nome]"
+      },
+      "matched": true,
+      "seconds": 6.974
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 6.133
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.369
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.37
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.369
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.368
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.364
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.365
+    }
+  ]
+}

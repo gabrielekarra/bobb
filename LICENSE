@@ -1,21 +1,71 @@
-MIT License
-
+Bobb Source Available License 1.0
 Copyright (c) 2026 Gabriele Karra and contributors
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope
+This license applies to Bobb source code, documentation and assets distributed
+with this license (the Software), except third-party materials identified by
+separate notices. The licensor is Gabriele Karra, to the extent of the rights
+he is entitled to license. Rights not expressly granted are reserved.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Permitted use
+You may inspect the Software and run unmodified official releases, or build
+and run an unmodified copy of this source, for your own personal use or your
+organization's internal work, including professional and commercial work.
+You may make the copies reasonably necessary for these purposes and backups.
+You may not offer the Software itself as a product or service to others.
 
+3. Contributions
+You may copy, fork and modify the Software solely to investigate issues,
+test improvements and submit contributions to the official Bobb project.
+You may publish source forks and patches on a code hosting service solely
+for that contribution workflow, retaining this license and all notices and
+clearly identifying the fork as unofficial. You may run modified versions
+for developing and testing those contributions. This permission does not
+allow distributing unofficial binaries or maintaining a separate product.
+
+4. Restrictions
+Except as expressly permitted above or required by applicable law, you may
+not redistribute, sell, sublicense, rebrand or make the Software available
+to third parties; provide it as a hosted or managed service; create or
+operate a competing or derivative product using the Software; or extract
+and reuse its code or assets in another product. You may not remove or
+obscure copyright, license or attribution notices. No trademark rights are
+granted except descriptive reference to Bobb and identification of forks.
+For other uses, obtain separate written permission from the licensor.
+
+5. Contribution license
+When you intentionally submit a contribution for inclusion in the official
+project, you retain ownership and grant Gabriele Karra a perpetual,
+worldwide, nonexclusive, royalty-free, irrevocable license to use, reproduce,
+modify, distribute, publicly display, sublicense and relicense that
+contribution as part of Bobb, including under commercial terms. This includes
+any patent claims you control that are necessarily infringed by your
+contribution alone or its intended combination with Bobb. You represent
+that you have authority to grant these rights. Identify all third-party
+material and its license when submitting a contribution. Material clearly
+marked "not a contribution" is excluded from this grant.
+
+6. Third-party and earlier versions
+Third-party code, model weights and other dependencies remain governed by
+their respective licenses; this license does not restrict rights those
+licenses grant. See THIRD_PARTY_NOTICES.md and bundled component notices.
+This license does not revoke rights previously granted for earlier versions
+under another license, including MIT. It applies to versions distributed
+under these terms. It does not grant rights the licensor does not own.
+
+7. Termination
+Your rights under this license terminate if you breach its terms. On
+termination, stop the unlicensed use and distribution. If you cure a first
+breach within 30 days of receiving written notice, your rights are
+reinstated unless the licensor has separately terminated them for another
+uncured breach. Sections 5, 6 and 8 survive termination.
+
+8. Disclaimer
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE AUTHORS AND
+COPYRIGHT HOLDERS ARE NOT LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN CONTRACT, TORT OR OTHERWISE, ARISING FROM OR IN CONNECTION WITH
+THE SOFTWARE OR ITS USE. MANDATORY RIGHTS UNDER APPLICABLE LAW ARE UNAFFECTED.
+
+This is a source-available license, not an OSI-approved open source license.

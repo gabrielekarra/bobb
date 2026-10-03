@@ -1,9 +1,41 @@
 import Testing
+import Foundation
 @testable import BobbCore
 
 @MainActor
 @Suite("AppState tallies and Mind log")
 struct AppStateTests {
+    @Test func clarificationHasNoTaskAndItsTokenSurvivesForTheFollowUp() {
+        let state=AppState()
+        state.beginAsk(AskFrame(id:"a",prompt:"Invia il documento",mode:.auto,route:true),mode:.auto)
+        state.applyAnswer(AnswerFrame(ts:0,requestId:"a",ok:true,text:"Quale destinatario?",resultKind:"clarification",continuationID:"token"))
+        #expect(state.ask.taskGoal==nil)
+        #expect(state.ask.continuationID=="token")
+        #expect(!state.ask.streaming)
+        state.beginAsk(AskFrame(id:"b",prompt:"Marco",mode:.auto,route:true,continuationID:state.ask.continuationID),mode:.auto)
+        state.applyAnswer(AnswerFrame(ts:1,requestId:"b",ok:true,text:"Invia a Marco",resultKind:"task"))
+        #expect(state.ask.continuationID==nil)
+        #expect(state.ask.taskGoal=="Invia a Marco")
+    }
+    @Test func automaticBrowserTaskRetainsItsDestination() throws {
+        let state = AppState()
+        let request = AskFrame(id: "auto_web", prompt: "Cerca su YouTube lofi", mode: .auto, route: true)
+        state.beginAsk(request, mode: .auto)
+        let json = #"{"request_id":"auto_web","ok":true,"text":"Cerca su YouTube lofi","mode":"do","result_kind":"task","task_url":"https://www.youtube.com/results?search_query=lofi","task_completion":"youtube_search_results"}"#
+        state.applyAnswer(try JSONDecoder().decode(AnswerFrame.self, from: Data(json.utf8)))
+        #expect(state.ask.mode == .act)
+        #expect(state.ask.taskGoal == "Cerca su YouTube lofi")
+        #expect(state.ask.taskURL == "https://www.youtube.com/results?search_query=lofi")
+        #expect(!state.ask.streaming)
+    }
+
+    @Test func automaticTextAnswerUsesTheInferredReplacementMode() {
+        let state = AppState()
+        state.beginAsk(AskFrame(id: "auto_rewrite", prompt: "Rendilo più cortese", mode: .auto, selection: "testo"), mode: .auto)
+        state.applyAnswer(AnswerFrame(ts: 1, requestId: "auto_rewrite", ok: true, text: "testo cortese", mode: "rewrite", resultKind: "replacement"))
+        #expect(state.ask.mode == .rewrite)
+        #expect(state.ask.taskGoal == nil)
+    }
     private func event(id: String, kind: EventKind = .mailOpened) -> EventFrame {
         EventFrame(ts: 1, id: id, kind: kind, app: "Mail", payload: EventPayload(typing: false, idle: false))
     }

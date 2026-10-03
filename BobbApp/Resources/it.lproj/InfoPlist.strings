@@ -1,1 +1,1 @@
-"NSAppleEventsUsageDescription" = "Bobb legge il messaggio che apri in Mail e apre una finestra di risposta con la sua bozza. Non invia mai nulla.";
+"NSAppleEventsUsageDescription" = "Bobb legge Mail e usa Messaggi sul Mac, rispettando le app escluse. L’invio segue le regole da solo, chiedi o mai.";

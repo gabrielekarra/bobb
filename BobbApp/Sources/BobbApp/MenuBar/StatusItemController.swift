@@ -15,6 +15,8 @@ final class StatusItemController {
     private let state: AppState
     private let popover: NSPopover
     private let makeActions: (StatusItemController) -> MenuBarActions
+    var downloader: ModelDownloader?
+    var permissions: Permissions?
 
     init(state: AppState, makeActions: @escaping (StatusItemController) -> MenuBarActions) {
         self.state = state
@@ -45,8 +47,14 @@ final class StatusItemController {
             popover.performClose(nil)
             return
         }
-        popover.contentViewController = NSHostingController(rootView: MenuBarPopoverView(state: state, actions: makeActions(self)).bobbWindowStyle())
+        permissions?.refresh()
+        let controller = NSViewController()
+        let host = NSHostingView(rootView: MenuBarPopoverView(state: state, actions: makeActions(self), downloader: downloader, permissions: permissions))
+        controller.view = BobbGlassHostingView(host, radius: 24)
+        popover.contentViewController = controller
+        popover.contentSize = host.fittingSize
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.backgroundColor = .clear
         popover.contentViewController?.view.window?.makeKey()
     }
 

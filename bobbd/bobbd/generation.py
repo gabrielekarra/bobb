@@ -50,9 +50,13 @@ class GenerationUnavailable(RuntimeError):
     """The engine cannot generate (a test double, or no model loaded)."""
 
 
+class _GenerationCancelled(Exception):
+    """Stop MLX at a prompt-processing boundary before the first output token."""
+
+
 def render_prompt(engine: GenerativeEngine, messages: list[dict]) -> str:
     try:
-        return engine.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        return engine.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     except Exception:
         # A template that rejects a system role gets it folded into the
         # first user turn instead, the same fallback `ResidentMLX.chat_frame`
@@ -61,7 +65,7 @@ def render_prompt(engine: GenerativeEngine, messages: list[dict]) -> str:
             system, rest = messages[0]["content"], messages[1:]
             if rest and rest[0]["role"] == "user":
                 rest = [{"role": "user", "content": system + "\n\n" + rest[0]["content"]}] + rest[1:]
-            return engine.tokenizer.apply_chat_template(rest, tokenize=False, add_generation_prompt=True)
+            return engine.tokenizer.apply_chat_template(rest, tokenize=False, add_generation_prompt=True, enable_thinking=False)
         raise
 
 
@@ -74,12 +78,15 @@ def stream_text(
     cancel: threading.Event | None = None,
     temperature: float = DEFAULT_TEMPERATURE,
     prefix: str = "",
+    interruptible_prefill: bool = False,
 ) -> Generated:
     """Generate a reply to `messages`. A non-empty `prefix` is placed at the
     start of the assistant turn before generation, streamed first, and is
     part of the returned text."""
     if not supports_generation(engine):
         raise GenerationUnavailable("this engine cannot generate text")
+    if cancel is not None and cancel.is_set():
+        return Generated("", 0, 0.0, None, True, "cancelled")
     from mlx_lm import stream_generate
     from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
@@ -98,25 +105,41 @@ def stream_text(
     tokens = 0
     finish_reason = None
     cancelled = False
-    for response in stream_generate(
+    def prompt_progress(processed: int, total: int) -> None:
+        if cancel is not None and cancel.is_set():
+            raise _GenerationCancelled
+
+    # Foreground work retains MLX's normal large prefill for throughput.
+    # Background preparation yields between small chunks so a new request
+    # does not wait for an entire screen context to reach its first token.
+    responses = stream_generate(
         engine.model,  # type: ignore[attr-defined]
         engine.tokenizer,  # type: ignore[attr-defined]
         prompt,
         max_tokens=max_tokens,
         sampler=sampler,
         logits_processors=processors,
-    ):
-        if cancel is not None and cancel.is_set():
-            cancelled = True
-            break
-        tokens += 1
-        if response.text:
-            if first_token_ms is None:
-                first_token_ms = (time.perf_counter() - started) * 1000
-            pieces.append(response.text)
-            if on_delta is not None:
-                on_delta(response.text)
-        finish_reason = response.finish_reason
+        prefill_step_size=128 if interruptible_prefill else 2048,
+        prompt_progress_callback=prompt_progress,
+    )
+    try:
+        for response in responses:
+            if cancel is not None and cancel.is_set():
+                cancelled = True
+                break
+            tokens += 1
+            if response.text:
+                if first_token_ms is None:
+                    first_token_ms = (time.perf_counter() - started) * 1000
+                pieces.append(response.text)
+                if on_delta is not None:
+                    on_delta(response.text)
+            finish_reason = response.finish_reason
+    except _GenerationCancelled:
+        cancelled = True
+        finish_reason = "cancelled"
+    finally:
+        responses.close()
     return Generated(
         text=clean("".join(pieces)),
         tokens=tokens,

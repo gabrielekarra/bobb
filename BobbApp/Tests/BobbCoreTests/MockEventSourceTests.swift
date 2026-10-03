@@ -4,6 +4,14 @@ import Testing
 @MainActor
 @Suite("MockEventSource scenario replay")
 struct MockEventSourceTests {
+    @Test func emptyLoopDoesNotBlockTheMainActor() async {
+        let source = MockEventSource(scenario: [], loop: true)
+        source.start()
+        await Task.yield()
+        let more = await collect(source.events, count: 1, timeoutSeconds: 0.01)
+        source.stop()
+        #expect(more.isEmpty)
+    }
     @Test func replaysStepsInOrder() async {
         let scenario = [
             ScenarioStep(delay: 0.01, event: EventFrame(kind: .appActivated, app: "Mail", payload: EventPayload(typing: false, idle: false))),

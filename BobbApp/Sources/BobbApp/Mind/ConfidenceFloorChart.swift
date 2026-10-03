@@ -76,12 +76,12 @@ struct ConfidenceFloorChart: View {
 
     private func color(for point: Point) -> Color {
         if point.abstained { return .red }
-        return point.wouldSurface ? .accentColor : .secondary.opacity(0.45)
+        return point.wouldSurface ? Theme.accent : .secondary.opacity(0.45)
     }
 
     private var legend: some View {
         HStack(spacing: 10) {
-            legendItem(color: .accentColor, label: L10n.t(.chartWouldSurface))
+            legendItem(color: Theme.accent, label: L10n.t(.chartWouldSurface))
             legendItem(color: .secondary.opacity(0.45), label: L10n.t(.chartSilent))
             legendItem(color: .red, label: L10n.t(.chartNearMiss))
         }

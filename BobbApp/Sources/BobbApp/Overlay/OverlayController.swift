@@ -16,6 +16,7 @@ final class OverlayController {
     private var panel: OverlayPanel?
     private var dismissTimer: Timer?
     private var currentDecision: DecisionFrame?
+    private var initiativeResponse: ((String) -> Void)?
     private var autoDismissInterval: TimeInterval { TimeInterval(state.settings.overlaySeconds) }
 
     init(state: AppState, coordinator: BobbCoordinator) {
@@ -27,8 +28,12 @@ final class OverlayController {
     private func observePendingOverlay() {
         withObservationTracking {
             _ = state.pendingOverlay
+            _ = state.settings.watching
+            _ = state.settings.contextProactive
         } onChange: { [weak self] in
-            MainActor.assumeIsolated {
+            // Observation calls onChange before the new value is stored.
+            // Read on the next main-actor turn or the first card is lost.
+            Task { @MainActor [weak self] in
                 self?.pendingOverlayChanged()
                 self?.observePendingOverlay()
             }
@@ -36,20 +41,33 @@ final class OverlayController {
     }
 
     private func pendingOverlayChanged() {
+        if !state.settings.watching || (initiativeResponse != nil && !state.settings.contextProactive) {
+            dismissTimer?.invalidate(); hide(); return
+        }
         guard let decision = state.pendingOverlay, let suggestion = decision.suggestion else { return }
         state.pendingOverlay = nil
         show(decision: decision, suggestion: suggestion)
     }
 
-    private func show(decision: DecisionFrame, suggestion: Suggestion) {
+    func presentInitiative(_ initiative: ProactiveInitiative, response: @escaping (String) -> Void) {
+        guard !state.overlayVisible else { return }
+        show(decision: nil, suggestion: Suggestion(title: initiative.title, actionId: "initiative.prepare",
+            detail: initiative.reason, cta: BobbCopy.t("Prepare with me", "Prepara con me")),
+            explanation: BobbCopy.t("From your work in ", "Dal tuo lavoro in ") + initiative.app)
+        initiativeResponse = response
+    }
+
+    private func show(decision: DecisionFrame?, suggestion: Suggestion, explanation: String? = nil) {
         dismissTimer?.invalidate()
+        panel?.orderOut(nil)
         currentDecision = decision
+        initiativeResponse = nil
         state.overlayVisible = true
         state.activeSuggestion = decision
 
         let hosting = NSHostingView(rootView: OverlayView(
             suggestion: suggestion,
-            explanation: decision.explanation,
+            explanation: decision?.explanation ?? explanation,
             onPrepare: { [weak self] in self?.approveCurrent() },
             onDismiss: { [weak self] in self?.dismissCurrent() }
         ).tint(Theme.accent))
@@ -83,6 +101,7 @@ final class OverlayController {
     /// the response and the resulting teardown are identical.
     func approveCurrent() {
         dismissTimer?.invalidate()
+        if let response = initiativeResponse { hide(); response("prepare"); return }
         guard let decision = currentDecision else { return }
         coordinator.approve(decision)
         hide()
@@ -101,6 +120,7 @@ final class OverlayController {
 
     private func respondDismissAndHide(reason: DismissReason) {
         dismissTimer?.invalidate()
+        if let response = initiativeResponse { hide(); if reason == .user { response("dismiss") }; return }
         if let decision = currentDecision {
             coordinator.dismiss(decision, reason: reason)
         }
@@ -109,6 +129,7 @@ final class OverlayController {
 
     private func hide() {
         currentDecision = nil
+        initiativeResponse = nil
         state.overlayVisible = false
         state.activeSuggestion = nil
         guard let panel, panel.isVisible else { return }

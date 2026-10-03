@@ -1,4 +1,10 @@
-"""Constrained readout: one prefill, K forked single-step reads.
+"""Typed decisions: the shipping runtime dispatches to Kev's pointer head.
+
+The letter-logit implementation below is retained for research and fake-engine
+regression tests. ResidentMLX in the server always has a Kev decision_backend.
+It never falls back to these chat-model logits.
+
+Legacy constrained readout: one prefill, K forked single-step reads.
 
 Every option, regardless of question kind, is presented behind an arbitrary
 single letter (A, B, C, ...) and the readout only ever inspects logits at
@@ -145,6 +151,8 @@ def _length_buckets(suffixes: list[list[int]], slack: float = 4.0) -> list[list[
 
 def prime(engine: Engine, system_prefix: str) -> Cache:
     """Prefill the fixed system/schema prefix once, reused via `primed`."""
+    if hasattr(engine, "decision_backend"):
+        return system_prefix
     head, _ = _chat_frame(engine, system_prefix)
     if head:
         return engine.prefill(engine.encode(head, add_special=False))
@@ -176,6 +184,9 @@ def decide_many(
         calibrators = [None] * len(questions)
     elif len(calibrators) != len(questions):
         raise ValueError("calibrators must have the same length as questions")
+
+    if hasattr(engine, "decision_backend"):
+        return engine.decision_backend.decide_many(context, questions, calibrators=calibrators, system=primed or "")
 
     table = _letter_table(engine)
     letter_sets = [_letter_id_sets(table, len(q.labels)) for q in questions]

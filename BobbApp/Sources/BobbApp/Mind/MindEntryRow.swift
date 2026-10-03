@@ -161,7 +161,7 @@ struct MindEntryRow: View {
                                 .lineLimit(1)
                             GeometryReader { proxy in
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.accentColor.opacity(0.7))
+                                    .fill(Theme.accent.opacity(0.7))
                                     .frame(width: max(2, proxy.size.width * hypothesis.p))
                             }
                             .frame(height: 5)

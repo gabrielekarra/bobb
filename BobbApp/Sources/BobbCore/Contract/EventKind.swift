@@ -10,8 +10,11 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
     case windowChanged = "window.changed"
     case mailArrived = "mail.arrived"
     case mailOpened = "mail.opened"
+    /// The user opened a still-empty reply, linked to its original message.
+    case mailReplyStarted = "mail.reply_started"
     case mailClosed = "mail.closed"
     case mailComposing = "mail.composing"
+    case mailDraftCheck = "mail.draft_check"
     /// A message the user sent, read from Mail's Sent mailbox: where their
     /// promises are.
     case mailSent = "mail.sent"
@@ -36,7 +39,7 @@ public enum EventKind: String, Codable, Sendable, CaseIterable {
         switch self {
         case .mailArrived, .mailClosed, .mailArchived, .mailDeleted: true
         case .mailSent: true
-        case .appActivated, .windowChanged, .mailOpened, .mailComposing, .textSelected, .messageOpened, .calendarUpcoming,
+        case .appActivated, .windowChanged, .mailOpened, .mailReplyStarted, .mailComposing, .mailDraftCheck, .textSelected, .messageOpened, .calendarUpcoming,
              .idleEntered, .idleLeft: false
         }
     }

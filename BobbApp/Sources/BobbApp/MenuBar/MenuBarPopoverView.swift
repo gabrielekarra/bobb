@@ -2,17 +2,23 @@ import SwiftUI
 import BobbCore
 
 /// The front door. A click on the menu bar icon shows, in order: whether
-/// Bobb is working, anything that needs finishing (setup, license),
+/// Bobb is working, model preparation progress,
 /// a field to ask something, what is waiting for the user, how much
 /// Bobb stayed quiet, and the way to everything else.
 struct MenuBarPopoverView: View {
     @Bindable var state: AppState
     let actions: MenuBarActions
+    var downloader: ModelDownloader? = nil
+    var permissions: Permissions? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
+            if let downloader, !downloader.isInstalled {
+                modelPreparation(downloader)
+                Divider()
+            }
             if let notice = notice {
                 notice
                 Divider()
@@ -20,9 +26,23 @@ struct MenuBarPopoverView: View {
             askField
                 .padding(.horizontal, 12)
                 .padding(.top, 10)
-            Button("Bobb · " + BobbCopy.t("Projects, assignments & boundaries", "Progetti, incarichi e confini"), action: actions.openBobb)
+            if let permissions, permissions.accessibility != .granted {
+                noticeCard(icon: "cursorarrow.rays",
+                           text: BobbCopy.t("Let Bobb read and use your apps.", "Consenti a Bobb di leggere e usare le tue app."),
+                           button: BobbCopy.t("Allow", "Consenti"), action: actions.requestAccessibility)
+            }
+            Button("Bobb · " + BobbCopy.t("For you, work & boundaries", "Per te, lavoro e confini"), action: actions.openBobb)
                 .buttonStyle(.plain).font(.system(size: 11, weight: .medium)).padding(12)
             forYou
+            Button(action: actions.openEmail) {
+                HStack {
+                    Label(EmailCopy.t("Email assistant", "Assistente email"), systemImage: "envelope")
+                    Spacer()
+                    if let due = state.email?.counts["due"], due > 0 {
+                        Text("\(due)").foregroundStyle(.orange)
+                    }
+                }
+            }.buttonStyle(.plain).font(.system(size: 11, weight: .medium)).padding(12)
             Divider()
             footer
         }
@@ -58,7 +78,7 @@ struct MenuBarPopoverView: View {
         switch state.activityState {
         case .disconnected: L10n.t(.statusDisconnected)
         case .starting: L10n.t(.statusStarting)
-        case .setupNeeded: L10n.t(.statusModelMissing)
+        case .setupNeeded: BobbCopy.t("Preparing Bobb", "Bobb si sta preparando")
         case .paused: state.entitlement.allowsAssistance ? L10n.t(.statusPaused) : L10n.t(.statusTrialExpired)
         case .watching: L10n.t(.statusWatching)
         case .waitingForYou: L10n.t(.statusWaitingForYou)
@@ -72,8 +92,8 @@ struct MenuBarPopoverView: View {
             return L10n.t(.menuSilentToday, ["count": "\(summary.silent)"]) + " · " + L10n.t(.menuHelpedToday, ["count": "\(summary.suggested)"])
         }
         switch state.connection {
-        case .ready(let ready): return ready.model.components(separatedBy: "/").last ?? ready.model
-        default: return state.daemonStatus?.detail.components(separatedBy: "/").last ?? ""
+        case .ready: return BobbCopy.t("Everything stays on this Mac", "Tutto resta su questo Mac")
+        default: return BobbCopy.t("Works locally", "Lavora in locale")
         }
     }
 
@@ -97,11 +117,6 @@ struct MenuBarPopoverView: View {
     // MARK: Notices
 
     private var notice: AnyView? {
-        if state.activityState == .setupNeeded || !state.settings.onboardingCompleted {
-            return AnyView(noticeCard(
-                icon: "sparkles", text: L10n.t(.statusModelMissing), button: L10n.t(.menuOpenSetup), action: actions.openOnboarding
-            ))
-        }
         switch state.entitlement {
         case .trialExpired:
             return AnyView(noticeCard(icon: "hourglass", text: L10n.t(.licenseTrialExpired), button: L10n.t(.licenseBuy), action: actions.openLicense))
@@ -116,6 +131,32 @@ struct MenuBarPopoverView: View {
         default:
             return nil
         }
+    }
+
+    private func modelPreparation(_ downloader: ModelDownloader) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            switch downloader.phase {
+            case .downloading(let fraction, let received, let total):
+                Text(BobbCopy.t("Downloading local intelligence", "Scarico l’intelligenza locale"))
+                ProgressView(value: fraction)
+                Text(ModelInstallation.formatBytes(received) + " / " + ModelInstallation.formatBytes(total))
+                    .foregroundStyle(.secondary)
+            case .verifying(let fraction):
+                Text(BobbCopy.t("Checking the download", "Verifico il download"))
+                ProgressView(value: fraction)
+            case .failed:
+                Text(BobbCopy.t("Download interrupted. Your data stays on this Mac.", "Download interrotto. I tuoi dati restano su questo Mac."))
+                Button(BobbCopy.t("Retry", "Riprova"), action: actions.retryModels)
+                    .buttonStyle(QuietButtonStyle())
+            default:
+                Text(BobbCopy.t("Preparing local intelligence", "Preparo l’intelligenza locale"))
+                ProgressView().controlSize(.small)
+            }
+            Text(BobbCopy.t("One download. Then works offline.", "Un solo download. Poi funziona offline."))
+                .foregroundStyle(.secondary)
+        }
+        .font(.system(size: 11))
+        .padding(12)
     }
 
     private func noticeCard(icon: String, text: String, button: String, action: @escaping () -> Void) -> some View {
@@ -153,7 +194,7 @@ struct MenuBarPopoverView: View {
             .font(.system(size: 12))
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .bobbGlass(radius: 18, interactive: true)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -164,11 +205,16 @@ struct MenuBarPopoverView: View {
     private var forYou: some View {
         VStack(alignment: .leading, spacing: 8) {
             Theme.sectionTitle(L10n.t(.menuForYou))
+            if state.initiativeCount > 0 {
+                Button(action: actions.openBobb) {
+                    Label(BobbCopy.t("New suggestions from your work", "Nuovi suggerimenti dal tuo lavoro") + " (\(state.initiativeCount))", systemImage: "sparkles")
+                }.buttonStyle(QuietButtonStyle())
+            }
             let promises = state.promisesDue()
             ForEach(promises.prefix(4)) { promise in
                 promiseRow(promise)
             }
-            if state.forYou.isEmpty && promises.isEmpty {
+            if state.forYou.isEmpty && promises.isEmpty && state.initiativeCount == 0 {
                 Text(L10n.t(.menuNothingForYou))
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
@@ -214,7 +260,7 @@ struct MenuBarPopoverView: View {
             }
         }
         .padding(10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .bobbGlass(radius: 14)
     }
 
     static func promiseDetail(_ promise: Commitment) -> String {
@@ -313,11 +359,14 @@ struct MenuBarActions {
     var openMemory: () -> Void
     var openSettings: () -> Void
     var openLicense: () -> Void
-    var openOnboarding: () -> Void
     var quit: () -> Void
+    var retryModels: () -> Void = {}
+    var requestAccessibility: () -> Void = {}
+    var requestMail: () -> Void = {}
     /// A promise: "done", "not a promise", or "tomorrow".
     var promise: (Commitment, PromiseAction) -> Void = { _, _ in }
     var openBobb: () -> Void = {}
+    var openEmail: () -> Void = {}
 }
 
 enum PromiseAction {

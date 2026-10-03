@@ -24,6 +24,7 @@ final class AXDriver: TaskDriver {
     var stillOwnsScreen: (() -> Bool)?
     private var fingerprints: [Int: String] = [:]
     private var windowTitle = ""
+    private var websiteURL: URL?
     private var visualTargets: [Int: ScreenTextRecognizer.Control] = [:]
 
     static let maxNodes = 2600
@@ -36,6 +37,7 @@ final class AXDriver: TaskDriver {
         guard let front = NSWorkspace.shared.frontmostApplication,
               front.bundleIdentifier != Bundle.main.bundleIdentifier else { return nil }
         lastApp = front.processIdentifier
+        websiteURL = nil
         if let settings {
             let s = settings()
             guard s.bobb.boundaries.app(bundleId: front.bundleIdentifier, name: front.localizedName ?? "") != nil,
@@ -50,6 +52,18 @@ final class AXDriver: TaskDriver {
         frames.removeAll(keepingCapacity: true)
         let window = AX.element(app, "AXFocusedWindow") ?? AX.element(app, "AXMainWindow")
         let title = window.flatMap { AX.string($0, "AXTitle") } ?? ""
+        guard !ScreenMemoryPolicy().isPrivateWindow(title: title) else {
+            return ScreenObservation(app: front.localizedName ?? "", bundleId: front.bundleIdentifier,
+                window: title, elements: [], screenText: "privateWindow", unreadable: true)
+        }
+        if let page = AX.pageURL(pid: front.processIdentifier), ["http", "https"].contains(page.scheme ?? "") {
+            if let bounds = settings?().bobb.boundaries,
+               bounds.webApp(host: page.host ?? "", browserBundleId: front.bundleIdentifier ?? "", browserName: front.localizedName ?? "") == nil {
+                return ScreenObservation(app: front.localizedName ?? "", bundleId: front.bundleIdentifier,
+                    window: title, elements: [], screenText: "unavailableWebsite", unreadable: true)
+            }
+            websiteURL = page
+        }
         windowTitle = title
         var snapshots: [UIElementSnapshot] = []
         var visible: ScreenRect?
@@ -67,8 +81,10 @@ final class AXDriver: TaskDriver {
                                                title: "Focused cursor", focused: true, cursor: true))
         }
         fingerprints = Dictionary(uniqueKeysWithValues: elements.map { ($0.key, Self.fingerprint($0.value)) })
-        var text = WindowReader.read(pid: front.processIdentifier, appName: front.localizedName ?? "",
-                                      bundleId: front.bundleIdentifier, windowTitle: title)?.text ?? ""
+        let readout = WindowReader.read(pid: front.processIdentifier, appName: front.localizedName ?? "",
+                                      bundleId: front.bundleIdentifier, windowTitle: title)
+        var text = readout?.text ?? ""
+        if let url = readout?.url { text = "Source URL: \(url)\n" + text }
         let hasControls = snapshots.contains { !$0.isMenuItem && ElementClassifier.kind(of: $0) == .press }
         if text.count < 40 || !hasControls, settings?().readImages == true,
            let readout = await ScreenTextRecognizer.readout(pid: front.processIdentifier, windowTitle: title) {
@@ -84,7 +100,7 @@ final class AXDriver: TaskDriver {
         let defaultButton = window.flatMap { AX.element($0, "AXDefaultButton") }.flatMap { AX.string($0, "AXTitle") } ?? ""
         return ScreenObservation(app: front.localizedName ?? front.bundleIdentifier ?? "", bundleId: front.bundleIdentifier,
                                  window: title, elements: snapshots, screen: visible, screenText: text,
-                                 defaultButton: defaultButton, unreadable: text.isEmpty && snapshots.isEmpty)
+                                 defaultButton: defaultButton, unreadable: text.isEmpty && snapshots.isEmpty, sourceURL: websiteURL?.absoluteString)
     }
 
     private func register(_ element: AXUIElement) -> Int {
@@ -246,6 +262,12 @@ final class AXDriver: TaskDriver {
             guard NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
             if let lastApp, let current = AX.element(AX.application(lastApp), "AXFocusedWindow"),
                (AX.string(current, "AXTitle") ?? "") != windowTitle { return .stale }
+            if let websiteURL {
+                guard let lastApp, AX.pageURL(pid: lastApp) == websiteURL else { return .stale }
+                if let bounds = settings?().bobb.boundaries,
+                   let front = NSWorkspace.shared.frontmostApplication,
+                   bounds.webApp(host: websiteURL.host ?? "", browserBundleId: front.bundleIdentifier ?? "", browserName: front.localizedName ?? "") == nil { return .stale }
+            }
         }
         switch action {
         case .openApp(let name):
@@ -358,16 +380,26 @@ final class AXDriver: TaskDriver {
 
     private func openApp(_ label: String) async -> DriverResult {
         guard let url = InstalledApps.shared.url(for: label) else { return .failed("not installed") }
-        if let settings, settings().bobb.boundaries.app(bundleId: Bundle(url: url)?.bundleIdentifier, name: label) == nil { return .failed("unconnectedApp") }
+        if let settings, settings().bobb.boundaries.app(bundleId: Bundle(url: url)?.bundleIdentifier, name: label) == nil { return .failed("unavailableApp") }
+        if let app = NSWorkspace.shared.runningApplications.first(where: { !$0.isTerminated && $0.bundleURL == url }) {
+            app.activate()
+            return await waitForApp(app.processIdentifier)
+        }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
+        configuration.createsNewApplicationInstance = false
         let pid: pid_t? = await withCheckedContinuation { continuation in
             NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, _ in
                 continuation.resume(returning: app?.processIdentifier)
             }
         }
         guard let pid else { return .failed("open failed") }
+        return await waitForApp(pid)
+    }
+
+    private func waitForApp(_ pid: pid_t) async -> DriverResult {
         for _ in 0..<60 {
+            guard !Task.isCancelled, stillOwnsScreen?() != false else { return .stale }
             if NSWorkspace.shared.frontmostApplication?.processIdentifier == pid,
                AX.element(AX.application(pid), "AXFocusedWindow") != nil {
                 return .ok
@@ -448,8 +480,10 @@ final class AXDriver: TaskDriver {
 
     func installedApps() -> [String] {
         InstalledApps.shared.names().filter { name in
-            guard let settings else { return true }
-            return settings().bobb.boundaries.app(bundleId: InstalledApps.shared.url(for: name).flatMap { Bundle(url: $0)?.bundleIdentifier }, name: name) != nil
+            let bundle = bundleIdentifier(forApp: name)
+            let current = settings?() ?? BobbSettings()
+            return !ActionPolicy(extraProtected: current.extraProtectedApps).isProtected(bundleId: bundle, appName: name)
+                && current.bobb.boundaries.app(bundleId: bundle, name: name) != nil
         }
     }
 
@@ -556,7 +590,21 @@ final class InstalledApps {
 
     func url(for name: String) -> URL? {
         refreshIfNeeded()
+        if let running = NSWorkspace.shared.runningApplications.first(where: { app in
+            guard let url = app.bundleURL else { return false }
+            return !app.isTerminated && Self.name(for: url) == name
+        }) { return running.bundleURL }
         return byName[name]
+    }
+
+    func boundaries() -> [AppBoundary] {
+        refreshIfNeeded()
+        var apps: [String: AppBoundary] = [:]
+        for name in byName.keys.sorted() {
+            guard let url = byName[name], let id = Bundle(url: url)?.bundleIdentifier, apps[id] == nil else { continue }
+            apps[id] = AppBoundary(id: id, name: name)
+        }
+        return apps.values.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func refreshIfNeeded() {
@@ -564,19 +612,31 @@ final class InstalledApps {
         scannedAt = Date()
         var found: [String: URL] = [:]
         let fm = FileManager.default
-        let roots = ["/Applications", "/Applications/Utilities", "/System/Applications", "/System/Applications/Utilities",
+        let roots = ["/Applications", "/System/Applications", "/System/Library/CoreServices/Applications",
                      fm.homeDirectoryForCurrentUser.appendingPathComponent("Applications").path]
+        func add(_ url: URL) {
+            let name = Self.name(for: url)
+            if Bundle(url: url)?.bundleIdentifier == Bundle.main.bundleIdentifier { return }
+            found[name] = found[name] ?? url
+        }
+        for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+            if let url = app.bundleURL { add(url) }
+        }
         for root in roots {
-            guard let entries = try? fm.contentsOfDirectory(atPath: root) else { continue }
-            for entry in entries where entry.hasSuffix(".app") {
-                let url = URL(fileURLWithPath: root).appendingPathComponent(entry)
-                let file = String(entry.dropLast(4))
-                let display = fm.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
-                let name = display == file ? file : "\(display) (\(file))"
-                if Bundle(url: url)?.bundleIdentifier == Bundle.main.bundleIdentifier { continue }
-                found[name] = found[name] ?? url
+            guard let entries = fm.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: nil,
+                                             options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
+            for case let url as URL in entries where url.pathExtension == "app" {
+                add(url); entries.skipDescendants()
             }
         }
+        for app in NSWorkspace.shared.runningApplications {
+            if let url = app.bundleURL { add(url) }
+        }
         byName = found
+    }
+    private static func name(for url: URL) -> String {
+        let file = url.deletingPathExtension().lastPathComponent
+        let display = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        return display == file ? file : "\(display) (\(file))"
     }
 }

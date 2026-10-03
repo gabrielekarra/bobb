@@ -15,6 +15,12 @@ _STRINGS: dict[str, dict[str, str]] = {
     # ---- suggestions
     "reply.title": {"en": "{name} is waiting for your reply", "it": "{name} aspetta una tua risposta"},
     "reply.cta": {"en": "Draft reply", "it": "Prepara risposta"},
+    "reply.started.title": {"en": "Would you like me to draft a reply?", "it": "Vuoi che prepari una bozza di risposta?"},
+    "reply.started.cta": {"en": "Generate draft", "it": "Genera bozza"},
+    "reply.started.explanation": {
+        "en": "You opened a reply. Bobb can write a draft for you to review.",
+        "it": "Hai aperto una risposta. Bobb può scrivere una bozza da rivedere.",
+    },
     "meeting.title": {"en": "Your {time} with {who}", "it": "Alle {time} con {who}"},
     "meeting.others": {"en": "{name} and {count} more", "it": "{name} e altri {count}"},
     "meeting.cta": {"en": "Brief me", "it": "Preparami"},

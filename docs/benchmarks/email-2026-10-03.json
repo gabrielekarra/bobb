@@ -1,0 +1,144 @@
+{
+  "passed": true,
+  "scope": "Real local model, Unix socket, temporary database and synthetic emails; live Mail insertion is separate.",
+  "model": "mlx-community/Qwen3.5-4B-4bit",
+  "cases": [
+    {
+      "case": "summary",
+      "ok": true,
+      "first_delta_ms": 1122.48,
+      "completion_ms": 4436.04,
+      "deltas": 119,
+      "result_kind": "brief",
+      "text": "- Marco Rossi ha richiesto conferma del preventivo di 450 euro entro domani alle 15:30 [1].\n- Marco Rossi ha chiesto la data prevista di consegna del servizio [1].\n- Gabriele non ha ancora risposto alla richiesta di conferma o ai dettagli sulla consegna.\n- Non sono state prese decisioni operative né confermate date di consegna nel messaggio ricevuto [1].\n- La questione della data esatta di consegna rimane irrisolta in assenza di risposta [1].\n- Non ci sono altre email o documenti che confermino lo stato attuale della transazione [1].",
+      "unsupported": []
+    },
+    {
+      "case": "actions",
+      "ok": true,
+      "first_delta_ms": 861.47,
+      "completion_ms": 7125.24,
+      "deltas": 218,
+      "result_kind": "brief",
+      "text": "**Richieste espresse:**\n1. Conferma del preventivo di 450 euro entro domani alle 15:30 [1].\n2. Indicazione della data prevista di consegna del servizio [1].\n\n**Scadenze esplicitate:**\n*   Domani alle 15:30 (per la conferma del preventivo) [1].\n\n**Informazioni mancanti:**\n*   Non è stata specificata la data esatta di \"domani\" (data odierna non fornita) [1].\n*   Non è stata indicata la data prevista di consegna nel testo ricevuto [1].\n\n**Note operative:**\n*   Non posso confermare il preventivo né fornire la data di consegna, poiché non ho accesso ai dati interni del cliente o alle mie capacità operative.\n*   Non posso modificare le app o inviare messaggi a nome dell'utente senza istruzioni esplicithe.\n*   Non posso inferire scadenze da messaggi precedenti o contesti non forniti.",
+      "unsupported": []
+    },
+    {
+      "case": "questions",
+      "ok": true,
+      "first_delta_ms": 869.68,
+      "completion_ms": 3574.69,
+      "deltas": 99,
+      "result_kind": "brief",
+      "text": "Secondo l'email ricevuta da Marco Rossi [1], il prezzo del preventivo è di **450 euro**.\n\nPer quanto riguarda ciò che manca per decidere, l'email non specifica esplicitamente quali elementi mancino. Tuttavia, Marco Rossi chiede a Gabriele di confermare il preventivo entro domani alle 15:30 e chiede anche la data prevista di consegna. Quindi, sembra che la conferma del prezzo e l'indicazione della data di consegna siano le informazioni richieste per procedere.",
+      "unsupported": []
+    },
+    {
+      "case": "reply",
+      "ok": true,
+      "first_delta_ms": 1.92,
+      "completion_ms": 2591.89,
+      "deltas": 56,
+      "result_kind": "reply",
+      "text": "Ciao Marco,\n\nGrazie per il messaggio. Ho preso nota della tua richiesta di confermare il preventivo da 450 euro entro domani alle 15:30 e della domanda relativa alla data di consegna.\n\nResto in attesa delle tue indicazioni per procedere.\n\nCordiali saluti,\nGabriele",
+      "unsupported": []
+    },
+    {
+      "case": "reply_accept",
+      "ok": true,
+      "first_delta_ms": 0.73,
+      "completion_ms": 2755.9,
+      "deltas": 50,
+      "result_kind": "reply",
+      "text": "Ciao Marco,\n\nCertamente, confermo il preventivo di 450 euro entro domani alle 15:30. La data prevista per la consegna è fissata per il giorno successivo alla ricezione del pagamento.\n\nUn saluto,\nGabriele",
+      "unsupported": []
+    },
+    {
+      "case": "followup",
+      "ok": true,
+      "first_delta_ms": 854.11,
+      "completion_ms": 1922.55,
+      "deltas": 39,
+      "result_kind": "body",
+      "text": "Ciao Marco, volevo solo chiederti se hai già avuto modo di inviarmi le misure del lotto per completare il confronto. Resto in attesa di un tuo aggiornamento. Grazie, Gabriele",
+      "unsupported": []
+    },
+    {
+      "case": "forward",
+      "ok": true,
+      "first_delta_ms": 937.23,
+      "completion_ms": 2378.79,
+      "deltas": 53,
+      "result_kind": "body",
+      "text": "Gentile collega,\nTi invio il messaggio di Marco Rossi per un tuo parere. Ti chiedo gentilmente se puoi confermare il preventivo e indicarmi la data prevista di consegna, senza però prendere alcuna decisione in mio nome.\nGrazie.",
+      "unsupported": []
+    },
+    {
+      "case": "new",
+      "ok": true,
+      "first_delta_ms": 710.89,
+      "completion_ms": 1567.61,
+      "deltas": 31,
+      "result_kind": "body",
+      "text": "Ciao Marco,\npotresti indicarmi le misure del lotto? Servono per preparare il confronto.\nGrazie,\nGabriele",
+      "unsupported": []
+    },
+    {
+      "case": "rewrite",
+      "ok": true,
+      "first_delta_ms": 945.15,
+      "completion_ms": 1716.74,
+      "deltas": 27,
+      "result_kind": "body",
+      "text": "Ciao Marco, la data proposta è il 15 ottobre. Resto in attesa di una tua conferma. Un saluto, Gabriele",
+      "unsupported": []
+    },
+    {
+      "case": "translate",
+      "ok": true,
+      "first_delta_ms": 939.64,
+      "completion_ms": 1285.5,
+      "deltas": 11,
+      "result_kind": "translation",
+      "text": "The proposed date is October 15, pending confirmation.",
+      "unsupported": []
+    },
+    {
+      "case": "digest",
+      "ok": true,
+      "first_delta_ms": 1025.19,
+      "completion_ms": 2881.58,
+      "deltas": 66,
+      "result_kind": "brief",
+      "text": "- **Messaggio da rispondere**: Gabriele chiede le misure del lotto per il confronto (msg [1]).\n- **Scadenza**: Marco Rossi richiede conferma del preventivo di 450€ entro domani alle 15:30 e la data di consegna (msg [2]).",
+      "unsupported": []
+    },
+    {
+      "case": "meeting",
+      "ok": true,
+      "first_delta_ms": 858.2,
+      "completion_ms": 5535.39,
+      "deltas": 165,
+      "result_kind": "brief",
+      "text": "**Note Riunioni: Conferma Preventivo e Consegna**\n\n*   **Scopo:** Confermare il preventivo di 450 euro e stabilire la data prevista di consegna.\n*   **Partecipanti:** Marco Rossi, Gabriele.\n*   **Data proposta (non confermata):** Domani alle 15:30 per la conferma del preventivo.\n*   **Agenda:**\n    1.  Conferma della validità del preventivo di 450 euro entro domani alle 15:30.\n    2.  Definizione della data prevista di consegna del lavoro.\n*   **Domande aperte:**\n    *   Gabriele non ha ancora confermato il preventivo entro la scadenza indicata.\n    *   La data di consegna prevista non è stata ancora stabilita.",
+      "unsupported": []
+    }
+  ],
+  "native": {
+    "captured": true,
+    "draft": "Ciao Marco,\n\nGrazie per il messaggio. Ho preso nota della tua richiesta di confermare il preventivo da 450 euro entro domani alle 15:30 e della domanda relativa alla data di consegna.\n\nResto in attesa delle tue indicazioni per procedere.\n\nCordiali saluti,\nGabriele",
+    "drafted": true,
+    "ingested": true,
+    "passed": true,
+    "rewritten": true,
+    "scope": "Native Email workspace, real daemon and synthetic data; no live Mail insertion or sending.",
+    "scriptsCompile": [
+      true,
+      true,
+      true
+    ],
+    "summary": true,
+    "undoPreservedEdits": true
+  },
+  "seconds": 37.77
+}

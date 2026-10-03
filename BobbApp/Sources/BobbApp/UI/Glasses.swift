@@ -141,7 +141,7 @@ struct BobbMark: View {
     }
 }
 
-/// The app icon as it appears in the Dock, for onboarding and About.
+/// The app icon as it appears in the Dock, for About.
 struct BobbAppIcon: View {
     var size: CGFloat = 64
 

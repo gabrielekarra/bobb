@@ -15,9 +15,11 @@ public struct ScreenObservation: Sendable, Equatable {
     /// The window showed no controls to read and its pixels could not be
     /// read either (the user has not allowed reading text in images).
     public var unreadable: Bool
+    /// URL attested by the current native web area, independent of its title.
+    public var sourceURL: String?
 
     public init(app: String, bundleId: String?, window: String, elements: [UIElementSnapshot], screen: ScreenRect? = nil,
-                screenText: String = "", defaultButton: String = "", unreadable: Bool = false) {
+                screenText: String = "", defaultButton: String = "", unreadable: Bool = false, sourceURL: String? = nil) {
         self.app = app
         self.bundleId = bundleId
         self.window = window
@@ -26,6 +28,7 @@ public struct ScreenObservation: Sendable, Equatable {
         self.screenText = screenText
         self.defaultButton = defaultButton
         self.unreadable = unreadable
+        self.sourceURL = sourceURL
     }
 }
 
@@ -52,7 +55,12 @@ public enum DriverResult: Sendable, Equatable {
 /// applications. Implemented with AX in the app, with fakes in tests.
 @MainActor
 public protocol TaskDriver: AnyObject {
+    var usesSharedDesktop: Bool { get }
+    var requiresAccessibility: Bool { get }
+    func close() async
     func observe() async -> ScreenObservation?
+    /// Independent evidence required before the model may declare success.
+    func completionProblem(goal: String) async -> String?
     func installedApps() -> [String]
     func bundleIdentifier(forApp name: String) -> String?
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord]
@@ -66,6 +74,10 @@ public protocol TaskDriver: AnyObject {
 }
 
 extension TaskDriver {
+    public var usesSharedDesktop: Bool { true }
+    public var requiresAccessibility: Bool { true }
+    public func close() async {}
+    public func completionProblem(goal: String) async -> String? { nil }
     public func bundleIdentifier(forApp name: String) -> String? { nil }
     public func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { KeyChord.offered(bundleId: observation.bundleId) }
     public func permissionDetail(for action: DriverAction) -> String? { nil }
@@ -193,6 +205,9 @@ public final class TaskLoop {
 
             switch act.operation {
             case .done:
+                if let problem = await driver.completionProblem(goal: goal) {
+                    return await finish(.blocked, detail: problem)
+                }
                 if let text = act.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
                     state.task?.report = text
                 }
@@ -223,7 +238,7 @@ public final class TaskLoop {
                                           appName: act.operation == .openApp ? resolved.label : observation.app,
                                           secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
                                           window: observation.window, key: resolved.key, defaultButton: observation.defaultButton,
-                                          context: observation.screenText, typedText: actionDetail ?? "")
+                                          context: observation.screenText, typedText: actionDetail ?? "", websiteURL: observation.sourceURL)
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
@@ -370,7 +385,7 @@ public final class TaskLoop {
     }
 
     private func finish(_ status: TaskStatus, detail: String) async -> TaskStatus {
-        if var task = state.task {
+        if var task = state.task, task.id == taskId {
             task.phase = .finished(status, detail: detail)
             state.task = task
         }

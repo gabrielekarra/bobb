@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "scope": "Real Qwen3.5-4B + Kev daemon via Unix socket, synthetic emails; does not prove native Mail detection.",
+  "requires_approval": true,
+  "duplicate_offer_suppressed": true,
+  "no_app_actions": true,
+  "cases": [
+    {
+      "case": "confirmation",
+      "source": "Ciao Gabriele, mi confermi il preventivo di 450 euro? Grazie, Marco",
+      "offer_ms": 0.54,
+      "first_draft_text_ms": 2123.0,
+      "complete_ms": 4465.6,
+      "draft": "Ciao Marco,\n\nGrazie per il messaggio. Ho preso nota della tua richiesta di conferma per il preventivo da 450 euro.\n\nResto in attesa delle tue indicazioni.\n\nCordiali saluti,\nGabriele",
+      "unsupported": [],
+      "generation_first_token_ms": 2107.2333749998506
+    },
+    {
+      "case": "document",
+      "source": "Buongiorno Gabriele, per completare la pratica Rossi manca la procura firmata. Puoi inviarmela? Grazie, Maria",
+      "offer_ms": 0.31,
+      "first_draft_text_ms": 933.2,
+      "complete_ms": 1767.7,
+      "draft": "Buongiorno Maria,\n\nGrazie per il messaggio. Ho preso nota della richiesta relativa alla procura firmata per la pratica Rossi.\n\nCordiali saluti,\nGabriele",
+      "unsupported": [],
+      "generation_first_token_ms": 930.4981249988487
+    },
+    {
+      "case": "english",
+      "source": "Hi Gabriele, can you suggest a time for the design review? Thanks, Dana",
+      "offer_ms": 0.78,
+      "first_draft_text_ms": 1006.4,
+      "complete_ms": 1652.7,
+      "draft": "Hi Dana,\n\nThank you for your message. I will review your request and get back to you regarding the design review time.\n\nBest,\nGabriele",
+      "unsupported": [],
+      "generation_first_token_ms": 1003.7018329985585
+    }
+  ]
+}

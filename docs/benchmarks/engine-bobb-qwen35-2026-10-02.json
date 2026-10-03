@@ -1,0 +1,91 @@
+{
+  "backend": "bobb",
+  "model": "/Users/gabrielekarra/dev/bobb/.runtime/models/Qwen3.5-4B-4bit",
+  "scope": "Four identical synthetic text prompts, repeated; engine comparison, not a model quality or real-app benchmark. No Kev loaded.",
+  "load_seconds": 1.543,
+  "mlx_peak_gb": 2.606962316,
+  "rss_peak_gb": 3.18636032,
+  "parity_max_error": null,
+  "cases": [
+    {
+      "case": "accounting",
+      "repeat": 0,
+      "text": "Gentile Alfa,\nla fattura relativa al bonifico di 450 euro è mancante.",
+      "tokens": 24,
+      "seconds": 1.066,
+      "first_token_ms": 436.9096250002258,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    },
+    {
+      "case": "architecture",
+      "repeat": 0,
+      "text": "Richiedi le misure aggiornate del lotto necessarie per confrontare due alternative di progetto per un cortile.",
+      "tokens": 23,
+      "seconds": 0.943,
+      "first_token_ms": 344.5581249998213,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    },
+    {
+      "case": "development",
+      "repeat": 0,
+      "text": "### Diagnostic Checklist for `ModuleNotFoundError: No module named invoice_parser`\n\n1.  **Verify Installation**\n    *   Run `pip show invoice_parser`. If the module is not listed, it has not been installed.\n    *   Run `pip list | grep invoice_parser`. If missing, install via `pip install invoice_parser` (or the specific version required).\n\n2.  **Check Python Environment**\n    *   Confirm which Python interpreter is active (`which python` or `where python`).\n    *   Ensure the package was installed into the same environment as your",
+      "tokens": 120,
+      "seconds": 3.535,
+      "first_token_ms": 343.12662499996804,
+      "finish_reason": "length",
+      "read_bytes": 0
+    },
+    {
+      "case": "followup",
+      "repeat": 0,
+      "text": "The design review team is currently awaiting your signed approval for the kitchen layout. Please provide the signature at your earliest convenience to proceed with the next steps.\n\n[Insert Date/Time if known, otherwise omit]",
+      "tokens": 52,
+      "seconds": 1.824,
+      "first_token_ms": 417.46616699992956,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    },
+    {
+      "case": "accounting",
+      "repeat": 1,
+      "text": "Gentile Alfa,\nla fattura relativa al bonifico di 450 euro è mancante.",
+      "tokens": 24,
+      "seconds": 0.976,
+      "first_token_ms": 343.963457999962,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    },
+    {
+      "case": "architecture",
+      "repeat": 1,
+      "text": "Richiedi le misure aggiornate del lotto necessarie per confrontare due alternative di progetto per un cortile.",
+      "tokens": 23,
+      "seconds": 0.953,
+      "first_token_ms": 346.31837500000984,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    },
+    {
+      "case": "development",
+      "repeat": 1,
+      "text": "### Diagnostic Checklist for `ModuleNotFoundError: No module named invoice_parser`\n\n1.  **Verify Installation**\n    *   Run `pip show invoice_parser`. If the module is not listed, it has not been installed.\n    *   Run `pip list | grep invoice_parser`. If missing, install via `pip install invoice_parser` (or the specific version required).\n\n2.  **Check Python Environment**\n    *   Confirm which Python interpreter is active (`which python` or `where python`).\n    *   Ensure the package was installed into the same environment as your",
+      "tokens": 120,
+      "seconds": 3.523,
+      "first_token_ms": 350.8393330002946,
+      "finish_reason": "length",
+      "read_bytes": 0
+    },
+    {
+      "case": "followup",
+      "repeat": 1,
+      "text": "The design review team is currently awaiting your signed approval for the kitchen layout. Please provide the signature at your earliest convenience to proceed with the next steps.\n\n[Insert Date/Time if known, otherwise omit]",
+      "tokens": 52,
+      "seconds": 1.723,
+      "first_token_ms": 355.66612499997063,
+      "finish_reason": "stop",
+      "read_bytes": 0
+    }
+  ]
+}

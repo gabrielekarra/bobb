@@ -227,6 +227,13 @@ struct TaskView: View {
         case "steps": return L10n.t(.taskTooManySteps)
         case "waiting": return L10n.t(.taskKeptLoading)
         case "stale", "actions": return L10n.t(.taskAppDidNotRespond)
+        case "accessibilityRequired": return L10n.t(.taskNotTrusted)
+        case "applicationChanged", "windowChanged", "browserTabChanged":
+            return BobbCopy.t("The active app, window or tab changed. Start the request again from the page you want to use.", "L’app, la finestra o la scheda attiva è cambiata. Ripeti la richiesta dalla pagina che vuoi usare.")
+        case "browserOpenFailed", "browserPageUnavailable":
+            return BobbCopy.t("Your browser did not expose the requested page. Open it in your browser and try again.", "Il browser non rende leggibile la pagina richiesta. Aprila nel tuo browser e riprova.")
+        case "unavailableWebsite":
+            return BobbCopy.t("This website is unavailable or excluded in Boundaries.", "Il sito non è disponibile o è escluso nei Confini.")
         default:
             if detail.hasPrefix("not sure") { return L10n.t(.taskNotSure) }
             if detail.hasPrefix("nothing on screen") { return L10n.t(.taskNothingFits) }
@@ -302,8 +309,10 @@ final class TaskController {
     private var running: Task<Void, Never>?
     private var escapeMonitors: [Any] = []
     private var hideTask: Task<Void, Never>?
-    let driver = AXDriver()
     var brainFactory: (() -> any TaskBrain)?
+    var onAccessibilityRequired: (() -> Void)?
+    /// Explicit developer checks may supply an isolated browser. Normal requests never do.
+    var isolatedBrowserFactory: ((URL) -> (any TaskDriver)?)?
     private var leaseId: String?
 
     init(state: AppState, coordinator: BobbCoordinator) {
@@ -316,30 +325,51 @@ final class TaskController {
     /// Starts `goal`, replacing any task already running. Returns a reason
     /// it cannot start, in the user's words, or nil.
     @discardableResult
-    func start(goal: String) -> String? {
+    func start(goal: String, browserURL: URL? = nil, preferredApp: String? = nil) -> String? {
         let trimmed = goal.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         guard state.settings.actingEnabled else { return L10n.t(.taskDisabled) }
-        guard AXIsProcessTrusted() else { return L10n.t(.taskNotTrusted) }
         guard state.entitlement.allowsAssistance else { return L10n.t(.statusTrialExpired) }
-        if let leaseId { ScreenLease.shared.release(leaseId) }
-        loop?.stop()
-        running?.cancel()
         let id = TaskStartFrame.newTaskID()
-        guard ScreenLease.shared.acquire(id) else { return BobbCopy.t("The desktop is busy. Stop its current task in Bobb Activity.", "Lo schermo è occupato. Ferma l’incarico attuale in Attività di Bobb.") }
-        leaseId = id
+        var browser: (any TaskDriver)?
+        if let browserURL {
+            let selected: (any TaskDriver)?
+            if let isolatedBrowserFactory { selected = isolatedBrowserFactory(browserURL) }
+            else {
+                selected = UserBrowserComputer(url: browserURL, goal: trimmed, preferredApp: preferredApp,
+                    settings: { [weak self] in self?.state.settings ?? BobbSettings() }, ownsScreen: { ScreenLease.shared.owner == id })
+            }
+            guard let computer = selected else {
+                return BobbCopy.t("This website is unavailable or excluded in Boundaries.", "Il sito non è disponibile o è escluso nei Confini.")
+            }
+            browser = computer
+        }
+        let needsDesktop = browser?.usesSharedDesktop ?? true
+        guard !(browser?.requiresAccessibility ?? true) || AXIsProcessTrusted() else {
+            onAccessibilityRequired?(); return L10n.t(.taskNotTrusted)
+        }
+        loop?.stop(); running?.cancel()
+        if let leaseId { ScreenLease.shared.release(leaseId) }
+        leaseId = nil
+        guard !needsDesktop || ScreenLease.shared.acquire(id) else { return BobbCopy.t("The desktop is busy. Stop its current task in Bobb Activity.", "Lo schermo è occupato. Ferma l’incarico attuale in Attività di Bobb.") }
+        if needsDesktop { leaseId = id }
+        let driver = AXDriver()
         driver.settings = { [weak self] in self?.state.settings ?? BobbSettings() }
         driver.stillOwnsScreen = { ScreenLease.shared.owner == id }
 
         let settings = state.settings
         let policy = ActionPolicy(approval: settings.actingApproval, allowRules: settings.actionAllowRules,
                                   extraProtected: settings.extraProtectedApps, boundaries: settings.bobb.boundaries)
-        let loop = TaskLoop(goal: trimmed, state: state, brain: brainFactory?() ?? coordinator, driver: driver, policy: policy, taskId: id)
+        let cua = browser == nil ? CUANativeComputer(settings: { [weak self] in self?.state.settings ?? BobbSettings() },
+                                                     ownsScreen: { ScreenLease.shared.owner == id }) : nil
+        let native = NativeComputer(primary:driver, fallback:cua)
+        let taskDriver: any TaskDriver = browser ?? native
+        let loop = TaskLoop(goal: trimmed, state: state, brain: brainFactory?() ?? coordinator, driver: taskDriver, policy: policy, taskId: id)
         loop.currentPolicy = { [weak self] in
             let s = self?.state.settings ?? BobbSettings()
             return ActionPolicy(approval: s.actingApproval, allowRules: s.actionAllowRules, extraProtected: s.extraProtectedApps, boundaries: s.bobb.boundaries)
         }
-        loop.shouldStop = { [weak self] in self?.state.settings.actingEnabled != true || ScreenLease.shared.owner != id }
+        loop.shouldStop = { [weak self] in self?.state.settings.actingEnabled != true || (needsDesktop && ScreenLease.shared.owner != id) }
         loop.onAllowAlways = { [weak self] rule in
             self?.coordinator.updateSettings { settings in
                 if !settings.actionAllowRules.contains(rule) { settings.actionAllowRules.append(rule) }
@@ -350,9 +380,12 @@ final class TaskController {
         show()
         installEscape()
         running = Task { [weak self] in
+            await browser?.settle()
             let status = await loop.run()
+            await browser?.close()
+            await native.close()
             ScreenLease.shared.release(id)
-            if self?.leaseId == id { self?.leaseId = nil; self?.finished(status) }
+            if self?.loop === loop { self?.leaseId = nil; self?.finished(status) }
         }
         return nil
     }
@@ -436,7 +469,7 @@ final class TaskController {
                 showMe: { [weak self] in self?.startShowing() },
                 finishShowing: { [weak self] keep in self?.finishShowing(keep: keep) }
             ))
-            let hosting = NSHostingView(rootView: view.bobbGlass(radius: 20))
+            let hosting = NSHostingView(rootView: view)
             let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 120),
                                 styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
                                 backing: .buffered, defer: false)
@@ -451,7 +484,7 @@ final class TaskController {
             hosting.wantsLayer = true
             hosting.layer?.cornerRadius = 14
             hosting.layer?.masksToBounds = true
-            panel.contentView = hosting
+            panel.contentView = BobbGlassHostingView(hosting, radius: 24)
             self.panel = panel
             observeSize()
         }

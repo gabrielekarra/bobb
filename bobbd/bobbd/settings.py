@@ -32,7 +32,7 @@ SUPPORTED_LOCALES = ("en", "it")
 # readouts are `Bool`s, which `bobbd/README.md` measured as yes-biased, and
 # a yes-biased interruption is exactly the noise this product exists to avoid.
 # Selection help lives in the command bar instead, where the user asked.
-DEFAULT_PROACTIVE_KINDS = frozenset({"mail.opened", "mail.composing", "message.opened", "calendar.upcoming"})
+DEFAULT_PROACTIVE_KINDS = frozenset({"mail.opened", "mail.reply_started", "mail.composing", "mail.draft_check", "message.opened", "calendar.upcoming"})
 
 # Never observed, never stored, never driven. Matched against bundle id and,
 # as a fallback for apps that report none, the localized name. The app applies
@@ -71,6 +71,8 @@ class Settings:
     # Local-time hours [start, end). `None` disables. Wraps midnight when
     # start > end, e.g. (19, 8) is "evenings and nights".
     quiet_hours: tuple[int, int] | None = None
+    context_proactive: bool = True
+    track_promises: bool = True
     adaptive: bool = True
     memory_enabled: bool = True
     memory_retention_days: int = 30
@@ -78,7 +80,7 @@ class Settings:
     protected_apps: frozenset[str] = DEFAULT_PROTECTED_APPS
     extra_protected_apps: frozenset[str] = field(default_factory=frozenset)
     timezone: str = "UTC"
-    # Legacy clients omit the field; Bobb always sends an explicit list.
+    # Legacy allowlists are accepted; null restores automatic app access.
     connected_apps: frozenset[str] | None = None
 
     @property
@@ -102,6 +104,8 @@ class Settings:
             "locale": self.locale,
             "proactive_kinds": sorted(self.proactive_kinds),
             "quiet_hours": list(self.quiet_hours) if self.quiet_hours else None,
+            "context_proactive": self.context_proactive,
+            "track_promises": self.track_promises,
             "adaptive": self.adaptive,
             "memory_enabled": self.memory_enabled,
             "memory_retention_days": self.memory_retention_days,
@@ -161,7 +165,7 @@ def apply(settings: Settings, frame: dict[str, Any]) -> Settings:
         changes["proactive_kinds"] = kinds
     if "quiet_hours" in frame and (hours := _valid_hours(frame["quiet_hours"])) is not False:
         changes["quiet_hours"] = hours
-    for flag in ("adaptive", "memory_enabled"):
+    for flag in ("adaptive", "memory_enabled", "context_proactive", "track_promises"):
         if isinstance(frame.get(flag), bool):
             changes[flag] = frame[flag]
     if (days := _valid_days(frame.get("memory_retention_days"))) is not None:
@@ -170,8 +174,11 @@ def apply(settings: Settings, frame: dict[str, Any]) -> Settings:
         changes["history_retention_days"] = days
     if "extra_protected_apps" in frame and (apps := _valid_strings(frame["extra_protected_apps"])) is not None:
         changes["extra_protected_apps"] = apps
-    if "connected_apps" in frame and (apps := _valid_strings(frame["connected_apps"])) is not None:
-        changes["connected_apps"] = apps
+    if "connected_apps" in frame:
+        if frame["connected_apps"] is None:
+            changes["connected_apps"] = None
+        elif (apps := _valid_strings(frame["connected_apps"])) is not None:
+            changes["connected_apps"] = apps
     return replace(settings, **changes) if changes else settings
 
 

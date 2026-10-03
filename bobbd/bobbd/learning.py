@@ -118,7 +118,7 @@ class Personalizer:
             """
             SELECT sender, response, response_reason, ts
             FROM decisions
-            WHERE kind = 'mail.opened' AND action = 'suggest' AND response IS NOT NULL
+            WHERE kind IN ('mail.opened', 'mail.reply_started') AND action = 'suggest' AND response IS NOT NULL
               AND sender IS NOT NULL AND ts >= ?
             ORDER BY ts
             """,
@@ -152,7 +152,7 @@ class Personalizer:
         return max(FLOOR_MIN, min(FLOOR_MAX, base_floor + floor_offset(self.stats_for(kind))))
 
     def muted_sender(self, event: dict) -> MutedSender | None:
-        if event.get("kind") != "mail.opened":
+        if event.get("kind") not in {"mail.opened", "mail.reply_started"}:
             return None
         sender = sender_key(event.get("payload"))
         return self._muted.get(sender) if sender else None

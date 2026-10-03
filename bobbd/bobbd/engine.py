@@ -1,4 +1,7 @@
-"""A resident causal LM exposed for constrained single-position readout.
+"""Resident Qwen generation model, with legacy research readout primitives.
+
+The shipping server attaches a separate Kev pointer decision backend. The
+readout primitives described below support research and fake-engine tests.
 
 `decide.py` branches off one `prefill`: fork the cache per question, `step`
 once, read logits. No token is ever generated or decoded back to text; the
@@ -25,9 +28,9 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-import mlx.core as mx  # noqa: E402
-from mlx_lm.models.cache import make_prompt_cache  # noqa: E402
-from mlx_lm.utils import load  # noqa: E402
+# Importing the protocol must not require a GPU. The production engine
+# loads MLX when it is constructed; fake engines remain usable headlessly.
+mx = None
 
 Cache = Any
 
@@ -105,11 +108,14 @@ class ResidentMLX:
     """
 
     def __init__(self, model_id: str):
+        global mx
+        import mlx.core as mx
+        from mlx_lm.utils import load
         self.model, self.tokenizer, config = load(
             resolve_local(model_id), return_config=True
         )
         self.name = model_id
-        self.vocab_size = int(config["vocab_size"])
+        self.vocab_size = int(config.get("vocab_size") or config["text_config"]["vocab_size"])
 
     def encode(self, text: str, *, add_special: bool = False) -> list[int]:
         return self.tokenizer.encode(text, add_special_tokens=add_special)
@@ -118,6 +124,7 @@ class ResidentMLX:
         return self.tokenizer.decode(ids)
 
     def prefill(self, ids: list[int]) -> _State:
+        from mlx_lm.models.cache import make_prompt_cache
         kv = make_prompt_cache(self.model)
         logits = self.model(mx.array(ids, dtype=mx.int32)[None], cache=kv)
         last = logits[0, -1].astype(mx.float32)

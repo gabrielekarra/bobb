@@ -1,3 +1,7 @@
+> Product vision from September 2026. For implemented capabilities, model choices,
+> licensing and current validation, see [BOBB.md](BOBB.md), the
+> [feature backlog](FEATURES.md) and the [README](../README.md).
+
 # Bobb — what we are actually building
 
 Supersedes the narrower framing in the first README. 2026-09-20.

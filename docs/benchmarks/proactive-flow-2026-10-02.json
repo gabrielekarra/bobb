@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "scope": "Real daemon, local models, Unix socket, isolated synthetic data; not UI automation.",
+  "source_observed": true,
+  "suggestion": {
+    "title": "Prepara le misure aggiornate del lotto",
+    "reason": "Il cliente richiede il confronto delle alternative ma mancano le misure del lotto necessarie.",
+    "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+    "draft": "Gentile team,\n\nPer procedere con la revisione del progetto e il confronto delle due alternative per il cortile, è necessario ricevere le misure aggiornate del lotto.\n\nPotessiste condividerle al più presto?\n\nGrazie,\n[Il tuo nome]",
+    "id": "f11f5fc7c1be21cc5b80a9b3",
+    "app": "Project Studio",
+    "window": "Cortile",
+    "source_id": 1,
+    "source_ts": 1790969376.757308,
+    "announced_at": 0.0
+  },
+  "answer": "Mancano le misure aggiornate del lotto.",
+  "notification_once": true,
+  "no_action_enqueued": true,
+  "deletion_verified": true,
+  "seconds": 14.769
+}

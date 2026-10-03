@@ -9,8 +9,17 @@ public struct MailMessage: Sendable, Equatable {
     public var body: String
     public var read: Bool
     public var mailbox: String
+    public var replyTo: String
+    public var to: String
+    public var cc: String
+    public var date: Date?
+    public var attachments: [String]
+    public var headers: MailHeaders
+    public var account: String
+    public var flagged: Bool
 
-    public init(id: String, messageId: String, sender: String, subject: String, body: String, read: Bool, mailbox: String) {
+    public init(id: String, messageId: String, sender: String, subject: String, body: String, read: Bool, mailbox: String, replyTo: String = "",
+                to: String = "", cc: String = "", date: Date? = nil, attachments: [String] = [], headers: MailHeaders = MailHeaders(), account: String = "", flagged: Bool = false) {
         self.id = id
         self.messageId = messageId
         self.sender = sender
@@ -18,6 +27,10 @@ public struct MailMessage: Sendable, Equatable {
         self.body = body
         self.read = read
         self.mailbox = mailbox
+        self.replyTo = replyTo
+        self.to = to; self.cc = cc; self.date = date; self.attachments = attachments; self.headers = headers
+        self.account = account
+        self.flagged = flagged
     }
 }
 
@@ -27,17 +40,25 @@ public enum MailScriptFormat {
     public static let unit = "\u{1F}"
 
     /// Parses `id␟message id␟sender␟subject␟read␟mailbox␟content`.
-    public static func parseSelected(_ output: String) -> MailMessage? {
+    public static func parseSelected(_ output: String, includesReplyTo: Bool = false, includesMetadata: Bool = false, includesAccount: Bool = false, includesFlag: Bool = false) -> MailMessage? {
         let fields = output.components(separatedBy: unit)
-        guard fields.count >= 7, !fields[0].isEmpty else { return nil }
+        let bodyIndex = includesMetadata ? (includesAccount ? (includesFlag ? 14 : 13) : 12) : includesReplyTo ? 7 : 6
+        guard fields.count > bodyIndex, !fields[0].isEmpty else { return nil }
         return MailMessage(
             id: fields[0],
             messageId: fields[1],
             sender: fields[2],
             subject: fields[3],
-            body: fields[6...].joined(separator: unit),
+            body: fields[bodyIndex...].joined(separator: unit),
             read: fields[4].lowercased() == "true",
-            mailbox: fields[5]
+            mailbox: fields[5],
+            replyTo: includesReplyTo || includesMetadata ? fields[6] : "",
+            to: includesMetadata ? fields[8] : "", cc: includesMetadata ? fields[9] : "",
+            date: includesMetadata ? isoDate(fields[7]) : nil,
+            attachments: includesMetadata ? fields[10].components(separatedBy: "\n").filter { !$0.isEmpty } : [],
+            headers: includesMetadata ? MailHeaders(raw: fields[11]) : MailHeaders(),
+            account: includesMetadata && includesAccount ? fields[12] : "",
+            flagged: includesMetadata && includesAccount && includesFlag && fields[13].lowercased() == "true"
         )
     }
 
@@ -46,6 +67,17 @@ public enum MailScriptFormat {
         let fields = output.components(separatedBy: unit)
         guard fields.count >= 3 else { return nil }
         return (fields[0], fields[1], fields[2...].joined(separator: unit))
+    }
+
+    /// `id␟subject␟recipients (one per line)␟signature␟content`.
+    public static func parseCompose(_ output: String, includesAttachmentCount: Bool = false) -> MailComposeSnapshot? {
+        let fields = output.components(separatedBy: unit)
+        let bodyIndex = includesAttachmentCount ? 5 : 4
+        guard fields.count > bodyIndex, !fields[0].isEmpty else { return nil }
+        return MailComposeSnapshot(id: fields[0], subject: fields[1],
+            recipients: fields[2].components(separatedBy: "\n").filter { !$0.isEmpty },
+            content: fields[bodyIndex...].joined(separator: unit), signature: fields[3],
+            attachmentCount: includesAttachmentCount ? Int(fields[4]) ?? -1 : -1)
     }
 
     /// Mail's scripting interface has no thread count. Replies quote what
@@ -85,6 +117,87 @@ public enum MailScriptFormat {
         var text = String(body[..<cut]).trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { text = body.trimmingCharacters(in: .whitespacesAndNewlines) }
         return text.count > limit ? String(text.prefix(limit)) + "…" : text
+    }
+}
+
+public struct MailComposeSnapshot: Equatable, Sendable {
+    public var id: String
+    public var subject: String
+    public var recipients: [String]
+    public var content: String
+    public var signature: String
+    public var attachmentCount: Int
+
+    public init(id: String, subject: String, recipients: [String], content: String, signature: String = "", attachmentCount: Int = -1) {
+        self.id = id; self.subject = subject; self.recipients = recipients
+        self.content = content; self.signature = signature
+        self.attachmentCount = attachmentCount
+    }
+
+    /// Unlike newestPart, an empty prefix must stay empty: quoted history
+    /// and Mail's automatic signature are not words the user just typed.
+    public var authoredText: String {
+        let body = content.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        let markers = [
+            #"(?im)^(On .{3,200} wrote:|Il giorno .{3,200} ha scritto:|Am .{3,200} schrieb .{0,100}:)\s*$"#,
+            #"(?im)^-{2,} ?(Original Message|Messaggio originale) ?-{2,}"#,
+            #"(?m)^\s*>"#,
+            #"(?im)^(Begin forwarded message:|Inizio messaggio inoltrato:|[- ]*Forwarded message[- ]*|[- ]*Messaggio inoltrato[- ]*)\s*$"#,
+        ]
+        var cut = body.endIndex
+        for marker in markers {
+            if let range = body.range(of: marker, options: .regularExpression), range.lowerBound < cut { cut = range.lowerBound }
+        }
+        var text = String(body[..<cut]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let automatic = signature.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !automatic.isEmpty, text.hasSuffix(automatic) {
+            text = String(text.dropLast(automatic.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.hasSuffix("--") { text = String(text.dropLast(2)).trimmingCharacters(in: .whitespacesAndNewlines) }
+        }
+        return text
+    }
+
+    public func replies(to message: MailMessage) -> Bool {
+        guard !message.messageId.isEmpty, !message.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              subject.range(of: #"^\s*(re|r|aw|sv)\s*:"#, options: [.regularExpression, .caseInsensitive]) != nil else { return false }
+        func base(_ value: String) -> String {
+            value.replacingOccurrences(of: #"^(\s*(re|r|aw|sv)\s*:)+\s*"#, with: "", options: [.regularExpression, .caseInsensitive])
+                .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        func address(_ value: String) -> String {
+            if let start = value.lastIndex(of: "<"), let end = value[start...].firstIndex(of: ">") {
+                return String(value[value.index(after: start)..<end]).lowercased()
+            }
+            return value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        let target = address(message.replyTo.isEmpty ? message.sender : message.replyTo)
+        return !target.isEmpty && base(subject) == base(message.subject) && recipients.contains { address($0) == target }
+    }
+}
+
+/// A new, still-empty reply is an explicit opportunity to offer help.
+/// Remember draft IDs across app switches; once someone starts writing,
+/// deleting their text must not cause a fresh interruption.
+public final class ReplyStartWatcher: @unchecked Sendable {
+    private var handled: [String] = []
+
+    public init() {}
+
+    public func shouldOffer(_ draft: MailComposeSnapshot, original: MailMessage?, keyboardIdle: TimeInterval) -> Bool {
+        guard !handled.contains(draft.id) else { return false }
+        if !draft.authoredText.isEmpty {
+            remember(draft.id)
+            return false
+        }
+        guard keyboardIdle >= 0.7, let original, draft.replies(to: original) else { return false }
+        remember(draft.id)
+        return true
+    }
+
+    private func remember(_ id: String) {
+        handled.append(id)
+        if handled.count > 256 { handled.removeFirst(handled.count - 256) }
     }
 }
 
@@ -178,21 +291,29 @@ public final class ComposeWatcher: @unchecked Sendable {
 public enum MailEvents {
     public static let bundleId = "com.apple.mail"
 
+    public static func replyStarted(_ message: MailMessage, composeId: String, to: [String]) -> EventFrame {
+        var event = opened(message, wasUnread: !message.read, typing: false, idle: false)
+        event.kind = .mailReplyStarted
+        event.payload.fields["compose_id"] = .string(composeId)
+        event.payload.fields["reply_recipients"] = .array(to.map { .string($0) })
+        event.payload.fields["draft"] = .string("")
+        return event
+    }
+
     public static func opened(_ message: MailMessage, wasUnread: Bool, typing: Bool, idle: Bool) -> EventFrame {
-        EventFrame(
+        var fields = EmailItem(message: message).snapshot.objectValue ?? [:]
+        fields["list_id"] = .string(message.headers.listId)
+        fields["automatic"] = .bool(message.headers.automatic)
+        fields["body"] = .string(MailScriptFormat.newestPart(of: message.body))
+        fields["message_id"] = .string(message.messageId)
+        fields["thread_len"] = .number(Double(MailScriptFormat.estimateThreadLength(subject: message.subject, body: message.body)))
+        fields["unread"] = .bool(wasUnread)
+        fields["thread_id"] = .string(message.messageId)
+        fields["bundle_id"] = .string(bundleId)
+        return EventFrame(
             kind: .mailOpened,
             app: "Mail",
-            payload: EventPayload(typing: typing, idle: idle, fields: [
-                "sender": .string(message.sender),
-                "subject": .string(message.subject),
-                "body": .string(MailScriptFormat.newestPart(of: message.body)),
-                "thread_len": .number(Double(MailScriptFormat.estimateThreadLength(subject: message.subject, body: message.body))),
-                "unread": .bool(wasUnread),
-                "message_id": .string(message.messageId),
-                "thread_id": .string(message.messageId),
-                "mailbox": .string(message.mailbox),
-                "bundle_id": .string(bundleId),
-            ])
+            payload: EventPayload(typing: typing, idle: idle, fields: fields)
         )
     }
 

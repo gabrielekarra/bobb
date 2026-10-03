@@ -7,6 +7,7 @@ from server_helpers import recv_frame, running_server, send_frame
 from test_agent import OBSERVATION, first_matching, scripted
 
 import bobbd.agent as agent_mod
+from bobbd.routing import BrowserPlan, DESKTOP_TARGET
 from bobbd import audit as audit_mod
 from bobbd.generation import Generated
 
@@ -76,7 +77,8 @@ async def test_observe_for_an_unknown_task_is_an_error(tmp_path, monkeypatch):
 
 
 async def test_ask_routes_to_a_task_only_when_asked_to_route(tmp_path, monkeypatch):
-    monkeypatch.setattr(agent_mod, "decide_many", scripted({"route": "do"}, confidence=0.95))
+    monkeypatch.setattr(agent_mod, "decide_many", scripted({"route": agent_mod.ROUTE_DO}, confidence=0.95))
+    monkeypatch.setattr("bobbd.routing.decide_many", scripted({"browser_target": DESKTOP_TARGET}, confidence=0.95))
     async with running_server(tmp_path, monkeypatch) as server:
         reader, writer = await _connect(server)
         await send_frame(writer, {"t": "ask", "id": "a1", "prompt": "metti Focus su Spotify", "mode": "ask", "route": True})
@@ -86,6 +88,55 @@ async def test_ask_routes_to_a_task_only_when_asked_to_route(tmp_path, monkeypat
         assert answer["mode"] == "do"
         assert answer["text"] == "metti Focus su Spotify"
         writer.close()
+
+
+async def test_auto_request_routes_a_browser_task_with_selection_and_destination(tmp_path, monkeypatch):
+    monkeypatch.setattr(agent_mod, "decide_many", scripted({"route": agent_mod.ROUTE_DO}, confidence=0.95))
+    monkeypatch.setattr("bobbd.routing.browser_destination", lambda *a: BrowserPlan("https://www.youtube.com/results?search_query=lofi"))
+    async with running_server(tmp_path, monkeypatch) as server:
+        reader, writer = await _connect(server)
+        await send_frame(writer, {"t": "ask", "id": "auto_web", "prompt": "Cerca questo su YouTube", "selection": "lofi", "mode": "auto", "route": True})
+        answer = await recv_frame(reader)
+        assert answer["result_kind"] == "task"
+        assert "lofi" in answer["text"]
+        assert answer["task_url"] == "https://www.youtube.com/results?search_query=lofi"
+        writer.close()
+
+
+async def test_auto_request_cannot_enable_disabled_actions(tmp_path, monkeypatch):
+    monkeypatch.setattr(agent_mod, "decide_many", scripted({"route": agent_mod.ROUTE_DO}, confidence=0.95))
+    monkeypatch.setattr("bobbd.routing.browser_destination", lambda *a: pytest.fail("Disabled action planned a website"))
+    async with running_server(tmp_path, monkeypatch) as server:
+        reader, writer = await _connect(server)
+        await send_frame(writer, {"t": "ask", "id": "disabled_auto", "prompt": "Apri YouTube", "mode": "auto", "route": False})
+        answer = await recv_frame(reader)
+        assert answer["t"] == "error"
+        assert answer["request_id"] == "disabled_auto"
+        writer.close()
+
+async def test_clarification_retains_constraints_and_tokens_are_connection_scoped(tmp_path, monkeypatch):
+    from bobbd.planning import Intake
+    received=[]
+    def prepare(engine,prompt,selection):
+        received.append(prompt)
+        return Intake(question="Quale destinatario?") if "User clarification:" not in prompt else Intake()
+    monkeypatch.setattr(agent_mod,"decide_many",scripted({"route":agent_mod.ROUTE_DO}))
+    monkeypatch.setattr("bobbd.planning.intake",prepare)
+    monkeypatch.setattr("bobbd.routing.browser_destination",lambda *a:None)
+    async with running_server(tmp_path,monkeypatch) as server:
+        reader,writer=await _connect(server)
+        await send_frame(writer,{"t":"ask","id":"first","prompt":"Invia il documento domani alle 10","mode":"auto","route":True})
+        question=await recv_frame(reader)
+        assert question["result_kind"]=="clarification"
+        other_reader,other_writer=await _connect(server)
+        await send_frame(other_writer,{"t":"ask","id":"other","prompt":"Marco","mode":"auto","route":True,"continuation_id":question["continuation_id"]})
+        assert (await recv_frame(other_reader))["t"]=="error"
+        await send_frame(writer,{"t":"ask","id":"reply","prompt":"Marco","mode":"auto","route":True,"continuation_id":question["continuation_id"]})
+        task=await recv_frame(reader)
+        assert task["result_kind"]=="task"
+        assert "domani alle 10" in task["text"] and "Marco" in task["text"]
+        assert len(received)==2
+        writer.close();other_writer.close()
 
 
 async def test_retention_and_delete_cover_tasks(tmp_path):

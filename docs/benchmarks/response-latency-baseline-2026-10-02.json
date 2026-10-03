@@ -1,0 +1,58 @@
+{
+  "scope": "Real shipping Qwen3.5 4B + Kev daemon, synthetic Unix-socket requests, after readiness; not UI latency or a battery benchmark.",
+  "ready_seconds": 7.446,
+  "background_generation_started": true,
+  "preempted_result_not_published": true,
+  "no_app_actions": true,
+  "cases": [
+    {
+      "case": "direct_0",
+      "first_text_ms": 854.5,
+      "complete_ms": 2408.3,
+      "generation_first_token_ms": 832.4960410000131,
+      "text": "Le foglie cambiano colore in autunno perché la riduzione della luce e delle temperature porta le piante a smaltire il clorofilla. Di conseguenza, diventano visibili i pigmenti gialli e rossi che erano presenti ma coperti dalla clorofilla."
+    },
+    {
+      "case": "auto_0",
+      "first_text_ms": 1732.7,
+      "complete_ms": 3239.4,
+      "generation_first_token_ms": 754.1220829998565,
+      "text": "Le foglie cambiano colore in autunno perché la riduzione della luce e delle temperature porta le piante a smaltire il clorofilla. Di conseguenza, diventano visibili i pigmenti gialli e rossi che erano presenti ma coperti dalla clorofilla."
+    },
+    {
+      "case": "rewrite_0",
+      "first_text_ms": 1922.0,
+      "complete_ms": 2520.5,
+      "generation_first_token_ms": 859.5528750001904,
+      "text": "Potresti per favore inviarmi la copia della fattura relativa al bonifico di 450 euro?"
+    },
+    {
+      "case": "direct_1",
+      "first_text_ms": 674.9,
+      "complete_ms": 2170.6,
+      "generation_first_token_ms": 672.0250419994045,
+      "text": "Le foglie cambiano colore in autunno perché la riduzione della luce e delle temperature porta le piante a smaltire il clorofilla. Di conseguenza, diventano visibili i pigmenti gialli e rossi che erano presenti ma coperti dalla clorofilla."
+    },
+    {
+      "case": "auto_1",
+      "first_text_ms": 1655.4,
+      "complete_ms": 3167.4,
+      "generation_first_token_ms": 683.1479590000527,
+      "text": "Le foglie cambiano colore in autunno perché la riduzione della luce e delle temperature porta le piante a smaltire il clorofilla. Di conseguenza, diventano visibili i pigmenti gialli e rossi che erano presenti ma coperti dalla clorofilla."
+    },
+    {
+      "case": "rewrite_1",
+      "first_text_ms": 1889.5,
+      "complete_ms": 2495.0,
+      "generation_first_token_ms": 833.7814159995105,
+      "text": "Potresti per favore inviarmi la copia della fattura relativa al bonifico di 450 euro?"
+    },
+    {
+      "case": "foreground_during_proactivity",
+      "first_text_ms": 1831.1,
+      "complete_ms": 2037.9,
+      "generation_first_token_ms": 591.3876669992533,
+      "text": "Non posso rispondere a questa richiesta."
+    }
+  ]
+}

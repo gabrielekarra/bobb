@@ -7,6 +7,8 @@ import BobbCore
 /// DOM work happens in an isolated JavaScript world and never posts CGEvents.
 @MainActor
 final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegate {
+    var usesSharedDesktop: Bool { false }
+    var requiresAccessibility: Bool { false }
     let webView: WKWebView
     var boundaries: () -> BoundaryConfiguration
     private let world = WKContentWorld.world(name: "app.bobb.driver")
@@ -28,7 +30,7 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
     }
 
     func open(_ url: URL) -> Bool {
-        guard permits(url) else { lastError = "Connect this website in Boundaries first."; return false }
+        guard permits(url) else { lastError = "This website is unavailable or excluded in Boundaries."; return false }
         lastError = ""; webView.load(URLRequest(url: url)); return true
     }
 
@@ -37,14 +39,14 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
         if url.absoluteString == "about:blank" { return true }
         guard let host = url.host, url.user == nil, url.password == nil else { return false }
         let config = boundaries()
-        return config.app(bundleId: "bobb.browser", name: "Bobb Browser") != nil
-            || config.app(bundleId: "web:\(host)", name: host) != nil
+        guard config.canWork(), let app = config.webApp(host: host) else { return false }
+        return app.mode(.navigate) != .deny
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+                 decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url, permits(url), !navigationAction.shouldPerformDownload else {
-            lastError = "This navigation or download is outside the connected websites."
+            lastError = "This navigation or download is unavailable under your Boundaries."
             decisionHandler(.cancel); return
         }
         decisionHandler(.allow)
@@ -54,10 +56,19 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
         if let url = navigationAction.request.url, permits(url) { webView.load(URLRequest(url: url)) }
         return nil
     }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        lastError = error.localizedDescription
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        lastError = error.localizedDescription
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        window?.title = (webView.title ?? webView.url?.host ?? "Browser") + " · Bobb"
+    }
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) { completionHandler() }
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable () -> Void) { completionHandler() }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
-                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable (Bool) -> Void) {
         // A page cannot approve its own confirm dialog in the background.
         lastError = "Open Bobb's browser to review the website confirmation."; completionHandler(false)
     }
@@ -73,7 +84,7 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { [.tab, .shiftTab, .returnKey, .escape, .down, .up] }
 
     private func js(_ script: String) async -> Any? {
-        try? await webView.evaluateJavaScript(script, in: nil, in: world)
+        try? await webView.evaluateJavaScript(script, in: nil, contentWorld: world)
     }
     private static func quoted(_ string: String) -> String {
         String(decoding: (try? JSONEncoder().encode(string)) ?? Data("\"\"".utf8), as: UTF8.self)
@@ -83,6 +94,7 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
         guard let url = webView.url else {
             return ScreenObservation(app: "Bobb Browser", bundleId: "bobb.browser", window: "", elements: [], screenText: lastError)
         }
+        guard permits(url) else { return nil }
         let script = #"""
         (() => {
           const nodes = []; const entries = new Map(); let counter = 0;
@@ -109,7 +121,8 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
           return {nodes,text:(document.body?.innerText||'').slice(0,16000),defaultButton:button?label(button):'',title:document.title};
         })()
         """#
-        guard let result = await js(script) as? [String: Any], let raw = result["nodes"] as? [[String: Any]] else { return nil }
+        guard let result = await js(script) as? [String: Any], let raw = result["nodes"] as? [[String: Any]],
+              webView.url == url, permits(url) else { return nil }
         expected = [:]
         let elements = raw.compactMap { row -> UIElementSnapshot? in
             guard let key = row["key"] as? Int, let role = row["role"] as? String, let signature = row["signature"] as? String else { return nil }
@@ -163,6 +176,10 @@ final class WebComputer: NSObject, TaskDriver, WKNavigationDelegate, WKUIDelegat
             try? await Task.sleep(for: .milliseconds(250))
         }
         try? await Task.sleep(for: .milliseconds(250))
+    }
+    func completionProblem(goal: String) async -> String? {
+        if !lastError.isEmpty { return lastError }
+        return nil
     }
     func undoLast() async -> Bool {
         if webView.canGoBack { webView.goBack(); return true }

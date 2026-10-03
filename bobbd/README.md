@@ -1,10 +1,12 @@
 # bobbd
 
-Bobb's on-device decision daemon. A resident 4-bit local model
-(`mlx-community/Llama-3.2-3B-Instruct-4bit`) is read at single logit
-positions for narrow, schema-constrained readouts (`bobbd/decide.py`),
-never sampled from except when actually drafting text. A unix socket carries
-the IPC contract in `docs/CONTRACT.md` to the Swift app.
+Bobb's on-device daemon. Qwen3.5 4B (4-bit MLX) generates text; Kev 4B
+(8-bit MLX with its trained fp32 pointer head) answers the typed questions
+in `bobbd/kev.py`. A unix socket carries the contract to the Swift app.
+No model server, API key or remote inference is used. The legacy letter
+readout and NumPy specialist below describe earlier measured versions;
+they are bypassed in the current shipping runtime. See
+[`ADR-010`](../docs/ADR-010-local-kev-and-menu-bar-start.md).
 
 This file records what was measured, when, and on what machine, so the
 numbers below can be checked against `results/*.json` rather than taken on

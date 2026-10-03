@@ -76,7 +76,10 @@ async def test_approve_of_draft_reply_streams_a_generated_draft(tmp_path, monkey
         prepared = await recv_frame(reader)
         assert prepared["t"] == "prepared"
         assert prepared["result"]["kind"] == "reply"
-        assert prepared["result"]["body"] == "Ciao, confermo per venerdi."
+        # Streamed model output is provisional. The final reply must not
+        # commit the user to a decision they have not explicitly selected.
+        assert "confermo" not in prepared["result"]["body"].lower()
+        assert prepared["result"]["unsupported"]
         assert prepared["result"]["to"] == "Marco Rossi <marco@example.com>"
         writer.close()
 

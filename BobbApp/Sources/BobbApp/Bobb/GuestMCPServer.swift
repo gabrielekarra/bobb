@@ -74,7 +74,7 @@ final class GuestMCPServer {
         case "ping": result(id, .object([:]))
         case "tools/list":
             result(id, .object(["tools": .array([
-                .object(["name": "observe", "description": "Read connected apps in the guest. Returns a nonce and exact control IDs, apps and keys for the next act call.",
+                .object(["name": "observe", "description": "Read available apps in the guest, respecting its exclusions. Returns a nonce and exact control IDs, apps and keys for the next act call.",
                     "inputSchema": .object(["type": "object", "properties": .object(["goal": .object(["type": "string"])]), "additionalProperties": false])]),
                 .object(["name": "act", "description": "Perform one operation offered by observe. Requires its fresh nonce. Guest ask/deny boundaries block the action; configure them in the guest, never pass an approval token.",
                     "inputSchema": .object(["type": "object", "required": .array(["nonce", "operation", "candidate_id"]),
@@ -95,7 +95,7 @@ final class GuestMCPServer {
     private func observe(_ args: JSONValue) async -> JSONValue {
         nonce = ""; observation = nil; candidates = nil
         guard AXIsProcessTrusted(), let screen = await driver.observe() else {
-            return .object(["error": "Grant Accessibility and connect apps in Bobb inside the guest."])
+            return .object(["error": "Grant Accessibility and review app exclusions in Bobb inside the guest."])
         }
         let goal = String((args["goal"]?.stringValue ?? "").prefix(4000))
         let ranked = CandidateRanker(limits: .init(press: 22, text: 8, scroll: 4)).rank(screen.elements, goal: goal)
@@ -146,7 +146,7 @@ final class GuestMCPServer {
             appBundleId: operation == .openApp ? driver.bundleIdentifier(forApp: label) : screen.bundleId,
             appName: operation == .openApp ? label : screen.app, secure: element?.isSecure ?? false, submit: submit,
             multiline: element?.role == "AXTextArea", window: screen.window, key: key,
-            defaultButton: screen.defaultButton, context: screen.screenText, typedText: text)
+            defaultButton: screen.defaultButton, context: screen.screenText, typedText: text, websiteURL: screen.sourceURL)
         guard verdict == .allow else {
             switch verdict {
             case .ask(let reason): return .object(["blocked": "Guest approval is required. Review this action in the guest's Boundaries.", "reason": .string(reason)])

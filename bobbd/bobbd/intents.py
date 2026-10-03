@@ -560,6 +560,7 @@ PREPARABLE_ACTIONS = frozenset(
         "summarize_notice",
         "prepare_meeting",
         "review_tone",
+        "check_mail",
         "continue_draft",
         "define_selection",
         "translate_selection",

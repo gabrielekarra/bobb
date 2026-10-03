@@ -90,8 +90,11 @@ struct SettingsView: View {
                 hint(L10n.t(.settingsHotkeyHint))
             }
             Section(L10n.t(.settingsPermissions)) {
-                permissionRow(L10n.t(.settingsAccessibility), permissions.accessibility) { Permissions.openAccessibilitySettings() }
-                permissionRow(L10n.t(.settingsAutomation), permissions.mailAutomation) { Permissions.openAutomationSettings() }
+                permissionRow(L10n.t(.settingsAccessibility), permissions.accessibility) {
+                    permissions.requestAccessibility()
+                    Permissions.openAccessibilitySettings()
+                }
+                permissionRow(L10n.t(.settingsAutomation), permissions.mailAutomation) { permissions.requestMailAutomation() }
                 HStack {
                     Text(L10n.t(.settingsCalendar)).font(.system(size: 12))
                     Spacer()
@@ -99,7 +102,7 @@ struct SettingsView: View {
                     case .granted:
                         Label(L10n.t(.settingsGranted), systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 11))
                     case .notDetermined:
-                        Button(L10n.t(.onbGrant)) { calendar.requestAccess() }.controlSize(.small)
+                        Button(L10n.t(.permissionAllow)) { calendar.requestAccess() }.controlSize(.small)
                     case .denied:
                         Button(L10n.t(.settingsOpenSystemSettings)) { Permissions.openCalendarSettings() }.controlSize(.small)
                     }
@@ -128,6 +131,7 @@ struct SettingsView: View {
             Section {
                 Toggle(L10n.t(.settingsMailProactive), isOn: binding(\.mailProactive))
                 hint(L10n.t(.settingsMailProactiveHint))
+                Toggle(L10n.code == "it" ? "Bozza automatica quando premi Rispondi in Mail" : "Automatic draft when you click Reply in Mail", isOn: binding(\.mailInlineReplies))
                 Toggle(L10n.t(.settingsChatProactive), isOn: binding(\.chatProactive))
                 hint(L10n.t(.settingsChatProactiveHint))
                 Toggle(L10n.t(.settingsMeetingPrep), isOn: binding(\.meetingPrep))
@@ -311,6 +315,7 @@ struct SettingsView: View {
         Form {
             Section {
                 LabeledContent(L10n.t(.settingsModelName), value: downloader.manifest.id)
+                LabeledContent(BobbCopy.t("Decisions", "Decisioni"), value: ModelManifest.decision.id)
                 LabeledContent(L10n.t(.settingsModelLicense), value: downloader.manifest.license)
                 LabeledContent(L10n.t(.settingsModelLocation)) {
                     Button(L10n.t(.settingsModelReveal)) {
@@ -320,11 +325,11 @@ struct SettingsView: View {
                     .disabled(!downloader.isInstalled)
                 }
                 if downloader.isInstalled {
-                    Text(L10n.t(.settingsModelInstalled, ["size": ModelInstallation.formatBytes(downloader.manifest.totalBytes)]))
+                    Text(L10n.t(.settingsModelInstalled, ["size": ModelInstallation.formatBytes(downloader.totalBytes)]))
                         .font(.system(size: 12))
                 } else {
                     Text(L10n.t(.settingsModelMissing)).font(.system(size: 12)).foregroundStyle(Theme.attention)
-                    Button(L10n.t(.onbDownload)) { services.startDownload() }
+                    Button(L10n.t(.modelDownload)) { services.startDownload() }
                 }
             }
             Section {
@@ -413,7 +418,7 @@ struct SettingsView: View {
             Text("Bobb").font(.system(size: 24, weight: .bold, design: .rounded))
             Text(L10n.t(.settingsVersion, ["version": "\(BuildInfo.version) (\(BuildInfo.build))"]))
                 .foregroundStyle(.secondary)
-            Text(L10n.t(.settingsBuiltWithLlama))
+            Text(L10n.t(.settingsBuiltWithLocalModels))
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
             HStack {

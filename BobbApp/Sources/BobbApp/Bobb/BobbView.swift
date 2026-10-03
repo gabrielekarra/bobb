@@ -5,11 +5,12 @@ import BobbCore
 
 struct BobbView: View {
     @Bindable var workspace: BobbWorkspace
-    @State private var tab = "identity"
+    @State private var tab = "today"
     @State private var name = "Bobb"
     @State private var character = "Practical and concise."
     @State private var profile = "general"
-    @State private var domain = ""
+    @State private var appFilter = ""
+    @State private var discoveredApps: [AppBoundary] = []
     @State private var aliases = ""
     @State private var goal = ""
     @State private var workName = ""
@@ -24,7 +25,6 @@ struct BobbView: View {
     @State private var once = Date().addingTimeInterval(3600)
     @State private var projectSteps = ""
     @State private var planning = false
-    @State private var apiKey = ""
     @State private var connectorName = ""
     @State private var connectorExecutable = ""
     @State private var connectorArguments = ""
@@ -32,13 +32,14 @@ struct BobbView: View {
     @State private var guestUser = ""
     @State private var guestKey = ""
 
-    init(workspace: BobbWorkspace, initialTab: String = "identity") {
+    init(workspace: BobbWorkspace, initialTab: String = "today") {
         self.workspace = workspace
         _tab = State(initialValue: initialTab)
     }
 
     private var pages: [(id: String, title: String, icon: String)] {
-        [("identity", t("Your Bobb", "Il tuo Bobb"), "person.crop.circle"),
+        [("today", t("For you", "Per te"), "sparkles"),
+         ("identity", t("Your Bobb", "Il tuo Bobb"), "person.crop.circle"),
          ("boundaries", t("Boundaries", "Confini"), "hand.raised"),
          ("work", t("Work", "Lavoro"), "checklist"),
          ("activity", t("Activity", "Attività"), "clock"),
@@ -70,12 +71,12 @@ struct BobbView: View {
                             } label: {
                                 Label(page.title, systemImage: page.icon)
                                     .font(.system(size: 13, weight: tab == page.id ? .semibold : .regular))
-                                    .foregroundStyle(tab == page.id ? Theme.accent : .primary)
+                                    .foregroundStyle(tab == page.id ? Theme.accentInk : .primary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 14).padding(.vertical, 12)
                                     .background {
                                         if tab == page.id {
-                                            Color.clear.bobbGlass(radius: 14, tint: Theme.accent.opacity(0.14), interactive: true)
+                                            RoundedRectangle(cornerRadius: 14).fill(Theme.accent.opacity(0.14))
                                         }
                                     }
                             }.buttonStyle(.plain)
@@ -101,7 +102,7 @@ struct BobbView: View {
                     }.labelsHidden().frame(width: 130).help(t("Active Bobb", "Bobb attivo"))
                     Toggle(t("Background", "Background"), isOn: binding(\.backgroundEnabled))
                         .toggleStyle(.switch).font(.caption).fixedSize()
-                }.padding(.horizontal, 8)
+                }.padding(14).bobbGlass(radius: 20)
                 if let message = workspace.message {
                     HStack(alignment: .top) {
                         Label(message, systemImage: "info.circle").font(.callout)
@@ -116,19 +117,139 @@ struct BobbView: View {
         .padding(20)
         .frame(minWidth: 820, minHeight: 660)
         .bobbWindowStyle()
-        .onAppear { loadIdentity(); loadAliases() }
+        .onAppear { loadIdentity(); loadAliases(); discoveredApps = InstalledApps.shared.boundaries() }
         .onChange(of: workspace.activeAgent.id) { _, _ in loadIdentity() }
         .onChange(of: workspace.snapshot?.agents) { _, _ in loadIdentity() }
     }
 
     @ViewBuilder private var pageContent: some View {
         switch tab {
+        case "today": today
         case "boundaries": boundaries
         case "work": work
         case "activity": activity
         case "brain": brain
         case "computers": computers
         default: identity
+        }
+    }
+
+    private var today: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                GroupBox(t("A step ahead", "Un passo avanti")) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        hint(t("Bobb connects what you are working on with a useful next step. Suggestions explain why and show the source. You decide what to prepare.", "Bobb collega ciò su cui lavori a un prossimo passo utile. I suggerimenti spiegano il perché e mostrano la fonte. Scegli tu cosa preparare."))
+                        Toggle(t("Suggest next steps from my apps", "Suggerisci prossimi passi dalle mie app"), isOn: Binding(
+                            get: { state.settings.contextProactive },
+                            set: { value in workspace.coordinator.updateSettings { $0.contextProactive = value } }))
+                        if !state.watching {
+                            Label(t("Observation is paused", "L’osservazione è in pausa"), systemImage: "pause.circle")
+                            Button(t("Resume observation", "Riprendi osservazione")) { workspace.coordinator.setWatching(true) }
+                        } else if !state.modelInstalled || !state.connection.isReady {
+                            hint(t("Local intelligence is preparing. Check progress in the menu bar.", "L’intelligenza locale si sta preparando. Controlla l’avanzamento nel menu."))
+                        } else if !AXIsProcessTrusted() {
+                            hint(t("Grant Accessibility from the menu bar to let Bobb understand your apps.", "Concedi Accessibilità dal menu per permettere a Bobb di comprendere le tue app."))
+                        } else if !state.settings.memoryEnabled {
+                            hint(t("Enable local memory in Settings to receive context suggestions.", "Attiva la memoria locale nelle Impostazioni per ricevere suggerimenti dal contesto."))
+                        }
+                        hint(t("Suggestions work without Background. Background controls execution of your assignments.", "I suggerimenti funzionano anche senza Background. Background controlla l’esecuzione degli incarichi."))
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                }
+                ForEach(state.promisesDue()) { promise in
+                    GroupBox(t("A commitment to follow up", "Un impegno da seguire")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(promise.what).font(.headline)
+                            hint(MenuBarPopoverView.promiseDetail(promise))
+                            HStack {
+                                Button(t("Mark done", "Segna completato")) { workspace.coordinator.updateCommitment(promise.id, status: "done") }
+                                Button(t("Tomorrow", "Domani")) {
+                                    let next = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(86400)
+                                    workspace.coordinator.updateCommitment(promise.id, dueTs: next.timeIntervalSince1970)
+                                }
+                                Button(t("Not a commitment", "Non è un impegno")) { workspace.coordinator.updateCommitment(promise.id, status: "dismissed") }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                    }
+                }
+                ForEach(workspace.snapshot?.initiatives ?? []) { initiative in
+                    initiativeCard(initiative)
+                }
+                ForEach(state.forYou, id: \.id) { decision in
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(decision.suggestion?.title ?? decision.explanation ?? "Bobb").font(.headline)
+                            if let explanation = decision.explanation { hint(explanation) }
+                            HStack {
+                                Button(t("Prepare", "Prepara")) { workspace.coordinator.approve(decision) }
+                                Button(t("Dismiss", "Ignora")) { workspace.coordinator.dismiss(decision) }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                    }
+                }
+                if !(workspace.snapshot?.routines ?? []).isEmpty {
+                    GroupBox(t("A routine I noticed", "Una routine che ho notato")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            hint(t("You repeated some tasks on several weeks. Review them and choose whether to make them assignments.", "Hai ripetuto alcune attività in più settimane. Rivedile e scegli se trasformarle in incarichi."))
+                            Button(t("Review routines", "Rivedi routine")) { tab = "work" }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                    }
+                }
+                let blocked = workspace.snapshot?.runs.filter { ["waiting", "interrupted", "failed"].contains($0.status) } ?? []
+                if !blocked.isEmpty {
+                    GroupBox(t("Work needs your attention", "Un lavoro richiede attenzione")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(blocked.prefix(3)) { run in Text(run.goal).lineLimit(2) }
+                            Button(t("Review activity", "Rivedi attività")) { tab = "activity" }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                    }
+                }
+                if state.promisesDue().isEmpty && state.forYou.isEmpty && (workspace.snapshot?.initiatives ?? []).isEmpty {
+                    hint(t("No new suggestion yet. Work normally in your apps: Bobb looks for unresolved requests, missing information and actionable errors. It learns from what you accept or dismiss.", "Ancora nessun suggerimento. Lavora normalmente nelle tue app: Bobb cerca richieste aperte, informazioni mancanti ed errori su cui intervenire. Impara da ciò che accetti o ignori."))
+                }
+                if let muted = workspace.snapshot?.mutedInitiativeApps, !muted.isEmpty {
+                    GroupBox(t("What I learned", "Cosa ho imparato")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            hint(t("After three dismissals I stopped context suggestions from: ", "Dopo tre rifiuti ho sospeso i suggerimenti dal contesto di: ") + muted.joined(separator: ", "))
+                            Button(t("Reset this learning", "Azzera questo apprendimento")) {
+                                Task { _ = await workspace.command("reset_initiative_learning") }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
+                    }
+                }
+            }.padding(8)
+        }
+    }
+
+    private func initiativeCard(_ initiative: ProactiveInitiative) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(initiative.title, systemImage: "sparkles").font(.headline)
+                hint(initiative.reason)
+                if let draft = initiative.draft, !draft.isEmpty {
+                    DisclosureGroup(t("Draft ready to review", "Bozza pronta da rivedere")) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(draft).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                            Button(t("Copy draft", "Copia bozza")) {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(draft, forType: .string)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                DisclosureGroup(t("Why this suggestion", "Perché questo suggerimento")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(initiative.quote).textSelection(.enabled)
+                        Text(initiative.app + " · " + initiative.window).font(.caption).foregroundStyle(.secondary)
+                        Text(Date(timeIntervalSince1970: initiative.sourceTs), style: .relative).font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack {
+                    Button(t("Prepare with me", "Prepara con me")) { workspace.respond(initiative, response: "prepare") }
+                    Button(t("In an hour", "Tra un’ora")) { workspace.respond(initiative, response: "snooze") }
+                    Button(t("Not useful", "Non è utile")) { workspace.respond(initiative, response: "dismiss") }
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
         }
     }
 
@@ -154,14 +275,10 @@ struct BobbView: View {
                 if let apps = state.stats?.memory?.apps, !apps.isEmpty {
                     hint(t("Your local memory includes: ", "La tua memoria locale comprende: ") + apps.map(\.app).joined(separator: ", "))
                 } else {
-                    hint(t("I haven't observed your work yet. Connect the apps you want me to use in Boundaries.", "Non ho ancora osservato il tuo lavoro. Collega nei Confini le app che vuoi farmi usare."))
-                }
-                Button(t("Introduce yourself aloud", "Presentati a voce")) {
-                    var settings = state.settings; settings.bobb.speakResponses = true
-                    workspace.voice.speak(workspace.activeAgent.introduction, settings: settings)
+                    hint(t("I haven't observed your work yet. Grant macOS permissions so I can read the apps you use.", "Non ho ancora osservato il tuo lavoro. Concedi i permessi macOS per leggere le app che usi."))
                 }
             }
-            hint(t("Each Bobb has its own assignments and browser session. The physical desktop is shared one task at a time.", "Ogni Bobb ha i suoi incarichi e una sessione browser separata. Lo schermo fisico è condiviso, un incarico alla volta."))
+            hint(t("Each Bobb has its own assignments. Your apps, browser and desktop are shared one task at a time.", "Ogni Bobb ha i suoi incarichi. Le tue app, il browser e lo schermo sono condivisi, un incarico alla volta."))
         }.formStyle(.grouped)
     }
     private func loadIdentity() { let a = workspace.activeAgent; name = a.name; character = a.character; profile = a.profile }
@@ -177,29 +294,35 @@ struct BobbView: View {
     private var boundaries: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                hint(t("Connect only the apps and websites Bobb may use. Password managers and secure fields stay protected.", "Collega solo le app e i siti che Bobb può usare. Gestori di password e campi segreti restano protetti."))
-                HStack {
-                    Button(t("Connect an app…", "Collega un’app…"), action: connectApp)
-                    Button(t("Connect Bobb Browser", "Collega Browser di Bobb")) { connect(id: "bobb.browser", name: "Bobb Browser") }
-                    TextField(t("Website hostname", "Dominio del sito"), text: $domain)
-                    Button(t("Connect site", "Collega sito")) {
-                        let host = domain.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !host.isEmpty, !host.contains("/"), !host.contains(" ") { connect(id: "web:\(host)", name: host); domain = "" }
-                    }
-                }
-                ForEach(state.settings.bobb.boundaries.apps) { app in
+                hint(t("Bobb discovers this Mac's apps automatically. Allow reading and use, or exclude an app. Sending, payments, deletion and publishing ask by default. Password managers and secure fields stay protected.", "Bobb scopre automaticamente le app del Mac. Puoi consentire lettura e uso oppure escludere un’app. Invio, pagamenti, eliminazione e pubblicazione chiedono conferma di default. Gestori di password e campi segreti restano protetti."))
+                TextField(t("Find an app", "Cerca un’app"), text: $appFilter)
+                ForEach(boundaryApps) { app in
+                    let protected = ScreenMemoryPolicy(extraProtected: state.settings.extraProtectedApps).isProtected(bundleId: app.id, appName: app.name)
                     GroupBox {
-                        VStack(alignment: .leading) {
-                            HStack { Text(app.name).bold(); Text(app.id).font(.caption).foregroundStyle(.secondary); Spacer()
-                                Button(t("Disconnect", "Scollega"), role: .destructive) { workspace.coordinator.updateSettings { $0.bobb.boundaries.apps.removeAll { $0.id == app.id } } }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(app.name).bold()
+                                Spacer()
+                                if protected {
+                                    Label(t("Protected", "Protetta"), systemImage: "lock.shield").font(.caption).foregroundStyle(.secondary)
+                                } else {
+                                    Toggle(t("Read and use", "Leggi e usa"), isOn: Binding(get: {
+                                        state.settings.bobb.boundaries.app(bundleId: app.id, name: app.name) != nil
+                                    }, set: { allowed in setAppAccess(app, allowed: allowed) }))
+                                    .toggleStyle(.switch).fixedSize()
+                                }
                             }
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 300))], alignment: .leading) {
-                                ForEach(ActionCategory.allCases, id: \.rawValue) { category in
-                                    Picker(categoryName(category), selection: Binding(get: { app.mode(category) }, set: { value in
-                                        workspace.coordinator.updateSettings { s in
-                                            if let i = s.bobb.boundaries.apps.firstIndex(where: { $0.id == app.id }) { s.bobb.boundaries.apps[i].actions[category.rawValue] = value }
+                            if !protected, state.settings.bobb.boundaries.app(bundleId: app.id, name: app.name) != nil {
+                                DisclosureGroup(t("Action permissions", "Permessi delle azioni")) {
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 300))], alignment: .leading) {
+                                        ForEach(ActionCategory.allCases, id: \.rawValue) { category in
+                                            Picker(categoryName(category), selection: Binding(get: {
+                                                state.settings.bobb.boundaries.app(bundleId: app.id, name: app.name)?.mode(category) ?? .deny
+                                            }, set: { value in setAppMode(app, category: category, mode: value) })) {
+                                                ForEach(BoundaryMode.allCases, id: \.rawValue) { mode in Text(modeName(mode)).tag(mode) }
+                                            }
                                         }
-                                    })) { ForEach(BoundaryMode.allCases, id: \.rawValue) { mode in Text(modeName(mode)).tag(mode) } }
+                                    }
                                 }
                             }
                         }.padding(6)
@@ -239,10 +362,39 @@ struct BobbView: View {
     private func connect(id: String, name: String) {
         workspace.coordinator.updateSettings { s in if !s.bobb.boundaries.apps.contains(where: { $0.id == id }) { s.bobb.boundaries.apps.append(AppBoundary(id: id, name: name)) } }
     }
-    private func connectApp() {
-        let picker = NSOpenPanel(); picker.canChooseDirectories = true; picker.canChooseFiles = true; picker.allowedContentTypes = [.applicationBundle]
-        guard picker.runModal() == .OK, let url = picker.url, let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return }
-        connect(id: id, name: FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""))
+    private var boundaryApps: [AppBoundary] {
+        var apps: [String: AppBoundary] = [:]
+        for app in discoveredApps + [AppBoundary(id: "bobb.browser", name: "Bobb Browser")] + state.settings.bobb.boundaries.apps {
+            apps[app.id] = app
+        }
+        for config in state.settings.bobb.connectors {
+            let id = "mcp:\(config.id)"
+            if apps[id] == nil { apps[id] = AppBoundary(id: id, name: "MCP \(config.id)") }
+        }
+        return apps.values.filter { appFilter.isEmpty || $0.name.localizedCaseInsensitiveContains(appFilter) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+    private func setAppAccess(_ app: AppBoundary, allowed: Bool) {
+        workspace.coordinator.updateSettings { settings in
+            settings.bobb.boundaries.excludedApps.removeAll { $0 == app.id || $0 == app.name }
+            if allowed {
+                if app.id.hasPrefix("mcp:") || app.id.hasPrefix("web:"), !settings.bobb.boundaries.apps.contains(where: { $0.id == app.id }) {
+                    settings.bobb.boundaries.apps.append(app)
+                }
+            } else {
+                settings.bobb.boundaries.excludedApps.append(app.id)
+            }
+        }
+    }
+    private func setAppMode(_ app: AppBoundary, category: ActionCategory, mode: BoundaryMode) {
+        workspace.coordinator.updateSettings { settings in
+            if let i = settings.bobb.boundaries.apps.firstIndex(where: { $0.id == app.id }) {
+                settings.bobb.boundaries.apps[i].actions[category.rawValue] = mode
+            } else {
+                var override = app; override.actions[category.rawValue] = mode
+                settings.bobb.boundaries.apps.append(override)
+            }
+        }
     }
     private func loadAliases() { aliases = state.settings.bobb.boundaries.people.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value.joined(separator: ",") }.joined(separator: "\n") }
     private func saveAliases() {
@@ -263,7 +415,7 @@ struct BobbView: View {
                 TextField(t("Name", "Nome"), text: $workName)
                 TextField(t("Objective", "Obiettivo"), text: $goal, axis: .vertical).lineLimit(2...5)
                 Picker(t("Computer", "Computer"), selection: $surface) {
-                    Text(t("Hidden browser", "Browser nascosto")).tag("browser"); Text(t("Mac desktop", "Schermo del Mac")).tag("desktop"); Text("MCP").tag("mcp")
+                    Text(t("Your browser", "Il tuo browser")).tag("browser"); Text(t("Mac desktop", "Schermo del Mac")).tag("desktop"); Text("MCP").tag("mcp")
                 }
                 if surface != "desktop" { TextField(surface == "browser" ? "https://…" : t("Connector name", "Nome connettore"), text: $url) }
                 if workKind == "job" { scheduling }
@@ -277,7 +429,7 @@ struct BobbView: View {
                 }
                 Button(workKind == "request" ? t("Start", "Avvia") : t("Save and enable", "Salva e attiva"), action: saveWork)
                     .disabled(goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (workKind == "project" && projectSteps.isEmpty))
-                hint(t("Standing assignments run while this Mac is awake, Bobb is open, and background work is enabled. Desktop work waits until you are away; browser work can run concurrently.", "Gli incarichi partono quando il Mac è sveglio, Bobb è aperto e il lavoro in background è attivo. Il lavoro sullo schermo aspetta che tu sia assente; i browser possono lavorare insieme."))
+                hint(t("Standing assignments run while this Mac is awake, Bobb is open, and background work is enabled. Desktop work waits until you are away. On Macs with up to 16 GB RAM, one background task runs at a time.", "Gli incarichi partono quando il Mac è sveglio, Bobb è aperto e il lavoro in background è attivo. Il lavoro sullo schermo aspetta che tu sia assente. Sui Mac con fino a 16 GB di RAM parte un solo incarico in background alla volta."))
             }
             entities("project", items: workspace.snapshot?.projects ?? [])
             entities("job", items: workspace.snapshot?.jobs ?? [])
@@ -369,7 +521,7 @@ struct BobbView: View {
                         TaskView(state: execution.state, actions: TaskActions(stop: { workspace.stop(execution) },
                             allow: { workspace.allow($0, execution: execution) }, undo: { Task { await execution.loop.undoLast() } },
                             close: { workspace.executions.removeAll { $0.id == execution.id && $0.finished } }))
-                        if execution.run.surface == "browser" { Button(t("Open its browser", "Apri il suo browser")) { workspace.webComputer(agentId: execution.run.agentId).inspect() } }
+                        if execution.run.surface == "browser" { Button(t("Show browser", "Mostra browser")) { workspace.inspectBrowser(agentId: execution.run.agentId) } }
                     }
                 }
                 Divider()
@@ -402,28 +554,13 @@ struct BobbView: View {
                 let ram = ProcessInfo.processInfo.physicalMemory / 1_073_741_824
                 let recommended = LocalModelOption.recommended(memoryBytes: ProcessInfo.processInfo.physicalMemory)
                 Text("\(ram) GB RAM · " + t("suggested size: ", "dimensione suggerita: ") + recommended.parameters)
-                hint(t("Select a downloaded MLX checkpoint folder to use a larger model. Estimates leave room for macOS and context; performance depends on the model.", "Seleziona una cartella MLX già scaricata per usare un modello più grande. Le stime lasciano spazio a macOS e al contesto; le prestazioni dipendono dal modello."))
-                Text(state.settings.bobb.localModelPath.isEmpty ? t("Bundled 3B model", "Modello 3B predefinito") : state.settings.bobb.localModelPath).font(.caption).textSelection(.enabled)
+                hint(t("Qwen writes locally; Kev makes decisions. The default models are quantized; 16 GB Macs run one task at a time. You can select another downloaded MLX checkpoint for writing.", "Qwen scrive in locale; Kev prende le decisioni. I modelli predefiniti sono quantizzati; sui Mac da 16 GB lavora un incarico alla volta. Puoi scegliere un altro checkpoint MLX già scaricato per la scrittura."))
+                Text(state.settings.bobb.localModelPath.isEmpty ? "Qwen3.5 4B · MLX 4-bit" : state.settings.bobb.localModelPath).font(.caption).textSelection(.enabled)
                 HStack { Button(t("Choose checkpoint…", "Scegli modello…"), action: chooseModel)
                     Button(t("Use default", "Usa predefinito")) { workspace.coordinator.updateSettings { $0.bobb.localModelPath = "" } }
                 }
             }
-            Section(t("Optional cloud brain", "Cervello cloud opzionale")) {
-                Toggle(t("Use my cloud API", "Usa la mia API cloud"), isOn: binding(\.cloud.enabled))
-                TextField(t("HTTPS chat-completions endpoint", "Endpoint HTTPS chat-completions"), text: binding(\.cloud.endpoint))
-                TextField(t("Model ID", "ID modello"), text: binding(\.cloud.model))
-                SecureField(t("API key", "Chiave API"), text: $apiKey)
-                Button(t("Save key in Keychain", "Salva chiave nel Portachiavi")) {
-                    do { try CloudKeychain.save(apiKey, endpoint: state.settings.bobb.cloud.endpoint); apiKey = ""; workspace.message = t("API key saved.", "Chiave API salvata.") }
-                    catch { workspace.message = error.localizedDescription }
-                }
-                TextField(t("Extra private terms, one per line", "Altri termini privati, uno per riga"), text: Binding(get: { state.settings.bobb.cloud.privateTerms.joined(separator: "\n") }, set: { value in
-                    workspace.coordinator.updateSettings { $0.bobb.cloud.privateTerms = value.split(separator: "\n").map(String.init) }
-                }), axis: .vertical).lineLimit(2...4)
-                hint(t("Cloud is off by default. Bobb redacts recognized names, addresses, payment details, secrets and your private terms before sending. Redaction cannot recognize every sensitive fact. The exact redacted request is recorded locally.", "Il cloud parte spento. Bobb oscura nomi riconosciuti, indirizzi, dati di pagamento, segreti e i tuoi termini privati prima dell’invio. L’oscuramento non può riconoscere ogni fatto sensibile. La richiesta oscurata esatta viene registrata sul Mac."))
-                Button(t("Open outgoing-data log", "Apri registro dei dati in uscita")) { NSWorkspace.shared.activateFileViewerSelecting([AppPaths.dataDirectory.appendingPathComponent("cloud-egress.jsonl")]) }
-            }
-            Toggle(t("Speak responses", "Risposte a voce"), isOn: binding(\.speakResponses))
+            hint(t("Bobb speaks only when you talk to it using the microphone. Typed requests, suggestions and assignments stay silent.", "Bobb parla solo quando gli parli con il microfono. Le richieste scritte, i suggerimenti e gli incarichi restano silenziosi."))
         }.formStyle(.grouped)
     }
     private func chooseModel() {
@@ -434,9 +571,9 @@ struct BobbView: View {
 
     private var computers: some View {
         Form {
-            Section(t("Bobb Browser", "Browser di Bobb")) {
-                Button(t("Open the active Bobb's browser", "Apri il browser del Bobb attivo")) { workspace.webComputer(agentId: workspace.activeAgent.id).inspect() }
-                hint(t("Log in inside this browser when a website needs your account. Its cookies are local and separate from your normal browser.", "Accedi da questo browser quando un sito richiede il tuo account. I cookie restano sul Mac e sono separati dal tuo browser abituale."))
+            Section(t("Your browser", "Il tuo browser")) {
+                Button(t("Open your browser", "Apri il tuo browser")) { workspace.inspectBrowser(agentId: workspace.activeAgent.id) }
+                hint(t("Bobb uses your usual browser and its signed-in accounts. Browser work shares the desktop with your other apps.", "Bobb usa il browser abituale e gli account già aperti. Gli incarichi nel browser condividono il desktop con le altre app."))
             }
             Section("iMessage") {
                 TextField(t("Your own iMessage address", "Il tuo indirizzo iMessage"), text: binding(\.selfAddress))
@@ -472,7 +609,7 @@ struct BobbView: View {
                     Button(t("Open", "Apri")) { workspace.virtualMac.inspect() }
                     Button(t("Shut down", "Spegni")) { workspace.virtualMac.stop() }
                 }
-                hint(t("Apple silicon, 24 GB RAM, a local macOS IPSW and a separate 64 GB sparse disk. Install Bobb in the guest, grant Accessibility, connect its apps and configure Remote Login with a dedicated SSH key. Verify its SSH fingerprint before connecting. No shared folders or forwarded credentials.", "Apple silicon, 24 GB di RAM, un IPSW macOS locale e un disco sparso separato da 64 GB. Installa Bobb nel guest, concedi Accessibilità, collega le app e configura Login remoto con una chiave SSH dedicata. Verifica prima l’impronta SSH. Nessuna cartella condivisa o credenziale inoltrata."))
+                hint(t("Apple silicon, 24 GB RAM, a local macOS IPSW and a separate 64 GB sparse disk. Install Bobb in the guest, grant Accessibility, review its app exclusions and configure Remote Login with a dedicated SSH key. Verify its SSH fingerprint before connecting. No shared folders or forwarded credentials.", "Apple silicon, 24 GB di RAM, un IPSW macOS locale e un disco sparso separato da 64 GB. Installa Bobb nel guest, concedi Accessibilità, controlla le esclusioni delle app e configura Login remoto con una chiave SSH dedicata. Verifica prima l’impronta SSH. Nessuna cartella condivisa o credenziale inoltrata."))
                 TextField(t("Guest private IPv4 address", "Indirizzo IPv4 privato del guest"), text: $guestAddress)
                 TextField(t("Guest account", "Account del guest"), text: $guestUser)
                 HStack {

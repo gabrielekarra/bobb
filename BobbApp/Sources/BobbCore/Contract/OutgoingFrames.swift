@@ -107,6 +107,7 @@ public enum OutgoingFrame: Sendable, Equatable {
     case proceduresList(RequestFrame)
     case procedureDelete(ProcedureDeleteFrame)
     case workspace(WorkspaceCommandFrame)
+    case email(EmailCommandFrame)
 
     public func encoded() throws -> Data {
         switch self {
@@ -142,6 +143,7 @@ public enum OutgoingFrame: Sendable, Equatable {
         case .proceduresList(let frame): try FrameCodec.data(type: "procedures.list", payload: frame)
         case .procedureDelete(let frame): try FrameCodec.data(type: "procedure.delete", payload: frame)
         case .workspace(let frame): try FrameCodec.data(type: "bobb.command", payload: frame)
+        case .email(let frame): try FrameCodec.data(type: "email.command", payload: frame)
         }
     }
 }

@@ -45,7 +45,7 @@ public enum L10n {
              statusError, statusDisconnected, statusTrialExpired
         // menu bar
         case menuForYou, menuNothingForYou, menuAskPlaceholder, menuMind, menuMemory, menuSettings, menuQuit,
-             menuPause, menuResume, menuOpenSetup, menuSilentToday, menuHelpedToday
+             menuPause, menuResume, menuSilentToday, menuHelpedToday
         // overlay and suggestions
         case overlayIgnore, overlayPrepare, overlayWhy
         // draft panel
@@ -78,17 +78,13 @@ public enum L10n {
              settingsOpenSystemSettings, settingsModelInstalled, settingsModelMissing, settingsModelVerify,
              settingsModelVerifying, settingsModelOK, settingsModelCorrupt, settingsModelLocation, settingsModelName, settingsModelLicense,
              settingsModelReveal, settingsDaemonRestart, settingsExportDiagnostics, settingsCheckUpdates,
-             settingsVersion, settingsBuiltWithLlama, settingsThirdParty
+             settingsVersion, settingsBuiltWithLocalModels, settingsThirdParty
         // license
         case licenseTrial, licenseTrialExpired, licenseLicensed, licenseUpdatesExpired, licenseEnter,
              licensePlaceholder, licenseActivate, licenseInvalid, licenseBuy, licenseEdition, licenseUpdatesUntil,
              licenseRemove, licenseDevBuild, licenseExpiredBody
-        // onboarding
-        case onbWelcomeTitle, onbWelcomeBody, onbContinue, onbBack, onbSkip, onbDone, onbPrivacyTitle,
-             onbPrivacy1, onbPrivacy2, onbPrivacy3, onbPrivacy4, onbPermissionsTitle, onbPermissionsBody,
-             onbAccessibilityWhy, onbAutomationWhy, onbGrant, onbGranted, onbModelTitle, onbModelBody,
-             onbDownload, onbDownloading, onbVerifying, onbModelReady, onbModelFailed, onbRetry,
-             onbModelOffline, onbReadyTitle, onbReadyBody, onbTryIt, onbHotkeyTip
+        // contextual permissions and model download
+        case permissionAllow, modelDownload
         // chart and audit
         case chartTitle, chartWouldSurface, chartSilent, chartNearMiss, chartThreshold, readoutMass, readoutCloseTo, auditTitle, auditSearch, auditSelect, auditRawEvent,
              auditOpen
@@ -118,9 +114,6 @@ public enum L10n {
         case settingsReadImages, settingsReadImagesHint
         // showme
         case taskShowMe, taskWatching, taskWatchDone, taskLearned
-        // onboarding2
-        case onbFeatureMessages, onbFeatureDo, onbFeatureMemory, onbFeatureVoice, onbCalendarWhy, onbTryDo,
-             onbTryVoice
         // procedures
         case settingsProcedures, settingsProceduresEmpty, settingsProcedureShown, settingsProcedureDone
         // status
@@ -151,7 +144,6 @@ public enum L10n {
         .menuQuit: ("Quit Bobb", "Esci da Bobb"),
         .menuPause: ("Pause", "Pausa"),
         .menuResume: ("Resume", "Riprendi"),
-        .menuOpenSetup: ("Finish setup", "Completa la configurazione"),
         .menuSilentToday: ("{count} times quiet", "{count} volte in silenzio"),
         .menuHelpedToday: ("{count} suggestions", "{count} suggerimenti"),
 
@@ -194,7 +186,7 @@ public enum L10n {
         .askStop: ("Stop", "Ferma"),
         .askNoMemory: ("Nothing on your screen matched.", "Niente di ciò che hai visto corrisponde."),
         .askWorking: ("Thinking on your Mac…", "Ragiono sul tuo Mac…"),
-        .askHint: ("↩ ask · ⇥ change mode · esc close", "↩ chiedi · ⇥ cambia modalità · esc chiudi"),
+        .askHint: ("↩ Send · Esc Close", "↩ Invia · Esc Chiudi"),
         .askSources: ("From your screen", "Dal tuo schermo"),
         .askNotReady: ("Bobb is still starting up.", "Bobb si sta ancora avviando."),
         .askError: ("Bobb couldn't answer: {detail}", "Bobb non è riuscito a rispondere: {detail}"),
@@ -280,7 +272,7 @@ public enum L10n {
         .settingsDeleteHistory: ("Delete decision history…", "Elimina lo storico delle decisioni…"),
         .settingsDeleteHistoryConfirm: ("Delete every decision Bobb has recorded, and everything it learned from them?", "Eliminare ogni decisione registrata da Bobb e tutto ciò che ne ha imparato?"),
         .settingsNetworkTitle: ("Local by default", "Locale per impostazione predefinita"),
-        .settingsNetworkBody: ("The local engine has no network access. Browser, configured MCP servers and the optional cloud brain can use the network. Cloud is off by default and its redacted requests are recorded on this Mac.", "Il motore locale non accede alla rete. Browser, server MCP configurati e cervello cloud opzionale possono usare la rete. Il cloud parte spento e le sue richieste oscurate vengono registrate su questo Mac."),
+        .settingsNetworkBody: ("The AI runs only on this Mac and has no network access. Websites, Messages and explicitly configured connectors can use their own network services.", "L’AI lavora solo su questo Mac e non accede alla rete. Siti, Messaggi e connettori configurati esplicitamente possono usare i propri servizi di rete."),
         .settingsPermissions: ("Permissions", "Permessi"),
         .settingsAccessibility: ("Accessibility — to read the text on screen", "Accessibilità — per leggere il testo sullo schermo"),
         .settingsAutomation: ("Mail automation — to read messages and open replies", "Automazione di Mail — per leggere i messaggi e aprire le risposte"),
@@ -301,7 +293,7 @@ public enum L10n {
         .settingsExportDiagnostics: ("Export diagnostics…", "Esporta diagnostica…"),
         .settingsCheckUpdates: ("Check for updates…", "Cerca aggiornamenti…"),
         .settingsVersion: ("Version {version}", "Versione {version}"),
-        .settingsBuiltWithLlama: ("Built with Llama", "Built with Llama"),
+        .settingsBuiltWithLocalModels: ("Qwen · Kev · On-device AI", "Qwen · Kev · AI sul tuo Mac"),
         .settingsThirdParty: ("Third-party notices", "Note di terze parti"),
 
         .licenseTrial: ("Free trial · {days} days left", "Prova gratuita · {days} giorni rimasti"),
@@ -319,36 +311,9 @@ public enum L10n {
         .licenseDevBuild: ("Development build", "Build di sviluppo"),
         .licenseExpiredBody: ("Bobb still shows your memory and history, but it has stopped suggesting and answering. A license keeps it working forever.", "Bobb mostra ancora memoria e storico, ma ha smesso di suggerire e rispondere. Una licenza lo fa funzionare per sempre."),
 
-        .onbWelcomeTitle: ("Meet Bobb", "Ti presento Bobb"),
-        .onbWelcomeBody: ("A personal assistant on your Mac: give it a name, connect the apps you choose, and set its boundaries. Local by default, with an optional cloud brain.", "Un assistente personale sul tuo Mac: dagli un nome, scegli le app e imposta i confini. Locale per impostazione predefinita, con cervello cloud facoltativo."),
-        .onbContinue: ("Continue", "Continua"),
-        .onbBack: ("Back", "Indietro"),
-        .onbSkip: ("Later", "Più tardi"),
-        .onbDone: ("Start using Bobb", "Inizia a usare Bobb"),
-        .onbPrivacyTitle: ("Private by architecture", "Privato per costruzione"),
-        .onbPrivacy1: ("Local AI is the default. Cloud is off until you enable it with your own API key.", "Il modello locale è la scelta predefinita. Il cloud resta spento finché lo attivi con la tua chiave API."),
-        .onbPrivacy2: ("The local engine has no network access. Browser, cloud and connectors use the network only when configured.", "Il motore locale non accede alla rete. Browser, cloud e connettori usano la rete solo se configurati."),
-        .onbPrivacy3: ("Only connected apps can be read. Password managers and secure fields remain protected. Cloud requests are redacted locally and logged.", "Legge solo le app collegate. Gestori di password e campi segreti restano protetti. Le richieste cloud vengono oscurate in locale e registrate."),
-        .onbPrivacy4: ("You can see, search and delete everything it knows.", "Puoi vedere, cercare ed eliminare tutto ciò che sa."),
-        .onbPermissionsTitle: ("Two permissions", "Due permessi"),
-        .onbPermissionsBody: ("macOS asks you to approve what Bobb can see. You can change this at any time in System Settings.", "macOS ti chiede di approvare cosa può vedere Bobb. Puoi cambiarlo quando vuoi in Impostazioni di Sistema."),
-        .onbAccessibilityWhy: ("Accessibility lets Bobb read the text of the window in front of you, and insert what it writes.", "Accessibilità permette a Bobb di leggere il testo della finestra davanti a te e di inserire ciò che scrive."),
-        .onbAutomationWhy: ("Mail automation reads connected Mail and can prepare a reply. Sending during tasks follows the send boundary you choose.", "L’automazione legge Mail quando è collegata e prepara risposte. L’invio durante gli incarichi rispetta il Confine di invio che scegli."),
-        .onbGrant: ("Allow…", "Consenti…"),
-        .onbGranted: ("Allowed", "Consentito"),
-        .onbModelTitle: ("Download Bobb's brain", "Scarica il cervello di Bobb"),
-        .onbModelBody: ("Download the default 1.8 GB model once from Hugging Face, checked against its checksum. Local inference then works offline. Larger local checkpoints and opt-in cloud are configured in Bobb.", "Scarica da Hugging Face il modello predefinito da 1,8 GB, verificato con il suo checksum. Poi l’inferenza locale funziona offline. Checkpoint locali più grandi e cloud facoltativo si configurano in Bobb."),
-        .onbDownload: ("Download (1.8 GB)", "Scarica (1,8 GB)"),
-        .onbDownloading: ("Downloading… {progress}", "Download… {progress}"),
-        .onbVerifying: ("Checking integrity…", "Verifico l'integrità…"),
-        .onbModelReady: ("Ready. Bobb is loading it now.", "Pronto. Bobb lo sta caricando."),
-        .onbModelFailed: ("The download failed: {detail}", "Il download non è riuscito: {detail}"),
-        .onbRetry: ("Try again", "Riprova"),
-        .onbModelOffline: ("Installing offline? Put the model folder in {path}", "Installazione offline? Metti la cartella del modello in {path}"),
-        .onbReadyTitle: ("You're set", "È tutto pronto"),
-        .onbReadyBody: ("Create your Bobb and connect its apps in Boundaries. Review its projects and assignments in Activity.", "Crea il tuo Bobb e collega le app nei Confini. Controlla progetti e incarichi nella pagina Attività."),
-        .onbTryIt: ("Try it: select any text and press {hotkey}.", "Provalo: seleziona un testo e premi {hotkey}."),
-        .onbHotkeyTip: ("Ask Bobb from anywhere with {hotkey}.", "Chiedi a Bobb da ovunque con {hotkey}."),
+
+        .permissionAllow: ("Allow…", "Consenti…"),
+        .modelDownload: ("Download models", "Scarica i modelli"),
 
         .chartTitle: ("Confidence vs threshold", "Confidenza vs soglia"),
         .chartWouldSurface: ("would reach you", "ti arriverebbe"),
@@ -388,7 +353,7 @@ public enum L10n {
         .taskPlanTitle: ("Plan", "Piano"),
         .taskStepsTitle: ("Steps", "Passi"),
         .taskEscHint: ("⎋ stops Bobb at any moment", "⎋ ferma Bobb in qualsiasi momento"),
-        .taskNotTrusted: ("Bobb needs the Accessibility permission to use your apps.", "Bobb ha bisogno del permesso Accessibilità per usare le tue app."),
+        .taskNotTrusted: ("Allow Bobb in macOS Accessibility, then try again.", "Consenti a Bobb l’accesso in Accessibilità di macOS, poi riprova."),
         .taskDisabled: ("Doing things in your apps is turned off in Settings.", "L'uso delle app è disattivato nelle Impostazioni."),
         .taskEngine: ("the engine didn't answer", "il motore non ha risposto"),
         .taskProtected: ("that app is protected, and Bobb never acts in it", "quell'app è protetta e Bobb non vi agisce mai"),
@@ -462,13 +427,6 @@ public enum L10n {
         .taskWatchDone: ("Done", "Fatto"),
         .taskLearned: ("Learned. Next time Bobb will do it this way.", "Imparato. La prossima volta Bobb farà così."),
 
-        .onbFeatureMessages: ("Knows which messages need you — in Mail and in your chat apps — and drafts the reply.", "Sa quali messaggi richiedono te — in Mail e nelle app di chat — e scrive la risposta."),
-        .onbFeatureDo: ("Does things for you in any app: “put on my Focus playlist”, “make a sheet with these totals”.", "Fa le cose per te in qualsiasi app: “metti la mia playlist Focus”, “crea un foglio con questi totali”."),
-        .onbFeatureMemory: ("Remembers what you saw and what you promised, and learns how you work.", "Ricorda cosa hai visto e cosa hai promesso, e impara come lavori."),
-        .onbFeatureVoice: ("Type with {hotkey}, or talk with {talk}.", "Scrivi con {hotkey}, oppure parla con {talk}."),
-        .onbCalendarWhy: ("Optional. Lets Bobb brief you before meetings and answer questions about your schedule. It never changes your calendar.", "Facoltativo. Permette a Bobb di prepararti agli incontri e rispondere su impegni e orari. Non modifica mai il calendario."),
-        .onbTryDo: ("Or tell it what to do: “Put on my Focus playlist on Spotify”.", "Oppure digli cosa fare: “Metti la mia playlist Focus su Spotify”."),
-        .onbTryVoice: ("Or press {talk} and just say it.", "Oppure premi {talk} e dillo a voce."),
 
         .settingsProcedures: ("What Bobb learned to do", "Cosa ha imparato a fare Bobb"),
         .settingsProceduresEmpty: ("Nothing yet. Tasks that work, and the ones you show it, are kept here.", "Ancora niente. I compiti riusciti, e quelli che gli mostri, restano qui."),

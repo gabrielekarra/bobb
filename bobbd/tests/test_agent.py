@@ -249,11 +249,11 @@ def test_plan_without_generation_is_the_goal():
 
 
 def test_route_only_does_when_confident(monkeypatch):
-    monkeypatch.setattr(agent, "decide_many", scripted({"route": "do"}, confidence=0.9))
+    monkeypatch.setattr(agent, "decide_many", scripted({"route": agent.ROUTE_DO}, confidence=0.9))
     assert route_request(object(), "metti la playlist Focus su Spotify")[0] == "do"
-    monkeypatch.setattr(agent, "decide_many", scripted({"route": "do"}, confidence=0.6))
+    monkeypatch.setattr(agent, "decide_many", scripted({"route": agent.ROUTE_DO}, confidence=0.6))
     assert route_request(object(), "metti la playlist Focus")[0] == "answer"
-    monkeypatch.setattr(agent, "decide_many", scripted({"route": "answer"}, confidence=0.9))
+    monkeypatch.setattr(agent, "decide_many", scripted({"route": agent.ROUTE_ANSWER}, confidence=0.9))
     assert route_request(object(), "quando scade la fattura?")[0] == "answer"
 
 

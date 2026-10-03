@@ -4,6 +4,16 @@ import Testing
 
 @Suite("Settings, memory policy, model manifest, localization")
 struct SettingsAndPolicyTests {
+    @Test func legacySetupFlagDoesNotDiscardPreferences() throws {
+        let json = #"{"onboardingCompleted": false, "language": "it", "floor": 0.75, "launchAtLogin": false}"#
+        let settings = try JSONDecoder().decode(BobbSettings.self, from: Data(json.utf8))
+        #expect(settings.language == .it)
+        #expect(settings.floor == 0.75)
+        #expect(!settings.launchAtLogin)
+        let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any]
+        #expect(saved?["onboardingCompleted"] == nil)
+    }
+
     @Test func settingsDecodeLenientlyFieldByField() throws {
         let json = #"{"floor": 2.5, "language": "it", "memoryRetentionDays": 90, "quietFrom": 99, "unknown": true}"#
         let settings = try JSONDecoder().decode(BobbSettings.self, from: Data(json.utf8))
@@ -20,7 +30,7 @@ struct SettingsAndPolicyTests {
         settings.quietFrom = 21
         settings.quietTo = 7
         let frame = settings.daemonFrame()
-        #expect(frame.proactiveKinds == ["mail.opened", "message.opened", "calendar.upcoming"])
+        #expect(frame.proactiveKinds == ["mail.opened", "mail.reply_started", "message.opened", "calendar.upcoming"])
         #expect(frame.quietHours == [21, 7])
         settings.quietTo = 21
         #expect(settings.daemonFrame().quietHours == nil)
@@ -70,10 +80,14 @@ struct SettingsAndPolicyTests {
 
     @Test func manifestIsPinnedAndComplete() {
         let manifest = ModelManifest.default
-        #expect(manifest.directoryName == "Llama-3.2-3B-Instruct-4bit")
+        #expect(manifest.directoryName == "Qwen3.5-4B-4bit")
         #expect(manifest.revision.count == 40)
         #expect(manifest.files.allSatisfy { $0.sha256.count == 64 })
-        #expect(manifest.totalBytes > 1_800_000_000)
+        #expect(manifest.totalBytes > 3_000_000_000)
+        #expect(ModelManifest.required.count == 3)
+        #expect(ModelManifest.decision.directoryName == "kev-4b-mlx-8bit")
+        #expect(ModelManifest.required.allSatisfy { ($0.revision.count == 40 || $0.sourceBaseURL != nil) && $0.files.allSatisfy { $0.sha256.count == 64 } })
+        #expect(ModelManifest.voice.url(for: ModelManifest.voice.files[0]).host == "github.com")
         #expect(manifest.url(for: manifest.files[0]).absoluteString.contains("/resolve/\(manifest.revision)/config.json"))
     }
 

@@ -3,8 +3,8 @@ import Foundation
 import Observation
 import BobbCore
 
-/// The one network operation in the product: downloading the model, once,
-/// when the user presses the button. Every file is fetched from the pinned
+/// The product's model download, started quietly on first launch. Every
+/// file is fetched from the pinned
 /// revision into a staging directory, checked against its published SHA-256
 /// and only then moved into place, so a half-finished or tampered download
 /// is never loaded. `bobbd` itself has no network access at all.
@@ -20,28 +20,31 @@ final class ModelDownloader {
     }
 
     private(set) var phase: Phase = .idle
-    let manifest: ModelManifest
+    let manifests: [ModelManifest]
+    var manifest: ModelManifest { manifests[0] }
+    var totalBytes: Int64 { manifests.reduce(0) { $0 + $1.totalBytes } }
     let modelsDirectory: URL
 
     private var task: Task<Void, Never>?
     private let session: URLSession
 
-    init(manifest: ModelManifest = .default, modelsDirectory: URL) {
-        self.manifest = manifest
+    init(manifests: [ModelManifest] = ModelManifest.required, modelsDirectory: URL) {
+        precondition(!manifests.isEmpty)
+        self.manifests = manifests
         self.modelsDirectory = modelsDirectory
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 60
         configuration.timeoutIntervalForResource = 6 * 3600
         configuration.waitsForConnectivity = true
         session = URLSession(configuration: configuration)
-        if ModelInstallation.isInstalled(manifest, in: modelsDirectory) {
+        if manifests.allSatisfy({ ModelInstallation.isInstalled($0, in: modelsDirectory) }) {
             phase = .installed
         }
     }
 
-    var isInstalled: Bool { ModelInstallation.isInstalled(manifest, in: modelsDirectory) }
+    var isInstalled: Bool { manifests.allSatisfy { ModelInstallation.isInstalled($0, in: modelsDirectory) } }
     var installDirectory: URL { ModelInstallation.directory(for: manifest, in: modelsDirectory) }
-    private var stagingDirectory: URL {
+    private func stagingDirectory(for manifest: ModelManifest) -> URL {
         modelsDirectory.appendingPathComponent(".download-\(manifest.directoryName)", isDirectory: true)
     }
 
@@ -76,33 +79,50 @@ final class ModelDownloader {
     /// Hash every installed file against the manifest. Returns the names of
     /// files that do not match.
     func verifyInstalled(progress: @escaping @MainActor (Double) -> Void) async -> [String] {
-        await Self.mismatches(manifest.files, in: installDirectory, progress: progress)
+        var bad: [String] = []
+        var completed: Int64 = 0
+        for manifest in manifests {
+            let base = completed
+            let missing = await Self.mismatches(manifest.files, in: ModelInstallation.directory(for: manifest, in: modelsDirectory)) { fraction in
+                progress((Double(base) + fraction * Double(manifest.totalBytes)) / Double(self.totalBytes))
+            }
+            bad += missing.map { manifest.directoryName + "/" + $0 }
+            completed += manifest.totalBytes
+        }
+        return bad
     }
 
     // MARK: Steps
 
     private func download() async throws {
         let fm = FileManager.default
-        try fm.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
-        let total = manifest.totalBytes
+        let total = totalBytes
         var completed: Int64 = 0
-        for file in manifest.files {
-            try Task.checkCancellation()
-            let destination = stagingDirectory.appendingPathComponent(file.name)
-            if let size = (try? fm.attributesOfItem(atPath: destination.path)[.size]) as? NSNumber, size.int64Value == file.size {
-                completed += file.size
+        for manifest in manifests {
+            if ModelInstallation.isInstalled(manifest, in: modelsDirectory) {
+                completed += manifest.totalBytes
                 continue
             }
-            let base = completed
-            phase = .downloading(fraction: Double(base) / Double(total), received: base, total: total)
-            let temporary = try await fetch(manifest.url(for: file)) { [weak self] received in
-                guard let self else { return }
-                let now = base + received
-                self.phase = .downloading(fraction: Double(now) / Double(total), received: now, total: total)
+            let stagingDirectory = stagingDirectory(for: manifest)
+            try fm.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+            for file in manifest.files {
+                try Task.checkCancellation()
+                let destination = stagingDirectory.appendingPathComponent(file.name)
+                if let size = (try? fm.attributesOfItem(atPath: destination.path)[.size]) as? NSNumber, size.int64Value == file.size {
+                    completed += file.size
+                    continue
+                }
+                let base = completed
+                phase = .downloading(fraction: Double(base) / Double(total), received: base, total: total)
+                let temporary = try await fetch(manifest.url(for: file)) { [weak self] received in
+                    guard let self else { return }
+                    let now = base + received
+                    self.phase = .downloading(fraction: Double(now) / Double(total), received: now, total: total)
+                }
+                try? fm.removeItem(at: destination)
+                try fm.moveItem(at: temporary, to: destination)
+                completed += file.size
             }
-            try? fm.removeItem(at: destination)
-            try fm.moveItem(at: temporary, to: destination)
-            completed += file.size
         }
     }
 
@@ -151,23 +171,36 @@ final class ModelDownloader {
 
     private func verifyStaged() async throws {
         phase = .verifying(fraction: 0)
-        let bad = await Self.mismatches(manifest.files, in: stagingDirectory) { [weak self] fraction in
-            self?.phase = .verifying(fraction: fraction)
-        }
-        if !bad.isEmpty {
-            for name in bad {
-                try? FileManager.default.removeItem(at: stagingDirectory.appendingPathComponent(name))
+        var completed: Int64 = 0
+        for manifest in manifests {
+            if ModelInstallation.isInstalled(manifest, in: modelsDirectory) {
+                completed += manifest.totalBytes
+                continue
             }
-            throw DownloadError.checksum(bad)
+            let stagingDirectory = stagingDirectory(for: manifest)
+            let base = completed
+            let bad = await Self.mismatches(manifest.files, in: stagingDirectory) { [weak self] fraction in
+                guard let self else { return }
+                self.phase = .verifying(fraction: (Double(base) + fraction * Double(manifest.totalBytes)) / Double(self.totalBytes))
+            }
+            if !bad.isEmpty {
+                for name in bad { try? FileManager.default.removeItem(at: stagingDirectory.appendingPathComponent(name)) }
+                throw DownloadError.checksum(bad)
+            }
+            completed += manifest.totalBytes
         }
     }
 
     private func install() throws {
         let fm = FileManager.default
-        if fm.fileExists(atPath: installDirectory.path) {
-            try fm.removeItem(at: installDirectory)
+        for manifest in manifests {
+            if ModelInstallation.isInstalled(manifest, in: modelsDirectory) { continue }
+            let installDirectory = ModelInstallation.directory(for: manifest, in: modelsDirectory)
+            if fm.fileExists(atPath: installDirectory.path) {
+                try fm.removeItem(at: installDirectory)
+            }
+            try fm.moveItem(at: stagingDirectory(for: manifest), to: installDirectory)
         }
-        try fm.moveItem(at: stagingDirectory, to: installDirectory)
     }
 
     // MARK: Hashing

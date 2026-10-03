@@ -7,13 +7,18 @@ public struct SentMessage: Sendable, Equatable {
     public var to: String
     public var subject: String
     public var body: String
+    public var sender: String
+    public var cc: String
+    public var headers: MailHeaders
 
-    public init(messageId: String, sent: Date, to: String, subject: String, body: String) {
+    public init(messageId: String, sent: Date, to: String, subject: String, body: String,
+                sender: String = "", cc: String = "", headers: MailHeaders = MailHeaders()) {
         self.messageId = messageId
         self.sent = sent
         self.to = to
         self.subject = subject
         self.body = body
+        self.sender = sender; self.cc = cc; self.headers = headers
     }
 }
 
@@ -80,6 +85,10 @@ public struct SentMailTracker: Sendable {
                 "subject": .string(message.subject),
                 "body": .string(String(MailScriptFormat.newestPart(of: message.body).prefix(4000))),
                 "message_id": .string(message.messageId),
+                "sent_at": .number(message.sent.timeIntervalSince1970),
+                "direction": .string("sent"), "sender": .string(message.sender), "cc": .string(message.cc),
+                "in_reply_to": .string(message.headers.inReplyTo),
+                "references": .array(message.headers.references.map { .string($0) }),
             ])
         )
     }

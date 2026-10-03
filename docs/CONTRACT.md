@@ -45,7 +45,10 @@ daemon in `model_missing`/`error` to try again, after a download.
 echoed back (daemon → app) as the stored truth: `floor`, `locale`,
 `proactive_kinds`, `quiet_hours` (`{"start":"22:00","end":"08:00"}` or
 `null`), `adaptive`, `memory_enabled`, `memory_retention_days`,
-`history_retention_days`, `extra_protected_apps`.
+`history_retention_days`, `extra_protected_apps`, `timezone`, `connected_apps`.
+The current app sends `connected_apps: null` to enable automatic Mac app
+access and clear any legacy allowlist. Per-app exclusions are included in
+`extra_protected_apps`. Legacy array-valued allowlists remain supported.
 
 ### Decisions, v1 fields
 
@@ -74,12 +77,40 @@ checking). `regenerate` (`decision_id`, optional `instruction`, for example
 ### Ask
 
 `ask` (`id`, `prompt`, `mode`, `selection`, `app`, `window`) is the command
-bar. `mode` is one of `ask`, `write`, `reply`, `rewrite`, `translate`,
+bar. The single user-facing field sends `mode: auto`; Kev selects text
+handling or a computer action from the user's request. Selected text is
+input data, not authorization to operate an app. `route: false` disables
+actions even for an automatic request. Explicit modes remain supported:
+`ask`, `write`, `reply`, `rewrite`, `translate`,
 `summarize`, `explain`, `compute`; a mode that needs a selection and has
 none falls back to `write` or `ask`. The daemon streams `answer.delta`
 (`request_id`, `text`) and ends with one `answer` (`ok`, `text`, `mode`,
 `result_kind`, `sources`, `unsupported`, `first_token_ms`, `cancelled`).
 `cancel` (`request_id`) stops generation within one token.
+
+An action returns `mode: do`, `result_kind: task` and the goal in `text`.
+An optional `task_url` selects the user's ordinary browser; without it, the task uses
+the desktop. Both routes require Accessibility and a shared screen lease. The local model proposes website
+addresses and query parameters; the host validates URLs and encodes those
+parameters, without site-specific handlers. The app selects a browser named in
+the goal, otherwise the browser active when the command bar opened, otherwise
+the macOS default. It uses the normal macOS URL-opening API and running app
+instances, without an isolated profile or debugging port. Native AX is primary
+with a typed CUA native fallback. Browser observations carry an attested source
+URL; app and website boundaries both apply. Background browser and desktop
+assignments are serialized and yield to user input. Isolated browser adapters
+are available only in explicit developer checks; they are not a production fallback.
+
+`result_kind: clarification` includes a `continuation_id`. The next `ask`
+may echo that id to combine a short reply with its original request. Tokens
+belong to one IPC connection, expire after 15 minutes and never grant action
+permission. A fresh request discards the pending context.
+
+The production task loop uses Qwen to propose bounded alternatives referencing
+only offered candidate ids. Kev chooses one validated operation/target pair.
+Completion requires exact excerpts from retained observations plus independent
+Kev verification of the report and the user's constraints. There are no
+site-specific completion shortcuts; attempted actions alone do not prove success.
 
 ### Screen memory
 
@@ -197,6 +228,7 @@ types are ignored, never fatal, on both sides.
 | `window.changed` | Focus moved to a different window. |
 | `mail.arrived` | A message landed and has not been opened. |
 | `mail.opened` | A message is being displayed. |
+| `mail.reply_started` | A still-empty reply opened in Apple Mail, linked to its original. Carries `sender`, `subject`, `body`, `message_id`, `compose_id`, `to`, `draft: ""`, `typing: false`, `idle: false`. |
 | `mail.closed` | The message view was left. Carries `dwell_ms` and `still_unread`. |
 | `mail.composing` | A reply or new message is being written. Carries `thread_id` when it is a reply. |
 | `mail.archived` | A message was moved out of the inbox. |
@@ -217,6 +249,15 @@ for forty seconds and left it unread" a decidable rule rather than a guess at
 the time between events, which conflates reading with walking away.
 
 They are also cheap: the daemon should answer `ignore` on them almost always.
+
+`mail.reply_started` is a native gesture rule, with `tier: "gesture"` and
+empty `readouts`, rather than a model classification. Its `confidence: 1`
+and `schema_mass: 1` describe the satisfied rule and carry no inferred model
+probability. The daemon offers `draft_reply` once per original/compose pair,
+honoring proactive settings, muted senders and quiet hours. No text is
+generated before `approve`. The resulting `prepared.result` includes the
+original `message_id` and the existing `compose_id`; insertion must recheck
+that the matching reply remains open and empty.
 They are recorded, not acted on.
 
 `payload` is free-form per `kind`, with two exceptions. These two are standard
@@ -261,7 +302,7 @@ Beyond those, the daemon never requires a field it has not declared in
 ```json
 {
   "t": "ready", "ts": 1758348600.0,
-  "model": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+  "model": "mlx-community/Qwen3.5-4B-4bit",
   "prime_ms": 477.0, "decide_ms": 149.8, "floor": 0.60
 }
 ```

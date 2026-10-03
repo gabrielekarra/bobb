@@ -1,0 +1,18 @@
+{
+  "draft" : "Ciao Marco,\n\nGrazie per il messaggio. Ho preso nota della tua richiesta di conferma per il preventivo da 450 euro.\n\nResto in attesa delle tue indicazioni.\n\nCordiali saluti,\nGabriele",
+  "draftCaptured" : true,
+  "draftPanelVisible" : true,
+  "draftPrepared" : true,
+  "mailDiagnostics" : {
+    "accessibilityTrusted" : true,
+    "composeWindowDetected" : false,
+    "mailFrontmost" : false,
+    "mailRunning" : true,
+    "scriptsCompile" : true
+  },
+  "offerCaptured" : true,
+  "offerVisible" : true,
+  "passed" : true,
+  "requiresApproval" : true,
+  "scope" : "Native overlay and draft panel with real daemon and synthetic reply event; not native Mail click detection."
+}

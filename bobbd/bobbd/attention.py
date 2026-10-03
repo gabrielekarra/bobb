@@ -152,6 +152,8 @@ class AttentionEngine:
         # Tier 0: the personal specialist, when one has been minted.
         self.specialist: Specialist | None = None
         self.tracker = UserActivityTracker()
+        self._reply_offers: dict[tuple[str, str], None] = {}
+        self._draft_checks: dict[tuple, None] = {}
         self.primed: Cache = prime(engine, system_prefix)
 
     @property
@@ -191,6 +193,10 @@ class AttentionEngine:
         started = time.perf_counter()
         locale = self.settings.locale
         kind = event.get("kind", "")
+        if kind == "mail.reply_started":
+            return self.reply_started(event)
+        if kind == "mail.draft_check":
+            return self.draft_check(event)
         intent = intent_for(kind)
         user_state = self.tracker.state(event)
 
@@ -294,6 +300,87 @@ class AttentionEngine:
                 decision["shadow"] = True
         return decision
 
+    def reply_started(self, event: dict) -> dict:
+        """Offer help for an observed empty reply without model inference.
+
+        Confidence describes the native gesture rule, not an LLM readout.
+        Generating text still requires the ordinary approve/prepare flow.
+        """
+        started = time.perf_counter()
+        locale = self.settings.locale
+        payload = event.get("payload") or {}
+        def silent(why: str, key: str = "outcome.recorded") -> dict:
+            return self._silent(event, why=why, explanation=i18n.t(key, locale), started=started)
+        if "mail.reply_started" not in self.settings.proactive_kinds:
+            return silent("proactive disabled for mail.reply_started", "outcome.proactive_off")
+        if not all(isinstance(payload.get(key), str) and payload[key].strip()
+                   for key in ("message_id", "compose_id", "sender", "body")):
+            return silent("reply has no verified original message")
+        if payload.get("draft") != "" or payload.get("typing") is True or payload.get("idle") is True:
+            return silent("reply no longer empty or user unavailable")
+        muted = self.personalizer.muted_sender(event) if self.personalizer else None
+        if muted is not None:
+            return self._silent(event, why=f"sender muted ({muted.rule_id})",
+                explanation=i18n.t("outcome.muted", locale, count=muted.dismissed, sender=muted.sender), started=started)
+        key = (payload["message_id"], payload["compose_id"])
+        if key in self._reply_offers:
+            return silent("reply offer already made for this compose session")
+        self._reply_offers[key] = None
+        if len(self._reply_offers) > 256:
+            del self._reply_offers[next(iter(self._reply_offers))]
+        user_state = self.tracker.state(event)
+        self.tracker.observe(event)
+        quiet = self.settings.in_quiet_hours(_local_hour(event))
+        action = "prepare" if quiet or user_state in {"meeting", "typing", "idle"} else "suggest"
+        return {
+            "t": "decision", "ts": time.time(), "id": _new_id("dec"), "event_id": event.get("id", ""),
+            "action": action, "confidence": 1.0, "schema_mass": 1.0,
+            "latency_ms": (time.perf_counter() - started) * 1000,
+            "hypotheses": [], "readouts": [], "tier": "gesture",
+            "why": f"native empty reply opened; user_state={user_state}; quiet_hours={quiet}",
+            "explanation": i18n.t("reply.started.explanation", locale),
+            "suggestion": {
+                "title": i18n.t("reply.started.title", locale), "action_id": "draft_reply",
+                "detail": i18n.display_name(payload["sender"], locale) + " · " + str(payload.get("subject") or "")[:90],
+                "cta": i18n.t("reply.started.cta", locale),
+            },
+        }
+
+    def draft_check(self, event: dict) -> dict:
+        started = time.perf_counter()
+        p = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        locale = self.settings.locale
+        def silent(why):
+            return self._silent(event, why=why, explanation=i18n.t("outcome.recorded", locale), started=started)
+        if "mail.draft_check" not in self.settings.proactive_kinds:
+            return silent("draft checks disabled")
+        issues = p.get("issues")
+        if not isinstance(issues, list) or not p.get("compose_id") or not p.get("draft") or p.get("typing") is True:
+            return silent("no verified draft check")
+        issues = tuple(sorted({v for v in issues if isinstance(v, str) and v in {"attachment", "subject", "recipient", "placeholder"}}))
+        key = (str(p["compose_id"]), issues)
+        if not issues or key in self._draft_checks:
+            return silent("draft check already offered")
+        self._draft_checks[key] = None
+        if len(self._draft_checks) > 256:
+            del self._draft_checks[next(iter(self._draft_checks))]
+        titles = {
+            "attachment": ("Hai citato un allegato: è stato aggiunto?", "You mention an attachment: has it been added?"),
+            "subject": ("Questa email non ha un oggetto", "This email has no subject"),
+            "recipient": ("Questa email non ha destinatari", "This email has no recipients"),
+            "placeholder": ("Ci sono segnaposto nella bozza", "There are placeholders in the draft"),
+        }
+        issue = "attachment" if "attachment" in issues else issues[0]
+        title = titles[issue][0 if locale == "it" else 1]
+        unavailable = self.tracker.state(event) in {"meeting", "typing", "idle"}
+        self.tracker.observe(event)
+        return {"t": "decision", "ts": time.time(), "id": _new_id("dec"), "event_id": event.get("id", ""),
+            "action": "prepare" if unavailable or self.settings.in_quiet_hours(_local_hour(event)) else "suggest",
+            "confidence": 1.0, "schema_mass": 1.0, "latency_ms": (time.perf_counter() - started) * 1000,
+            "hypotheses": [], "readouts": [], "tier": "gesture", "why": "native draft checks: " + ",".join(issues),
+            "explanation": title, "suggestion": {"title": title, "action_id": "check_mail",
+                "detail": str(p.get("subject") or "")[:90], "cta": "Controlla" if locale == "it" else "Review"}}
+
     def _explain(
         self,
         intent,
@@ -324,7 +411,7 @@ class AttentionEngine:
         return sentence
 
 
-_ALL_DECIDABLE_KINDS = ("mail.opened", "mail.composing", "text.selected", "app.activated", "window.changed")
+_ALL_DECIDABLE_KINDS = ("mail.opened", "mail.reply_started", "mail.composing", "text.selected", "app.activated", "window.changed")
 
 
 __all__ = ["AttentionEngine", "UserActivityTracker", "DEFAULT_FLOOR", "SCHEMA_MASS_FLOOR"]

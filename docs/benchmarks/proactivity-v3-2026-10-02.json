@@ -1,0 +1,118 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "mlx-community/Qwen3.5-4B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta procura firmata",
+        "reason": "Manca la procura firmata per completare il deposito della pratica Rossi.",
+        "quote": "Pratica cliente Rossi: manca la procura firmata. Prima di predisporre il deposito, chiedere al cliente il documento mancante.",
+        "draft": "Gentile cliente, per procedere con il deposito della pratica Rossi è necessario ricevere la procura firmante. Potrebbe gentilmente inviarci questo documento mancante? Grazie per la collaborazione."
+      },
+      "matched": true,
+      "seconds": 6.134
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta fattura cliente Alfa",
+        "reason": "Manca la fattura del bonifico di 450 euro per chiudere il riepilogo.",
+        "quote": "Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro. Non abbiamo ancora chiesto copia del documento al cliente.",
+        "draft": "Gentile collega, per chiudere la riconciliazione del cliente Alfa è necessario ricevere la copia della fattura relativa al bonifico da 450 euro. Potrebbe gentilmente fornircela?"
+      },
+      "matched": true,
+      "seconds": 6.199
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara le misure aggiornate del lotto",
+        "reason": "Il progetto richiede il confronto di due alternative ma mancano le misure del lotto.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+        "draft": "Gentile collega, per procedere con il confronto delle due alternative del cortile, è necessario ricevere le misure aggiornate del lotto. Potrebbe gentilmente fornirle? Grazie."
+      },
+      "matched": true,
+      "seconds": 5.43
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 5.529
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta allergie ospiti cena",
+        "reason": "Due invitati non hanno ancora comunicato le eventuali allergie per la cena di domani.",
+        "quote": "Due invitati non ci hanno ancora detto se hanno allergie.",
+        "draft": "Buongiorno, per la cena di domani con otto persone, due ospiti non hanno ancora comunicato allergie. Puoi chiederglielo prima di preparare la lista della spesa? Grazie."
+      },
+      "matched": true,
+      "seconds": 5.157
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 2.514
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 5.211
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.362
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.368
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.372
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.37
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.362
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.367
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "accessibilityGranted" : false,
+  "application" : "Google Chrome",
+  "applicationPath" : "\/Applications\/Google Chrome.app",
+  "automationVerified" : false,
+  "bundleId" : "com.google.Chrome",
+  "detail" : "",
+  "existingPIDs" : [
+    5383
+  ],
+  "leftApplicationRunning" : true,
+  "passed" : false,
+  "profile" : "user_session",
+  "remainingPIDs" : [
+    5383
+  ],
+  "reusedExistingApplication" : true
+}

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Bobb synthetic browser check</title>
+<h1>Bobb synthetic browser check</h1>
+<form onsubmit="event.preventDefault();document.getElementById('result').textContent='Results for: '+document.getElementById('query').value">
+  <label for="query">Search query</label>
+  <input id="query" aria-label="Search query">
+  <button type="submit">Search</button>
+</form>
+<p id="result" aria-live="polite"></p>
+</html>

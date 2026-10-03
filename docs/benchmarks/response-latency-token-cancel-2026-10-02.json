@@ -1,0 +1,58 @@
+{
+  "scope": "Real shipping Qwen3.5 4B + Kev daemon, synthetic Unix-socket requests, after readiness; not UI latency or a battery benchmark.",
+  "ready_seconds": 7.173,
+  "background_generation_started": true,
+  "preempted_result_not_published": true,
+  "no_app_actions": true,
+  "cases": [
+    {
+      "case": "direct_0",
+      "first_text_ms": 1054.5,
+      "complete_ms": 2947.5,
+      "generation_first_token_ms": 1035.4631250002058,
+      "text": "In autunno, la diminuzione della luce e delle temperature fa chiudere i cloroplasti nelle foglie, che smettono di produrre clorofilla. Di conseguenza, i pigmenti gialli (carotenoidi) e rossi (antociani), precedentemente nascosti, diventano visibili."
+    },
+    {
+      "case": "auto_0",
+      "first_text_ms": 1843.1,
+      "complete_ms": 4059.8,
+      "generation_first_token_ms": 950.8577500000683,
+      "text": "In autunno, la diminuzione della luce e delle temperature fa chiudere i cloroplasti nelle foglie, che smettono di produrre clorofilla. Di conseguenza, i pigmenti gialli (carotenoidi) e rossi (antociani), precedentemente nascosti, diventano visibili."
+    },
+    {
+      "case": "rewrite_0",
+      "first_text_ms": 1885.7,
+      "complete_ms": 2527.3,
+      "generation_first_token_ms": 908.8708339995719,
+      "text": "Potresti per favore inviarmi la copia della fattura relativa al bonifico di 450 euro?"
+    },
+    {
+      "case": "direct_1",
+      "first_text_ms": 770.3,
+      "complete_ms": 2678.1,
+      "generation_first_token_ms": 767.6299169997947,
+      "text": "In autunno, la diminuzione della luce e delle temperature fa chiudere i cloroplasti nelle foglie, che smettono di produrre clorofilla. Di conseguenza, i pigmenti gialli (carotenoidi) e rossi (antociani), precedentemente nascosti, diventano visibili."
+    },
+    {
+      "case": "auto_1",
+      "first_text_ms": 1666.1,
+      "complete_ms": 3167.1,
+      "generation_first_token_ms": 767.1462500002235,
+      "text": "In autunno, la diminuzione della luce e delle temperature fa chiudere i cloroplasti nelle foglie. Di conseguenza, la chlorofilla (verde) si degrada e diventano visibili i pigmenti gialli o rossi presenti già nella foglia."
+    },
+    {
+      "case": "rewrite_1",
+      "first_text_ms": 1764.3,
+      "complete_ms": 2376.0,
+      "generation_first_token_ms": 861.7332499998156,
+      "text": "Potresti per favore inviarmi la copia della fattura relativa al bonifico di 450 euro?"
+    },
+    {
+      "case": "foreground_during_proactivity",
+      "first_text_ms": 2066.8,
+      "complete_ms": 2285.3,
+      "generation_first_token_ms": 766.6170840002451,
+      "text": "Ricevuto, grazie."
+    }
+  ]
+}

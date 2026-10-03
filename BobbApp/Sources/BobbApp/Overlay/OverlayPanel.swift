@@ -24,7 +24,7 @@ final class OverlayPanel: NSPanel {
         hasShadow = true
         hidesOnDeactivate = false
         animationBehavior = .utilityWindow
-        self.contentView = contentView
+        self.contentView = BobbGlassHostingView(contentView, radius: 24)
     }
 
     override var canBecomeKey: Bool { true }

@@ -1,9 +1,21 @@
 # Unreleased — Bobb
 
-- Named assistants, explicit boundaries, persistent projects, assignments and routine suggestions.
-- Isolated local browsers, opt-in redacted cloud, iMessage self chat, voice and local model selection.
+- For you home brings together grounded context initiatives, commitments, learned routines and blocked work. Context initiatives persist, support snooze/dismiss/prepare, and learn when to stop suggesting.
+- Local source excerpts and a separate decision check gate initiatives; deleting a source, excluding an app or pausing during inference prevents stale publication. Preparing an initiative cannot route into computer actions.
+- New synthetic cross-profession model evaluation and product review document measured limits.
+- Intro video included in README and repository; original code now uses the Bobb Source Available License 1.0, with contribution rights and restrictions on redistribution. Third-party and prior MIT rights remain separate.
+
+- One command field automatically chooses text handling or an action; websites share a general task loop with completion checked against observations.
+- Spotify green and native Liquid Glass containing the content of floating panels, with glass controls and grouped surfaces.
+- First launch shows only the menu bar icon; missing models prepare in the background and macOS permissions are requested on first use.
+- Speech is limited to microphone conversations. Typed answers, suggestions, iMessage and assignment reports stay silent; closing, cancelling or typing stops playback.
+- Qwen3.5 4B 4-bit generates text; Kev 4B 8-bit answers typed decisions with its trained pointer head. Both run locally, with pinned and checksum-verified downloads.
+
+- Named assistants, automatic Mac app access with exclusions, action boundaries, persistent projects, assignments and routine suggestions.
+- Local-only AI, the user's normal browser and running apps, iMessage self chat, voice and local model selection. Browser and desktop background tasks share one screen lease; no production test profiles or separate sign-in.
+- Consumer Mac defaults: shared Qwen and Kev models, targeting 16 GB RAM and one background assignment at a time; cloud inference removed.
 - MCP and experimental virtual Mac control.
-- Liquid Glass UI, black glasses mark looking up-left, Bobb app/DMG and MIT license.
+- Liquid Glass UI, black glasses mark looking up-left, Bobb app/DMG.
 
 # Changelog
 

@@ -11,12 +11,15 @@ public struct BobbSettings: Codable, Sendable, Equatable {
     public var floor: Double = 0.60
     public var adaptive: Bool = true
     public var mailProactive: Bool = true
+    /// Prepare and insert a draft into the empty reply opened by the user.
+    public var mailInlineReplies: Bool = true
     /// Conversations in chat apps (Slack, WhatsApp, Messages, Teams…).
     public var chatProactive: Bool = true
     /// A brief before meetings with other people (Calendar).
     public var meetingPrep: Bool = true
     /// Keep track of what the user promises in the mail they send.
     public var trackPromises: Bool = true
+    public var contextProactive: Bool = true
     public var toneCheck: Bool = true
     public var quietHoursEnabled: Bool = false
     public var quietFrom: Int = 20
@@ -32,7 +35,6 @@ public struct BobbSettings: Codable, Sendable, Equatable {
     /// Opens the command bar already listening.
     public var talkHotkey: Hotkey = .talk
     public var launchAtLogin: Bool = true
-    public var onboardingCompleted: Bool = false
     public var watching: Bool = true
     /// Whether Bobb may operate applications to carry out requests.
     public var actingEnabled: Bool = true
@@ -51,10 +53,10 @@ public struct BobbSettings: Codable, Sendable, Equatable {
     /// The event kinds the daemon may interrupt for.
     public var proactiveKinds: [String] {
         var kinds: [String] = []
-        if mailProactive { kinds.append(EventKind.mailOpened.rawValue) }
+        if mailProactive { kinds.append(contentsOf: [EventKind.mailOpened.rawValue, EventKind.mailReplyStarted.rawValue]) }
         if chatProactive { kinds.append(EventKind.messageOpened.rawValue) }
         if meetingPrep { kinds.append(EventKind.calendarUpcoming.rawValue) }
-        if toneCheck { kinds.append(EventKind.mailComposing.rawValue) }
+        if toneCheck { kinds.append(contentsOf: [EventKind.mailComposing.rawValue, EventKind.mailDraftCheck.rawValue]) }
         return kinds
     }
 
@@ -68,16 +70,18 @@ public struct BobbSettings: Codable, Sendable, Equatable {
             memoryEnabled: memoryEnabled,
             memoryRetentionDays: memoryRetentionDays,
             historyRetentionDays: historyRetentionDays,
-            extraProtectedApps: extraProtectedApps,
+            extraProtectedApps: Array(Set(extraProtectedApps + bobb.boundaries.excludedApps)).sorted(),
             timezone: TimeZone.current.identifier,
-            connectedApps: bobb.boundaries.apps.flatMap { [$0.id, $0.name] }
+            connectedApps: nil,
+            contextProactive: contextProactive && watching,
+            trackPromises: trackPromises && watching
         )
     }
 
     enum CodingKeys: String, CodingKey {
-        case language, floor, adaptive, mailProactive, chatProactive, meetingPrep, trackPromises, toneCheck, quietHoursEnabled, quietFrom, quietTo,
+        case contextProactive, language, floor, adaptive, mailProactive, mailInlineReplies, chatProactive, meetingPrep, trackPromises, toneCheck, quietHoursEnabled, quietFrom, quietTo,
              overlaySeconds, memoryEnabled, readImages, memoryRetentionDays, historyRetentionDays, extraProtectedApps,
-             hotkey, talkHotkey, launchAtLogin, onboardingCompleted, watching, actingEnabled, actingApproval, actionAllowRules, bobb
+             hotkey, talkHotkey, launchAtLogin, watching, actingEnabled, actingApproval, actionAllowRules, bobb
     }
 
     public init(from decoder: Decoder) throws {
@@ -90,9 +94,11 @@ public struct BobbSettings: Codable, Sendable, Equatable {
         if let v = read(.floor, Double.self), (0...1).contains(v) { s.floor = v }
         if let v = read(.adaptive, Bool.self) { s.adaptive = v }
         if let v = read(.mailProactive, Bool.self) { s.mailProactive = v }
+        if let v = read(.mailInlineReplies, Bool.self) { s.mailInlineReplies = v }
         if let v = read(.chatProactive, Bool.self) { s.chatProactive = v }
         if let v = read(.meetingPrep, Bool.self) { s.meetingPrep = v }
         if let v = read(.trackPromises, Bool.self) { s.trackPromises = v }
+        if let v = read(.contextProactive, Bool.self) { s.contextProactive = v }
         if let v = read(.toneCheck, Bool.self) { s.toneCheck = v }
         if let v = read(.quietHoursEnabled, Bool.self) { s.quietHoursEnabled = v }
         if let v = read(.quietFrom, Int.self), (0...23).contains(v) { s.quietFrom = v }
@@ -106,7 +112,6 @@ public struct BobbSettings: Codable, Sendable, Equatable {
         if let v = read(.hotkey, Hotkey.self) { s.hotkey = v }
         if let v = read(.talkHotkey, Hotkey.self) { s.talkHotkey = v }
         if let v = read(.launchAtLogin, Bool.self) { s.launchAtLogin = v }
-        if let v = read(.onboardingCompleted, Bool.self) { s.onboardingCompleted = v }
         if let v = read(.watching, Bool.self) { s.watching = v }
         if let v = read(.actingEnabled, Bool.self) { s.actingEnabled = v }
         if let v = read(.actingApproval, ActingApproval.self) { s.actingApproval = v }

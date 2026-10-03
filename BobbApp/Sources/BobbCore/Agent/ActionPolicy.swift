@@ -125,7 +125,7 @@ public struct ActionPolicy: Sendable {
 
     public func evaluate(operation: ActOperation, label: String, role: String, appBundleId: String?, appName: String,
                          secure: Bool = false, submit: Bool = false, multiline: Bool = false, window: String = "",
-                         key: KeyChord? = nil, defaultButton: String = "", context: String = "", typedText: String = "") -> Verdict {
+                         key: KeyChord? = nil, defaultButton: String = "", context: String = "", typedText: String = "", websiteURL: String? = nil) -> Verdict {
         if isProtected(bundleId: appBundleId, appName: appName) {
             return .deny(reason: "protected")
         }
@@ -147,7 +147,13 @@ public struct ActionPolicy: Sendable {
             // Explicit boundaries precede historical "always allow" rules.
             var review: Verdict = .allow
             for category in Self.categories(operation: operation, label: label, app: appBundleId, submit: submit,
-                                             key: key, defaultButton: defaultButton) {
+                                             key: key, defaultButton: defaultButton, inWebsite: websiteURL != nil) {
+                if let websiteURL, operation != .openApp {
+                    let site = boundaries.evaluateWebsite(category: category, url: websiteURL, browserBundleId: appBundleId,
+                        browserName: appName, context: context + " " + label + " " + typedText)
+                    if case .deny = site { return site }
+                    if case .ask = site { review = site }
+                }
                 let verdict = boundaries.evaluate(category: category, bundleId: appBundleId, name: appName,
                                                    context: context + " " + label + " " + typedText)
                 if case .deny = verdict { return verdict }
@@ -205,7 +211,7 @@ public struct ActionPolicy: Sendable {
     }
 
     public static func category(operation: ActOperation, label: String, app: String?, submit: Bool,
-                                key: KeyChord?, defaultButton: String) -> ActionCategory {
+                                key: KeyChord?, defaultButton: String, inWebsite: Bool = false) -> ActionCategory {
         if app?.hasPrefix("mcp:") == true, [.click, .select, .open].contains(operation) { return .execute }
         if let app, terminals.contains(app), [.type, .typeText, .key].contains(operation) { return .execute }
         if operation == .key, key == .returnKey || key == .cmdReturn, let app, messagingApps.contains(app) { return .send }
@@ -223,7 +229,7 @@ public struct ActionPolicy: Sendable {
         }
         if operation == .open, executableSuffixes.contains(where: { label.lowercased().hasSuffix($0) }) { return .execute }
         if operation == .key, key == .cmdReturn { return .send }
-        if operation == .key, key == .returnKey, app == "bobb.browser" || app?.hasPrefix("web:") == true { return .send }
+        if operation == .key, key == .returnKey, inWebsite || app == "bobb.browser" || app?.hasPrefix("web:") == true { return .send }
         if operation == .key, key == .cmdW { return .delete }
         if [.type, .typeText].contains(operation) { return .write }
         return .navigate
@@ -232,9 +238,9 @@ public struct ActionPolicy: Sendable {
     /// One button can send a payment or publish and delete. Every matching
     /// boundary must permit it; a generic "Confirm" never masks "purchase".
     public static func categories(operation: ActOperation, label: String, app: String?, submit: Bool,
-                                  key: KeyChord?, defaultButton: String) -> [ActionCategory] {
+                                  key: KeyChord?, defaultButton: String, inWebsite: Bool = false) -> [ActionCategory] {
         var result = [category(operation: operation, label: label, app: app, submit: submit,
-                               key: key, defaultButton: defaultButton)]
+                               key: key, defaultButton: defaultButton, inWebsite: inWebsite)]
         if [.click, .select, .open, .key].contains(operation) || submit {
             let words = operation == .key ? defaultButton : label
             for (reason, _) in rules where consequenceWords(words, matching: reason) {

@@ -13,9 +13,15 @@ struct OverlayView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(spacing: 7) {
                 BobbMark(size: 22, color: Theme.attention, eyes: .look(CGVector(dx: -0.4, dy: 0.9)))
-                    .padding(.top, 1)
+                Text("Bobb")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.primary)
+            }
+            .accessibilityElement(children: .combine)
+
+            HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(suggestion.title)
                         .font(.system(size: 13, weight: .semibold))
@@ -34,10 +40,9 @@ struct OverlayView: View {
             if let explanation, !explanation.isEmpty {
                 Text(explanation)
                     .font(.system(size: 10.5))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 26)
             }
 
             HStack(spacing: 8) {
@@ -51,11 +56,6 @@ struct OverlayView: View {
         }
         .padding(14)
         .frame(width: 340, alignment: .leading)
-        .bobbGlass()
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        )
         .fixedSize()
     }
 }

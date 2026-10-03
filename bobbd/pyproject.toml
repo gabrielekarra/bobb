@@ -5,9 +5,11 @@ description = "Bobb's on-device decision daemon: typed, calibrated readouts over
 requires-python = "==3.12.*"
 dependencies = [
     "mlx",
-    "mlx-lm",
+    "mlx-lm>=0.31.3,<0.32",
     "numpy",
     "pillow",
+    "torch>=2.6,<2.9",
+    "kokoro-onnx>=0.4.9,<0.7",
 ]
 
 [dependency-groups]

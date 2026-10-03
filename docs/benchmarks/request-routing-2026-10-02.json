@@ -1,0 +1,1307 @@
+{
+  "scope": "31 synthetic development cases repeated twice, Kev only, prefix cleared between variants. Presence of selected text cannot authorize or change intent. Not app success or calibrated action safety.",
+  "cases": [
+    {
+      "case": "IT knowledge",
+      "repeat": 0,
+      "prompt": "Perché il cielo è blu?",
+      "expected_route": "answer",
+      "expected_mode": "ask",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7619,
+        "ms": 832.3,
+        "matches": false
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7863,
+        "ms": 705.3,
+        "matches": false
+      }
+    },
+    {
+      "case": "EN knowledge",
+      "repeat": 0,
+      "prompt": "Why does the moon have phases?",
+      "expected_route": "answer",
+      "expected_mode": "ask",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8155,
+        "ms": 797.2,
+        "matches": false
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8511,
+        "ms": 704.3,
+        "matches": false
+      }
+    },
+    {
+      "case": "IT write",
+      "repeat": 0,
+      "prompt": "Scrivi una breve email a Marco per fissare una riunione.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8451,
+        "ms": 876.2,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8705,
+        "ms": 780.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN write",
+      "repeat": 0,
+      "prompt": "Write a short invitation for a birthday dinner.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.9301,
+        "ms": 800.6,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.9329,
+        "ms": 706.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT literal",
+      "repeat": 0,
+      "prompt": "Scrivi solo: Ricevuto, grazie.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.801,
+        "ms": 811.2,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.4385,
+        "ms": 704.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT rewrite",
+      "repeat": 0,
+      "prompt": "Rendilo più cortese.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8653,
+        "ms": 804.4,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8192,
+        "ms": 711.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN rewrite",
+      "repeat": 0,
+      "prompt": "Make this message clearer and more polite.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8549,
+        "ms": 800.7,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8927,
+        "ms": 709.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT translation",
+      "repeat": 0,
+      "prompt": "Traduci in inglese.",
+      "expected_route": "answer",
+      "expected_mode": "translate",
+      "separate": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.7748,
+        "ms": 803.7,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.9525,
+        "ms": 710.8,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN translation",
+      "repeat": 0,
+      "prompt": "Translate the selected text into Spanish.",
+      "expected_route": "answer",
+      "expected_mode": "translate",
+      "separate": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.749,
+        "ms": 804.1,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.9569,
+        "ms": 722.3,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT summary",
+      "repeat": 0,
+      "prompt": "Riassumi questo testo.",
+      "expected_route": "answer",
+      "expected_mode": "summarize",
+      "separate": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9306,
+        "ms": 802.3,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9513,
+        "ms": 728.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN summary",
+      "repeat": 0,
+      "prompt": "Summarize this document in three bullets.",
+      "expected_route": "answer",
+      "expected_mode": "summarize",
+      "separate": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.8744,
+        "ms": 818.8,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9142,
+        "ms": 715.1,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT reply",
+      "repeat": 0,
+      "prompt": "Prepara una risposta a questo messaggio.",
+      "expected_route": "answer",
+      "expected_mode": "reply",
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8521,
+        "ms": 821.0,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8716,
+        "ms": 716.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN reply",
+      "repeat": 0,
+      "prompt": "Draft a reply to this email declining the invitation.",
+      "expected_route": "answer",
+      "expected_mode": "reply",
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8304,
+        "ms": 886.3,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.729,
+        "ms": 789.4,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT explain",
+      "repeat": 0,
+      "prompt": "Spiegami cosa significa interesse composto.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8885,
+        "ms": 808.5,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.9388,
+        "ms": 715.8,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN explain",
+      "repeat": 0,
+      "prompt": "Explain this error message in plain English.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8987,
+        "ms": 819.5,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8941,
+        "ms": 719.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT compute",
+      "repeat": 0,
+      "prompt": "Calcola il totale di questi importi.",
+      "expected_route": "answer",
+      "expected_mode": "compute",
+      "separate": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.3229,
+        "ms": 816.3,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.8458,
+        "ms": 720.8,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN compute",
+      "repeat": 0,
+      "prompt": "Calculate 18 percent of 450.",
+      "expected_route": "answer",
+      "expected_mode": "compute",
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7578,
+        "ms": 530.8,
+        "matches": false
+      },
+      "single": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.944,
+        "ms": 803.4,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT negated send",
+      "repeat": 0,
+      "prompt": "Non inviare questa email. Rendila più cortese.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7752,
+        "ms": 891.2,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7198,
+        "ms": 792.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN negated send",
+      "repeat": 0,
+      "prompt": "Do not send this. Rewrite it to be more concise.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7164,
+        "ms": 894.9,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7845,
+        "ms": 799.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT notes",
+      "repeat": 0,
+      "prompt": "Apri Note e crea una nota chiamata Idee per Bobb.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9033,
+        "ms": 527.3,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8503,
+        "ms": 797.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN app",
+      "repeat": 0,
+      "prompt": "Open Calendar and create a meeting for tomorrow at 10.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9602,
+        "ms": 529.9,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8859,
+        "ms": 796.4,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT website",
+      "repeat": 0,
+      "prompt": "Cerca su YouTube lofi hip hop.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9606,
+        "ms": 451.6,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8526,
+        "ms": 720.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN website",
+      "repeat": 0,
+      "prompt": "Search the internet for the current train timetable.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.973,
+        "ms": 452.8,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7925,
+        "ms": 724.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT sending",
+      "repeat": 0,
+      "prompt": "Invia il documento domani alle 10.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.3007,
+        "ms": 901.4,
+        "matches": false
+      },
+      "single": {
+        "route": "answer",
+        "mode": "ask",
+        "confidence": 0.2514,
+        "ms": 818.3,
+        "matches": false
+      }
+    },
+    {
+      "case": "EN missing target",
+      "repeat": 0,
+      "prompt": "Send the attachment to the client.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9159,
+        "ms": 461.5,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7236,
+        "ms": 735.8,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT local files",
+      "repeat": 0,
+      "prompt": "Sposta il PDF nella cartella del progetto.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9687,
+        "ms": 532.9,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9135,
+        "ms": 810.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN local files",
+      "repeat": 0,
+      "prompt": "Rename this file to Meeting notes.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9308,
+        "ms": 462.1,
+        "matches": true
+      },
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9066,
+        "ms": 736.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT draft URL",
+      "repeat": 0,
+      "prompt": "Scrivi una mail con questo link: https://example.org.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.7941,
+        "ms": 910.6,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8313,
+        "ms": 812.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN draft URL",
+      "repeat": 0,
+      "prompt": "Draft a message recommending https://example.org.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.871,
+        "ms": 834.9,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.7828,
+        "ms": 743.0,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT how to",
+      "repeat": 0,
+      "prompt": "Spiegami come aprire una nuova scheda in Safari.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.5986,
+        "ms": 915.2,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7548,
+        "ms": 819.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN how to",
+      "repeat": 0,
+      "prompt": "Explain how to send an email in Mail.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.3657,
+        "ms": 841.6,
+        "matches": true
+      },
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8329,
+        "ms": 745.1,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT knowledge",
+      "repeat": 1,
+      "prompt": "Perché il cielo è blu?",
+      "expected_route": "answer",
+      "expected_mode": "ask",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7863,
+        "ms": 741.7,
+        "matches": false
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7619,
+        "ms": 843.1,
+        "matches": false
+      }
+    },
+    {
+      "case": "EN knowledge",
+      "repeat": 1,
+      "prompt": "Why does the moon have phases?",
+      "expected_route": "answer",
+      "expected_mode": "ask",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8511,
+        "ms": 765.1,
+        "matches": false
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8155,
+        "ms": 855.1,
+        "matches": false
+      }
+    },
+    {
+      "case": "IT write",
+      "repeat": 1,
+      "prompt": "Scrivi una breve email a Marco per fissare una riunione.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8705,
+        "ms": 825.2,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8451,
+        "ms": 917.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN write",
+      "repeat": 1,
+      "prompt": "Write a short invitation for a birthday dinner.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.9329,
+        "ms": 752.9,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.9301,
+        "ms": 862.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT literal",
+      "repeat": 1,
+      "prompt": "Scrivi solo: Ricevuto, grazie.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.4385,
+        "ms": 767.3,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.801,
+        "ms": 857.0,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT rewrite",
+      "repeat": 1,
+      "prompt": "Rendilo più cortese.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8192,
+        "ms": 753.4,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8653,
+        "ms": 856.6,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN rewrite",
+      "repeat": 1,
+      "prompt": "Make this message clearer and more polite.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8927,
+        "ms": 758.7,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.8549,
+        "ms": 851.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT translation",
+      "repeat": 1,
+      "prompt": "Traduci in inglese.",
+      "expected_route": "answer",
+      "expected_mode": "translate",
+      "single": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.9525,
+        "ms": 764.5,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.7748,
+        "ms": 864.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN translation",
+      "repeat": 1,
+      "prompt": "Translate the selected text into Spanish.",
+      "expected_route": "answer",
+      "expected_mode": "translate",
+      "single": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.9569,
+        "ms": 758.7,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "translate",
+        "confidence": 0.749,
+        "ms": 858.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT summary",
+      "repeat": 1,
+      "prompt": "Riassumi questo testo.",
+      "expected_route": "answer",
+      "expected_mode": "summarize",
+      "single": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9513,
+        "ms": 764.3,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9306,
+        "ms": 860.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN summary",
+      "repeat": 1,
+      "prompt": "Summarize this document in three bullets.",
+      "expected_route": "answer",
+      "expected_mode": "summarize",
+      "single": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.9142,
+        "ms": 762.8,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "summarize",
+        "confidence": 0.8744,
+        "ms": 860.8,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT reply",
+      "repeat": 1,
+      "prompt": "Prepara una risposta a questo messaggio.",
+      "expected_route": "answer",
+      "expected_mode": "reply",
+      "single": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8716,
+        "ms": 765.8,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8521,
+        "ms": 859.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN reply",
+      "repeat": 1,
+      "prompt": "Draft a reply to this email declining the invitation.",
+      "expected_route": "answer",
+      "expected_mode": "reply",
+      "single": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.729,
+        "ms": 836.3,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.8304,
+        "ms": 942.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT explain",
+      "repeat": 1,
+      "prompt": "Spiegami cosa significa interesse composto.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.9388,
+        "ms": 767.9,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8885,
+        "ms": 860.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN explain",
+      "repeat": 1,
+      "prompt": "Explain this error message in plain English.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8941,
+        "ms": 751.3,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8987,
+        "ms": 850.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT compute",
+      "repeat": 1,
+      "prompt": "Calcola il totale di questi importi.",
+      "expected_route": "answer",
+      "expected_mode": "compute",
+      "single": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.8458,
+        "ms": 766.5,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.3229,
+        "ms": 858.1,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN compute",
+      "repeat": 1,
+      "prompt": "Calculate 18 percent of 450.",
+      "expected_route": "answer",
+      "expected_mode": "compute",
+      "single": {
+        "route": "answer",
+        "mode": "compute",
+        "confidence": 0.944,
+        "ms": 820.0,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7578,
+        "ms": 543.0,
+        "matches": false
+      }
+    },
+    {
+      "case": "IT negated send",
+      "repeat": 1,
+      "prompt": "Non inviare questa email. Rendila più cortese.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7198,
+        "ms": 824.7,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7752,
+        "ms": 924.4,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN negated send",
+      "repeat": 1,
+      "prompt": "Do not send this. Rewrite it to be more concise.",
+      "expected_route": "answer",
+      "expected_mode": "rewrite",
+      "single": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7845,
+        "ms": 823.2,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "rewrite",
+        "confidence": 0.7164,
+        "ms": 919.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT notes",
+      "repeat": 1,
+      "prompt": "Apri Note e crea una nota chiamata Idee per Bobb.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8503,
+        "ms": 822.4,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9033,
+        "ms": 545.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN app",
+      "repeat": 1,
+      "prompt": "Open Calendar and create a meeting for tomorrow at 10.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8859,
+        "ms": 819.6,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9602,
+        "ms": 549.2,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT website",
+      "repeat": 1,
+      "prompt": "Cerca su YouTube lofi hip hop.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.8526,
+        "ms": 749.0,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9606,
+        "ms": 469.4,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN website",
+      "repeat": 1,
+      "prompt": "Search the internet for the current train timetable.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7925,
+        "ms": 751.1,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.973,
+        "ms": 468.3,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT sending",
+      "repeat": 1,
+      "prompt": "Invia il documento domani alle 10.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "answer",
+        "mode": "ask",
+        "confidence": 0.2514,
+        "ms": 825.3,
+        "matches": false
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "reply",
+        "confidence": 0.3007,
+        "ms": 930.1,
+        "matches": false
+      }
+    },
+    {
+      "case": "EN missing target",
+      "repeat": 1,
+      "prompt": "Send the attachment to the client.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.7236,
+        "ms": 753.5,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9159,
+        "ms": 474.9,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT local files",
+      "repeat": 1,
+      "prompt": "Sposta il PDF nella cartella del progetto.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9135,
+        "ms": 830.2,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9687,
+        "ms": 563.0,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN local files",
+      "repeat": 1,
+      "prompt": "Rename this file to Meeting notes.",
+      "expected_route": "do",
+      "expected_mode": null,
+      "single": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9066,
+        "ms": 780.4,
+        "matches": true
+      },
+      "separate": {
+        "route": "do",
+        "mode": null,
+        "confidence": 0.9308,
+        "ms": 498.7,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT draft URL",
+      "repeat": 1,
+      "prompt": "Scrivi una mail con questo link: https://example.org.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.8313,
+        "ms": 874.6,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.7941,
+        "ms": 968.1,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN draft URL",
+      "repeat": 1,
+      "prompt": "Draft a message recommending https://example.org.",
+      "expected_route": "answer",
+      "expected_mode": "write",
+      "single": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.7828,
+        "ms": 778.2,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "write",
+        "confidence": 0.871,
+        "ms": 878.1,
+        "matches": true
+      }
+    },
+    {
+      "case": "IT how to",
+      "repeat": 1,
+      "prompt": "Spiegami come aprire una nuova scheda in Safari.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.7548,
+        "ms": 857.7,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.5986,
+        "ms": 971.5,
+        "matches": true
+      }
+    },
+    {
+      "case": "EN how to",
+      "repeat": 1,
+      "prompt": "Explain how to send an email in Mail.",
+      "expected_route": "answer",
+      "expected_mode": "explain",
+      "single": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.8329,
+        "ms": 792.9,
+        "matches": true
+      },
+      "separate": {
+        "route": "answer",
+        "mode": "explain",
+        "confidence": 0.3657,
+        "ms": 890.7,
+        "matches": true
+      }
+    }
+  ]
+}

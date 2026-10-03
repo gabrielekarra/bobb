@@ -21,8 +21,10 @@ public struct AppBoundary: Codable, Equatable, Sendable, Identifiable {
 }
 
 public struct BoundaryConfiguration: Codable, Equatable, Sendable {
-    /// An empty list authorizes no application, including Bobb's browser.
+    /// Per-app overrides. Installed Mac apps use the default modes automatically.
     public var apps: [AppBoundary] = []
+    /// Opt out of reading and acting, by bundle identifier or app name.
+    public var excludedApps: [String] = []
     public var rules: [String] = []
     /// Aliases used in rules, e.g. "capo": ["Marco Rossi", "marco@firm.it"].
     public var people: [String: [String]] = [:]
@@ -31,6 +33,21 @@ public struct BoundaryConfiguration: Codable, Equatable, Sendable {
     public var toHour = 20
     public init() {}
 
+    enum CodingKeys: String, CodingKey {
+        case apps, excludedApps, rules, people, hoursEnabled, fromHour, toHour
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        apps = try c.decodeIfPresent([AppBoundary].self, forKey: .apps) ?? []
+        excludedApps = try c.decodeIfPresent([String].self, forKey: .excludedApps) ?? []
+        rules = try c.decodeIfPresent([String].self, forKey: .rules) ?? []
+        people = try c.decodeIfPresent([String: [String]].self, forKey: .people) ?? [:]
+        hoursEnabled = try c.decodeIfPresent(Bool.self, forKey: .hoursEnabled) ?? false
+        fromHour = try c.decodeIfPresent(Int.self, forKey: .fromHour) ?? 8
+        toHour = try c.decodeIfPresent(Int.self, forKey: .toHour) ?? 20
+    }
+
     public func canWork(at date: Date = Date(), calendar: Calendar = .current) -> Bool {
         guard hoursEnabled else { return true }
         let hour = calendar.component(.hour, from: date)
@@ -38,8 +55,33 @@ public struct BoundaryConfiguration: Codable, Equatable, Sendable {
         return fromHour < toHour ? (fromHour..<toHour).contains(hour) : hour >= fromHour || hour < toHour
     }
 
+    public func isExcluded(bundleId: String?, name: String) -> Bool {
+        excludedApps.contains(name) || (bundleId.map { excludedApps.contains($0) } ?? false)
+    }
+
     public func app(bundleId: String?, name: String) -> AppBoundary? {
-        apps.first { $0.id == bundleId || $0.id == name || $0.name == name }
+        guard !isExcluded(bundleId: bundleId, name: name) else { return nil }
+        if let configured = apps.first(where: { $0.id == bundleId || $0.id == name || $0.name == name }) { return configured }
+        // Optional external tools still need explicit configuration. Website
+        // overrides fall back to Bobb Browser in the browser driver.
+        if let bundleId, bundleId.hasPrefix("mcp:") || bundleId.hasPrefix("web:") { return nil }
+        guard let id = bundleId ?? (name.isEmpty ? nil : name) else { return nil }
+        return AppBoundary(id: id, name: name)
+    }
+
+    public func webApp(host: String, browserBundleId: String = "bobb.browser", browserName: String = "Bobb Browser") -> AppBoundary? {
+        guard !isExcluded(bundleId: "web:\(host)", name: host),
+              !isExcluded(bundleId: browserBundleId, name: browserName) else { return nil }
+        return app(bundleId: "web:\(host)", name: host) ?? app(bundleId: browserBundleId, name: browserName)
+    }
+
+    public func evaluateWebsite(category: ActionCategory, url: String, browserBundleId: String?, browserName: String, context: String) -> ActionPolicy.Verdict {
+        guard let value = URL(string: url), ["http", "https"].contains(value.scheme ?? ""),
+              let host = value.host, value.user == nil, value.password == nil,
+              let boundary = webApp(host: host, browserBundleId: browserBundleId ?? browserName, browserName: browserName) else {
+            return .deny(reason: "unavailableWebsite")
+        }
+        return evaluate(category: category, bundleId: boundary.id, name: boundary.name, context: context)
     }
 
     /// Natural language is a constraint, never a way to grant silent powers.
@@ -47,7 +89,7 @@ public struct BoundaryConfiguration: Codable, Equatable, Sendable {
     public func evaluate(category: ActionCategory, bundleId: String?, name: String, context: String,
                          at date: Date = Date()) -> ActionPolicy.Verdict {
         guard canWork(at: date) else { return .deny(reason: "outsideWorkingHours") }
-        guard let app = app(bundleId: bundleId, name: name) else { return .deny(reason: "unconnectedApp") }
+        guard let app = app(bundleId: bundleId, name: name) else { return .deny(reason: "unavailableApp") }
         var mode = app.mode(category)
         let normalized = Self.normalize(context)
         for phrase in rules where !phrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

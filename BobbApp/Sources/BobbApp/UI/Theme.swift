@@ -2,11 +2,16 @@ import AppKit
 import SwiftUI
 import BobbCore
 
-/// Bobb's visual language: native, quiet, one accent. Indigo for
+/// Bobb's visual language: native, quiet, one accent. Spotify green for
 /// Bobb's own voice, amber for "something needs you", red only for a
 /// near-miss in Mind. Everything else is the system's.
 enum Theme {
-    static let accent = Color(red: 0.36, green: 0.36, blue: 0.84)
+    static let accent = Color(red: 29.0 / 255, green: 185.0 / 255, blue: 84.0 / 255)
+    static let accentInk = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 29.0 / 255, green: 185.0 / 255, blue: 84.0 / 255, alpha: 1)
+            : NSColor(srgbRed: 0.04, green: 0.37, blue: 0.16, alpha: 1)
+    })
     static let attention = Color(red: 0.96, green: 0.63, blue: 0.14)
     static let nearMiss = Color.red
     static let calm = Color.secondary
@@ -40,7 +45,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .bobbGlass(radius: 20, tint: Theme.accent.opacity(configuration.isPressed ? 0.3 : 0.16), interactive: true)
@@ -154,7 +159,7 @@ enum WindowPresenter {
         window.titlebarAppearsTransparent = true
         window.backgroundColor = .clear
         window.isOpaque = false
-        window.contentView = NSHostingView(rootView: content.bobbWindowStyle())
+        window.contentView = BobbGlassHostingView(NSHostingView(rootView: content.bobbWindowStyle()), radius: 20, clear: false)
         window.center()
         return window
     }

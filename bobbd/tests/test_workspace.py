@@ -79,20 +79,21 @@ def test_only_one_run_per_agent_and_one_physical_desktop(workspace):
     first = workspace.claim("one", now=102)
     assert first is not None
     second = workspace.claim("two", now=103)
-    if first["surface"] == "desktop":
-        assert second is None or second["surface"] == "browser"
-    else:
-        assert second is not None and second["surface"] == "desktop"
+    assert second is None
     assert workspace.claim("three", now=104) is None
 
 
-def test_browser_agents_can_run_concurrently_while_desktop_is_unavailable(workspace):
+def test_user_browsers_share_the_desktop_and_cannot_run_while_it_is_unavailable(workspace):
     workspace.put("agent", {"id": "other", "name": "Other"})
     job(workspace, id="a")
     job(workspace, id="b", agent_id="other")
     workspace.tick(now=101)
-    assert workspace.claim("executor", desktop_available=False, now=102)["surface"] == "browser"
-    assert workspace.claim("executor", desktop_available=False, now=103)["surface"] == "browser"
+    assert workspace.claim("executor", desktop_available=False, now=102) is None
+    first = workspace.claim("executor", desktop_available=True, now=103)
+    assert first["surface"] == "browser"
+    assert workspace.claim("executor", desktop_available=True, now=104) is None
+    workspace.update_run(first["id"], "executor", "done", "Observed result", now=105)
+    assert workspace.claim("executor", desktop_available=True, now=106)["surface"] == "browser"
 
 
 def test_disabled_jobs_are_not_claimed_even_if_previously_queued(workspace):

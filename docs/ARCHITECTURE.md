@@ -20,12 +20,12 @@ lives and why it lives there. The protocol between the processes is
                      unix socket, NDJSON, 0600
 ┌─────────────────────────────── bobbd (Python) ─────────────────────────────┐
 │ server.py ── status, handlers, streaming, cancellation                        │
-│   attention.py ─ specialist.py (tier 0) ─ intents.py ─ decide.py ─ policy.py  │
+│   attention.py ─ intents.py ─ decide.py ─ kev.py ─ policy.py  │
 │   agent.py ── tasks: plan, one checked step at a time, text only for TYPE     │
 │   compose.py ── replies (mail, chat), briefs, ask modes, grounding, checks    │
 │   commitments.py ── promises in sent mail, due dates   procedures.py ── how   │
 │   memory.py ── FTS5 screen memory    audit.py ── decisions, tasks, labels     │
-│ engine.py ── MLX, Llama 3.2 3B Instruct 4-bit, resident                       │
+│ engine.py ── Qwen3.5 4B 4-bit MLX   kev.py ── Kev 4B 8-bit MLX                       │
 │ No network: tests/test_no_network.py (ADR-002)                                │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -59,8 +59,9 @@ holds content it did not put on screen itself.
 2. The daemon takes a single-instance lock (exit 3 if another holds it),
    binds the socket **before** loading the model, and reports `loading`,
    `model_missing`, `error` or `ready`. The app shows exactly that.
-3. A missing model sends onboarding to the download; after verification the
-   app sends `reload`.
+3. First launch shows only the menu bar icon. Missing models download in the
+   background; after checksum verification the app sends `reload`. Permissions
+   are requested on first use, without a setup window.
 4. Crashes are restarted with backoff; five exits in two minutes is reported
    as failed with "Export diagnostics" rather than retried forever.
 
@@ -69,8 +70,7 @@ holds content it did not put on screen itself.
 1. `MailSensor` notices a new selected message in Mail (while Mail is in
    front), reads it once, and emits `mail.opened` with `typing` and `idle`.
 2. `attention.py` asks the model narrow factual questions — what kind of
-   message, how urgent, which tone, is the user stuck — each read at a single
-   logit position over its own labels (ADR-001). `message_type` is read in
+   message, how urgent, which tone, is the user stuck — each scored by Kev's trained pointer head over its own labels (ADR-010). `message_type` is read in
    both option orders and averaged, which removes letter-order bias.
 3. `policy.py` maps the readouts to `ignore`, `wait`, `prepare` or `suggest`
    deterministically, and `learning.py` supplies the personal floor for this
@@ -110,15 +110,13 @@ and one id from a single prefill; `ActionPolicy` allows, asks or denies;
 the loop waits for the screen to settle and reports the step. The task panel
 shows all of it, with Stop (⎋), permission prompts, Undo and "Show me how".
 
-## Tier 0: the personal specialist
+## Decisions and personalization
 
-Before the resident model reads a mail or chat message, `specialist.py`
-scores it with the user's own model: a logistic regression over hashed
-sender, subject, body and circumstance features, trained on the Mac from
-the user's answers, implicit signals and the resident model's verdicts. It
-decides alone only a confident "this can wait", and only once it has been
-validated against the user's newest answers (ADR-008). Mind shows how often
-it decided, how fast, and how well it agrees with the user.
+The shipping daemon routes every typed decision through Kev. The old letter
+readout and NumPy specialist remain available for historical research and
+fake-engine regression tests, but do not decide in the Kev runtime. Personal
+floors, sender mutes and explicit action boundaries still apply after the
+readout; feedback cannot silently grant an action permission. See ADR-010.
 
 ## Conversations, promises and meetings
 

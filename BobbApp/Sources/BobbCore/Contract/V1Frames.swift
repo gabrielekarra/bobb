@@ -120,6 +120,9 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
     public var latencyMs: Double?
     public var firstTokenMs: Double?
     public var cancelled: Bool?
+    /// A browser task destination; nil means a desktop task.
+    public var taskURL: String?
+    public var continuationID: String?
 
     enum CodingKeys: String, CodingKey {
         case ts, ok, text, error, mode, sources, cancelled, unsupported
@@ -127,12 +130,14 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
         case resultKind = "result_kind"
         case latencyMs = "latency_ms"
         case firstTokenMs = "first_token_ms"
+        case taskURL = "task_url"
+        case continuationID = "continuation_id"
     }
 
     public init(
         ts: Double, requestId: String, ok: Bool, text: String, error: String? = nil, mode: String? = nil,
         resultKind: String? = nil, sources: [SourceRef] = [], unsupported: [String] = [], latencyMs: Double? = nil,
-        firstTokenMs: Double? = nil, cancelled: Bool? = nil
+        firstTokenMs: Double? = nil, cancelled: Bool? = nil, taskURL: String? = nil, continuationID: String? = nil
     ) {
         self.ts = ts
         self.requestId = requestId
@@ -146,6 +151,8 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
         self.latencyMs = latencyMs
         self.firstTokenMs = firstTokenMs
         self.cancelled = cancelled
+        self.taskURL = taskURL
+        self.continuationID = continuationID
     }
 
     public init(from decoder: Decoder) throws {
@@ -162,6 +169,8 @@ public struct AnswerFrame: Codable, Sendable, Equatable {
         latencyMs = try c.decodeIfPresent(Double.self, forKey: .latencyMs)
         firstTokenMs = try c.decodeIfPresent(Double.self, forKey: .firstTokenMs)
         cancelled = try c.decodeIfPresent(Bool.self, forKey: .cancelled)
+        taskURL = try c.decodeIfPresent(String.self, forKey: .taskURL)
+        continuationID = try c.decodeIfPresent(String.self, forKey: .continuationID)
     }
 }
 
@@ -431,6 +440,8 @@ public struct StatsFrame: Codable, Sendable, Equatable {
 public struct DaemonSettingsFrame: Sendable, Equatable {
     public var timezone: String?
     public var connectedApps: [String]?
+    public var contextProactive: Bool?
+    public var trackPromises: Bool?
     public var floor: Double
     public var locale: String
     public var proactiveKinds: [String]
@@ -444,7 +455,7 @@ public struct DaemonSettingsFrame: Sendable, Equatable {
     public init(
         floor: Double, locale: String, proactiveKinds: [String], quietHours: [Int]?, adaptive: Bool,
         memoryEnabled: Bool, memoryRetentionDays: Int, historyRetentionDays: Int, extraProtectedApps: [String], timezone: String? = nil,
-        connectedApps: [String]? = nil
+        connectedApps: [String]? = nil, contextProactive: Bool? = nil, trackPromises: Bool? = nil
     ) {
         self.floor = floor
         self.locale = locale
@@ -457,6 +468,8 @@ public struct DaemonSettingsFrame: Sendable, Equatable {
         self.extraProtectedApps = extraProtectedApps
         self.timezone = timezone
         self.connectedApps = connectedApps
+        self.contextProactive = contextProactive
+        self.trackPromises = trackPromises
     }
 }
 
@@ -470,6 +483,8 @@ extension DaemonSettingsFrame: Codable {
         case historyRetentionDays = "history_retention_days"
         case extraProtectedApps = "extra_protected_apps"
         case connectedApps = "connected_apps"
+        case contextProactive = "context_proactive"
+        case trackPromises = "track_promises"
     }
 
     /// `quiet_hours` is written as an explicit `null` when off: absent means
@@ -490,7 +505,10 @@ extension DaemonSettingsFrame: Codable {
         try c.encode(historyRetentionDays, forKey: .historyRetentionDays)
         try c.encode(extraProtectedApps, forKey: .extraProtectedApps)
         try c.encodeIfPresent(timezone, forKey: .timezone)
-        try c.encodeIfPresent(connectedApps, forKey: .connectedApps)
+        // Explicit null clears a saved allowlist when upgrading to automatic app access.
+        try c.encode(connectedApps, forKey: .connectedApps)
+        try c.encodeIfPresent(contextProactive, forKey: .contextProactive)
+        try c.encodeIfPresent(trackPromises, forKey: .trackPromises)
     }
 }
 
@@ -506,9 +524,14 @@ public struct AskFrame: Codable, Sendable, Equatable {
     /// Let the daemon decide whether this is to answer or to do; a confident
     /// "do" comes back as an `answer` with `result_kind: "task"`.
     public var route: Bool
+    public var continuationID: String?
+    enum CodingKeys: String, CodingKey {
+        case id, prompt, mode, selection, app, window, route
+        case continuationID = "continuation_id"
+    }
 
     public init(id: String = AskFrame.newID(), prompt: String, mode: AskMode = .ask, selection: String = "", app: String = "",
-                window: String = "", route: Bool = false) {
+                window: String = "", route: Bool = false, continuationID: String? = nil) {
         self.id = id
         self.prompt = prompt
         self.mode = mode == .act ? AskMode.ask.rawValue : mode.rawValue
@@ -516,6 +539,7 @@ public struct AskFrame: Codable, Sendable, Equatable {
         self.app = app
         self.window = window
         self.route = route
+        self.continuationID = continuationID
     }
 
     public static func newID() -> String {
@@ -524,6 +548,8 @@ public struct AskFrame: Codable, Sendable, Equatable {
 }
 
 public enum AskMode: String, Codable, Sendable, CaseIterable {
+    /// The single user-facing entry point; the daemon selects the operation.
+    case auto
     case ask, write, reply, rewrite, translate, summarize, explain, compute
     /// Do it: operate the Mac's applications to carry out the request.
     case act = "do"
@@ -532,7 +558,7 @@ public enum AskMode: String, Codable, Sendable, CaseIterable {
     public var needsSelection: Bool {
         switch self {
         case .reply, .rewrite, .translate, .summarize, .explain, .compute: true
-        case .ask, .write, .act: false
+        case .auto, .ask, .write, .act: false
         }
     }
 }
@@ -702,6 +728,7 @@ extension IncomingFrame {
         case .commitments(let f): f.requestId
         case .procedures(let f): f.requestId
         case .workspace(let f): f.requestId
+        case .email(let f): f.requestId
         default: nil
         }
     }

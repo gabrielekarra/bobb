@@ -156,6 +156,9 @@ final class FakeDriver: TaskDriver {
     var performed: [DriverAction] = []
     var results: [DriverResult] = []
     var undos = 0
+    var completionFailure: String?
+    var verifiedOutcome: String?
+    func completionProblem(goal: String) async -> String? { completionFailure }
 
     init(screens: [ScreenObservation]) {
         self.screens = screens
@@ -227,6 +230,62 @@ private let spotify = ScreenObservation(app: "Spotify", bundleId: "com.spotify.c
 
 @MainActor
 @Suite struct TaskLoopTests {
+    @Test func siteBoundaryStopsAnActionInsideTheUsersBrowser() async {
+        let screen = ScreenObservation(app: "Google Chrome", bundleId: "com.google.Chrome", window: "Example",
+            elements: [el(1, "AXTextField", placeholder: "Search")], sourceURL: "https://example.test/")
+        var boundaries = BoundaryConfiguration()
+        boundaries.apps = [AppBoundary(id: "web:example.test", name: "example.test", actions: ["write": .deny])]
+        let driver = FakeDriver(screens: [screen])
+        let brain = FakeBrain([act(.type, candidate("Search"), text: "recipe")])
+        let loop = TaskLoop(goal: "Find a recipe", state: AppState(), brain: brain, driver: driver,
+                            policy: ActionPolicy(boundaries: boundaries))
+        #expect(await loop.run() == .blocked)
+        #expect(driver.performed.isEmpty)
+        #expect(brain.steps.first?.outcome == .denied)
+    }
+    @Test func modelCannotDeclareSuccessWithoutRequiredBrowserEvidence() async {
+        let state = AppState()
+        let driver = FakeDriver(screens: [spotify])
+        driver.completionFailure = "Search results are not visible"
+        let brain = FakeBrain([act(.done)])
+        let loop = TaskLoop(goal: "Search YouTube", state: state, brain: brain, driver: driver, policy: ActionPolicy())
+        #expect(await loop.run() == .blocked)
+        #expect(driver.performed.isEmpty)
+        #expect(brain.ended.first?.status == .blocked)
+    }
+    @Test func completionRequiresTheGeneralBrainDecision() async {
+        let state = AppState()
+        let driver = FakeDriver(screens: [spotify])
+        driver.verifiedOutcome = "Matching video results are visible"
+        let brain = FakeBrain([act(.done)])
+        let loop = TaskLoop(goal: "Search YouTube", state: state, brain: brain, driver: driver, policy: ActionPolicy())
+        #expect(await loop.run() == .done)
+        #expect(brain.observed.count == 1)
+        #expect(driver.performed.isEmpty)
+    }
+
+    @Test func searchOutcomeWithoutEvidenceDoesNotDeclareSuccess() async {
+        let state = AppState()
+        let driver = FakeDriver(screens: [spotify])
+        let brain = FakeBrain([act(.blocked)])
+        let loop = TaskLoop(goal: "Search YouTube", state: state, brain: brain, driver: driver, policy: ActionPolicy())
+        #expect(await loop.run() == .blocked)
+        #expect(brain.observed.count == 1)
+    }
+
+    @Test func anOlderLoopCannotFinishItsReplacementTask() async {
+        let state = AppState()
+        let replacement = TaskRunState(id: "replacement", goal: "A newer request")
+        let brain = FakeBrain([{ frame in
+            state.task = replacement
+            return ActFrame(ts: 0, observationId: frame.id, operation: .done,
+                            candidateId: "", confidence: 0.9, schemaMass: 1, latencyMs: 0, why: "done", taskId: frame.taskId)
+        }])
+        let loop = TaskLoop(goal: "Old request", state: state, brain: brain, driver: FakeDriver(screens: [spotify]), policy: ActionPolicy())
+        #expect(await loop.run() == .done)
+        #expect(state.task == replacement)
+    }
+
     @Test func aTaskRunsToDone() async {
         let state = AppState()
         let driver = FakeDriver(screens: [finder, finder, spotify, spotify, spotify])

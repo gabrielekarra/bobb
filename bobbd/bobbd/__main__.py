@@ -2,7 +2,7 @@
 
 In the shipped app the daemon is a child of Bobb.app, which passes
 `--parent-pid`. If that process disappears — a crash, a force quit — the
-daemon exits within a few seconds instead of holding two gigabytes of
+daemon exits within a few seconds instead of holding the model weights in
 unified memory for nobody. A lock file in the data directory makes a second
 daemon on the same data exit immediately rather than fight the first over
 the socket.
@@ -27,7 +27,7 @@ from pathlib import Path
 from . import __version__
 from .server import DEFAULT_DATA_DIR, serve
 
-DEFAULT_MODEL = "mlx-community/Llama-3.2-3B-Instruct-4bit"
+DEFAULT_MODEL = "mlx-community/Qwen3.5-4B-4bit"
 PARENT_POLL_SECONDS = 2.0
 
 

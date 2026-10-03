@@ -7,17 +7,50 @@ import Testing
     boundaries.apps = [AppBoundary(id: "shop", name: "Shop", actions: ["send": .allow, "pay": .deny])]
     let policy = ActionPolicy(boundaries: boundaries)
     #expect(policy.evaluate(operation: .click, label: "Confirm purchase", role: "AXButton", appBundleId: "shop", appName: "Shop") == .deny(reason: "boundary:pay"))
-    #expect(BobbSettings().daemonFrame().connectedApps == [])
+    #expect(BobbSettings().daemonFrame().connectedApps == nil)
 }
 
-@Test func bobbDefaultsRequireExplicitConnectionsAndCloudConsent() {
+@Test func macAppsAreAutomaticallyAvailableWithConsequentialActionsReviewed() {
     let settings = BobbSettings()
-    #expect(!settings.bobb.cloud.enabled)
     #expect(!settings.bobb.backgroundEnabled)
     #expect(!settings.bobb.iMessageEnabled)
     #expect(settings.bobb.boundaries.apps.isEmpty)
     let policy = ActionPolicy(boundaries: settings.bobb.boundaries)
-    #expect(policy.evaluate(operation: .click, label: "Search", role: "AXButton", appBundleId: "browser", appName: "Browser") == .deny(reason: "unconnectedApp"))
+    #expect(policy.evaluate(operation: .click, label: "Search", role: "AXButton", appBundleId: "com.apple.Safari", appName: "Safari") == .allow)
+    #expect(policy.evaluate(operation: .openApp, label: "Notes", role: "application", appBundleId: "com.apple.Notes", appName: "Notes") == .allow)
+    #expect(policy.evaluate(operation: .click, label: "Send", role: "AXButton", appBundleId: "com.apple.mail", appName: "Mail") == .ask(reason: "boundary:send"))
+    #expect(policy.evaluate(operation: .click, label: "Pay", role: "AXButton", appBundleId: "com.apple.Safari", appName: "Safari") == .ask(reason: "boundary:pay"))
+    #expect(policy.evaluate(operation: .click, label: "Delete", role: "AXButton", appBundleId: "com.apple.Notes", appName: "Notes") == .ask(reason: "boundary:delete"))
+    #expect(policy.evaluate(operation: .click, label: "Publish", role: "AXButton", appBundleId: "com.apple.Safari", appName: "Safari") == .ask(reason: "boundary:publish"))
+    #expect(policy.evaluate(operation: .click, label: "Open", role: "AXButton", appBundleId: "com.apple.Passwords", appName: "Passwords") == .deny(reason: "protected"))
+    #expect(settings.bobb.boundaries.app(bundleId: "mcp:unknown", name: "MCP unknown") == nil)
+}
+
+@Test func exclusionsOverrideAppRulesAndReachTheDaemon() throws {
+    var settings = BobbSettings()
+    settings.bobb.boundaries.apps = [AppBoundary(id: "com.apple.mail", name: "Mail", actions: ["send": .allow])]
+    settings.bobb.boundaries.excludedApps = ["com.apple.mail", "Notes"]
+    settings.extraProtectedApps = ["Private App"]
+    let policy = ActionPolicy(boundaries: settings.bobb.boundaries)
+    #expect(policy.evaluate(operation: .click, label: "Send", role: "AXButton", appBundleId: "com.apple.mail", appName: "Mail") == .deny(reason: "unavailableApp"))
+    #expect(settings.bobb.boundaries.app(bundleId: "com.apple.Notes", name: "Notes") == nil)
+    #expect(Set(settings.daemonFrame().extraProtectedApps) == ["com.apple.mail", "Notes", "Private App"])
+    #expect(try JSONDecoder().decode(BobbSettings.self, from: JSONEncoder().encode(settings)) == settings)
+    let wire = try OutgoingFrame.settings(settings.daemonFrame()).encoded()
+    #expect(String(decoding: wire, as: UTF8.self).contains("\"connected_apps\":null"))
+}
+
+@Test func browserExclusionsCannotBeBypassedByDefaultAccess() {
+    var boundaries = BoundaryConfiguration()
+    #expect(boundaries.webApp(host: "example.test")?.id == "bobb.browser")
+    boundaries.apps = [AppBoundary(id: "web:example.test", name: "example.test", actions: ["send": .deny])]
+    #expect(boundaries.webApp(host: "example.test")?.mode(.send) == .deny)
+    boundaries.excludedApps = ["web:example.test"]
+    #expect(boundaries.webApp(host: "example.test") == nil)
+    #expect(boundaries.webApp(host: "other.test") != nil)
+    boundaries.excludedApps = ["bobb.browser"]
+    #expect(boundaries.webApp(host: "example.test") == nil)
+    #expect(boundaries.webApp(host: "other.test") == nil)
 }
 
 @Test func explicitDenyOverridesOldAlwaysAllowRules() {
@@ -67,19 +100,12 @@ import Testing
     #expect(ActionPolicy.category(operation: .click, label: "Prenota", app: "bobb.browser", submit: false, key: nil, defaultButton: "") == .send)
 }
 
-@Test func localRedactionRoundTripsWithRequestSpecificTokens() {
-    let original = "Marco Rossi: marco@example.test, +39 333 123 4567, api_key: sk-secretkey12345678, IBAN IT60X0542811101000000123456"
-    var redactor = LocalRedactor()
-    let safe = redactor.redact(original, privateTerms: ["Marco Rossi"])
-    #expect(!safe.contains("Marco Rossi")); #expect(!safe.contains("marco@example.test"))
-    #expect(!safe.contains("333 123 4567")); #expect(!safe.contains("sk-secretkey"))
-    #expect(redactor.restore(safe) == original)
-    #expect(redactor.restore("[PRIVATE_forged_0]") == "[PRIVATE_forged_0]")
-}
-
 @Test func largerModelRecommendationKeepsHeadroom() {
-    #expect(LocalModelOption.recommended(memoryBytes: 8 * 1_073_741_824).parameters == "3B")
-    #expect(LocalModelOption.recommended(memoryBytes: 16 * 1_073_741_824).parameters == "7–8B")
+    #expect(LocalModelOption.recommended(memoryBytes: 8 * 1_073_741_824).minimumMemoryGB == 16)
+    #expect(LocalModelOption.recommended(memoryBytes: 16 * 1_073_741_824).parameters == "4B")
+    #expect(LocalModelOption.recommended(memoryBytes: 24 * 1_073_741_824).parameters == "7–8B")
+    #expect(LocalModelOption.backgroundConcurrency(memoryBytes: 16 * 1_073_741_824) == 1)
+    #expect(LocalModelOption.backgroundConcurrency(memoryBytes: 32 * 1_073_741_824) == 3)
     #expect(LocalModelOption.recommended(memoryBytes: 64 * 1_073_741_824).parameters == "30–32B")
 }
 
@@ -94,7 +120,7 @@ import Testing
 
 @Test func oldSettingsMigrateWithoutEnablingNewCapabilities() throws {
     let settings = try JSONDecoder().decode(BobbSettings.self, from: Data(#"{"floor":0.7,"memory_enabled":true}"#.utf8))
-    #expect(settings.floor == 0.7); #expect(!settings.bobb.cloud.enabled)
+    #expect(settings.floor == 0.7); #expect(settings.bobb.boundaries.apps.isEmpty)
     #expect(Entitlement.community.allowsAssistance)
     #expect(try JSONDecoder().decode(BobbSettings.self, from: JSONEncoder().encode(settings)) == settings)
 }
@@ -147,4 +173,21 @@ import Testing
     #expect(await running.value == .done)
     #expect(saved.isEmpty)
     #expect(driver.performed.count == 2)
+}
+
+@Test func oldCloudSettingsAreDiscardedWithoutLosingLocalPreferences() throws {
+    var original = BobbSettings()
+    original.bobb.backgroundEnabled = true
+    original.bobb.localModelPath = "/models/local"
+    original.bobb.boundaries.apps = [AppBoundary(id: "com.apple.mail", name: "Mail", actions: ["send": .deny])]
+    var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as! [String: Any]
+    var workspace = json["bobb"] as! [String: Any]
+    workspace["cloud"] = ["enabled": true, "endpoint": "https://provider.example/chat", "model": "remote", "privateTerms": ["private"]]
+    var boundaries = workspace["boundaries"] as! [String: Any]
+    boundaries.removeValue(forKey: "excludedApps")
+    workspace["boundaries"] = boundaries; json["bobb"] = workspace
+    let migrated = try JSONDecoder().decode(BobbSettings.self, from: JSONSerialization.data(withJSONObject: json))
+    #expect(migrated == original)
+    let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(migrated)) as! [String: Any]
+    #expect((encoded["bobb"] as? [String: Any])?["cloud"] == nil)
 }

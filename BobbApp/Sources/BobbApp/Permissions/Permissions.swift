@@ -5,8 +5,8 @@ import Observation
 /// The two permissions Bobb needs, and nothing else: Accessibility, to
 /// read the text of the window in front of the user and insert what it
 /// writes; and Automation of Mail, to read the open message and open a
-/// reply window. Both are asked for in onboarding with the reason shown
-/// first, and both can be checked at any time without prompting.
+/// reply window. Asked for when the user enables a feature, and checked
+/// at any time without prompting.
 @MainActor
 @Observable
 final class Permissions {

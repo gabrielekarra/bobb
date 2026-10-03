@@ -1,0 +1,128 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "/Users/gabrielekarra/dev/locali/.runtime/models/Qwen3-8B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 10.419
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara copia fattura per cliente Alfa",
+        "reason": "Manca la fattura relativa al bonifico di 450 euro del cliente Alfa.",
+        "quote": "Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro.",
+        "draft": "Richiedi copia della fattura al cliente Alfa per completare la riconciliazione del bonifico di 450 euro. Verifica che il documento sia completo e invia la copia al dipartimento contabile per l'archiviazione."
+      },
+      "matched": true,
+      "seconds": 10.025
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara le misure aggiornate del lotto",
+        "reason": "Il cliente richiede un confronto tra due alternative per il cortile, ma le misure del lotto sono mancanti.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+        "draft": "Ottieni le misure aggiornate del lotto e prepara un confronto tra le due alternative per il cortile. Assicurati che tutte le dimensioni siano precise e disponibili prima di procedere."
+      },
+      "matched": true,
+      "seconds": 9.224
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara il modulo invoice_parser",
+        "reason": "Il sistema non riconosce il modulo invoice_parser necessario per l'importazione delle fatture.",
+        "quote": "Build failed: ModuleNotFoundError: No module named invoice_parser. The new invoice import command fails on startup.",
+        "draft": "Verifica che il modulo invoice_parser sia installato correttamente. Se non è presente, procedi all'installazione tramite pip o un altro metodo appropriato. Assicurati che il percorso del modulo sia corretto e accessibile al sistema."
+      },
+      "matched": true,
+      "seconds": 8.898
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara elenco allergie per cena domani",
+        "reason": "Due invitati non hanno comunicato le loro allergie prima della preparazione della lista della spesa.",
+        "quote": "Due invitati non ci hanno ancora detto se hanno allergie.",
+        "draft": "Ciao, per la cena di domani abbiamo otto persone. Due invitati non hanno ancora comunicato le loro allergie. Potresti chiedere loro prima di preparare la lista della spesa? Grazie."
+      },
+      "matched": true,
+      "seconds": 8.301
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara un promemoria per il cliente sull'approvazione",
+        "reason": "Il design review attende l'approvazione del cliente per il layout della cucina.",
+        "quote": "We still need the signed approval for the kitchen layout. Could you prepare a short reminder for the client? The design review is waiting on that approval.",
+        "draft": "Gentile cliente, vorremmo ricordarLe che l'approvazione del layout della cucina è necessaria per procedere con la revisione del design. Si prega di firmare e restituire il documento a breve."
+      },
+      "matched": true,
+      "seconds": 10.221
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara elenco delle step mancanti per il rollback",
+        "reason": "La procedura di rollback non è inclusa nel draft corrente.",
+        "quote": "The rollback procedure is missing from the current draft.",
+        "draft": "Elenco step rollback da aggiungere: [missing detail]. Verifica che ogni passo sia chiaro e specifico. Pronto per la discussione."
+      },
+      "matched": true,
+      "seconds": 7.111
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.36
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.373
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.38
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.381
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.373
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.376
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import BobbCore
 
 /// Thin, typed access to the accessibility tree. Everything here follows
 /// `docs/SENSOR-MAIL.md`: a messaging timeout on every application element
@@ -25,10 +26,16 @@ enum AX {
 
     static func enableFullTree(_ app: AXUIElement, pid: pid_t) {
         enabledLock.lock()
-        let fresh = enabledPids.insert(pid).inserted
+        let enabled = enabledPids.contains(pid)
         enabledLock.unlock()
-        guard fresh else { return }
-        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        guard !enabled else { return }
+        // A browser may not yet answer during launch. Cache successful
+        // activation only, so a transient AX failure can be retried.
+        if AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
+            enabledLock.lock()
+            enabledPids.insert(pid)
+            enabledLock.unlock()
+        }
     }
 
     static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -80,6 +87,26 @@ enum AX {
         let role = string(element, "AXRole") ?? ""
         let subrole = string(element, "AXSubrole") ?? ""
         return role == "AXSecureTextField" || subrole == "AXSecureTextField"
+    }
+
+    /// Read only the focused page URL before checking website exclusions.
+    static func pageURL(pid: pid_t) -> URL? {
+        let app = application(pid)
+        enableFullTree(app, pid: pid)
+        guard let window = element(app, "AXFocusedWindow") else { return nil }
+        guard !ScreenMemoryPolicy().isPrivateWindow(title: string(window, "AXTitle") ?? "") else { return nil }
+        var queue = [window], head = 0
+        let started = Date()
+        while head < queue.count, head < 800, Date().timeIntervalSince(started) < 0.3 {
+            let item = queue[head]; head += 1
+            if isSecure(item) { continue }
+            if string(item, "AXRole") == "AXWebArea", let raw = attribute(item, "AXURL") {
+                if let url = raw as? URL { return url }
+                if let text = raw as? String, let url = URL(string: text) { return url }
+            }
+            queue.append(contentsOf: children(item))
+        }
+        return nil
     }
 
     /// The whole text of a WebKit area in two calls, via text markers — how
@@ -244,9 +271,10 @@ enum Clipboard {
     static func paste(_ text: String) async {
         let saved = snapshot()
         copy(text)
+        let insertedChange = NSPasteboard.general.changeCount
         Keyboard.press(key: 9, command: true)  // V
         try? await Task.sleep(nanoseconds: 400_000_000)
-        restore(saved)
+        if NSPasteboard.general.changeCount == insertedChange { restore(saved) }
     }
 }
 

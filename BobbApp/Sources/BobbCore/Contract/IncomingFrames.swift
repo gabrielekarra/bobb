@@ -366,6 +366,8 @@ public struct PreparedFrame: Codable, Sendable, Equatable {
     public var replyTo: String? { result["to"]?.stringValue }
     public var replySubject: String? { result["subject"]?.stringValue }
     public var messageId: String? { result["message_id"]?.stringValue }
+    /// The already-open reply where this draft was requested.
+    public var composeId: String? { result["compose_id"]?.stringValue }
     public var sources: [SourceRef] {
         guard case .array(let items)? = result["sources"] else { return [] }
         return items.compactMap(SourceRef.init(json:))
@@ -423,6 +425,8 @@ public enum IncomingFrame: Sendable, Equatable {
     case commitments(CommitmentsFrame)
     case procedures(ProceduresFrame)
     case workspace(WorkspaceStateFrame)
+    case email(EmailStateFrame)
+    case emailDelta(EmailDeltaFrame)
     case unknown(type: String)
 
     public static func decode(from data: Data) throws -> IncomingFrame {
@@ -449,6 +453,8 @@ public enum IncomingFrame: Sendable, Equatable {
         case "commitments": return .commitments(try FrameCodec.payload(CommitmentsFrame.self, from: data))
         case "procedures": return .procedures(try FrameCodec.payload(ProceduresFrame.self, from: data))
         case "bobb.state": return .workspace(try FrameCodec.payload(WorkspaceStateFrame.self, from: data))
+        case "email.state": return .email(try FrameCodec.payload(EmailStateFrame.self, from: data))
+        case "email.delta": return .emailDelta(try FrameCodec.payload(EmailDeltaFrame.self, from: data))
         default: return .unknown(type: type)
         }
     }

@@ -1,0 +1,106 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "mlx-community/Qwen3.5-4B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 4.013
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 4.595
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara lista di misure da richiedere",
+        "reason": "Il testo indica che mancano le misure aggiornate del lotto necessarie per il confronto delle alternative.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto."
+      },
+      "matched": true,
+      "seconds": 4.049
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 3.915
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 3.334
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara un breve promemoria per il cliente",
+        "reason": "Il cliente richiede un promemoria perché la revisione del design aspetta l'approvazione firmata per il layout della cucina.",
+        "quote": "We still need the signed approval for the kitchen layout. Could you prepare a short reminder for the client? The design review is waiting on that approval."
+      },
+      "matched": true,
+      "seconds": 4.336
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 3.668
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.389
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.414
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.394
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.406
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.396
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.395
+    }
+  ]
+}

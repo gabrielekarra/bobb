@@ -25,16 +25,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController!
     private var overlayController: OverlayController!
     private var draftPanel: DraftPanelController!
+    private var emailWorkspace: EmailWorkspace!
+    private var inlineMail: MailInlineAssistant!
     private var commandBar: CommandBarController!
     private var tasks: TaskController!
     private var mindWindowController: MindWindowController!
     private var auditWindowController: AuditWindowController!
     private var settingsWindow: NSWindow?
     private var memoryWindow: NSWindow?
-    private var onboardingWindow: NSWindow?
     private let settingsUI = SettingsUIModel()
     private let memoryModel = MemoryBrowserModel()
-    private let onboardingModel = OnboardingModel()
     private var housekeeping: Timer?
     private var bobb: BobbWorkspace!
     private var configuredModelPath = ""
@@ -104,23 +104,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         overlayController = OverlayController(state: state, coordinator: coordinator)
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
+        emailWorkspace = EmailWorkspace(state: state, coordinator: coordinator)
+        inlineMail = MailInlineAssistant(state: state, coordinator: coordinator)
+        coordinator.onMailReplyStarted = { [weak self] event in self?.inlineMail.handle(event) ?? false }
+        inlineMail.onNotice = { [weak self] message in self?.emailWorkspace.notice = message }
+        emailWorkspace.onPermissionDenied = { [weak self] in self?.permissions.refresh() }
+        emailWorkspace.onReminder = { [weak self] initiative, response in
+            self?.overlayController.presentInitiative(initiative, response: response)
+        }
         commandBar = CommandBarController(state: state, coordinator: coordinator)
         tasks = TaskController(state: state, coordinator: coordinator)
         bobb = BobbWorkspace(state: state, coordinator: coordinator)
+        bobb.onPresentInitiative = { [weak self] initiative in
+            self?.overlayController.presentInitiative(initiative) { [weak self] response in
+                self?.bobb.respond(initiative, response: response)
+            }
+        }
+        bobb.onPrepareInitiative = { [weak self] initiative in
+            let instruction = BobbCopy.t(
+                "Help me prepare the next useful step from this context. Give me a short draft or checklist. Identify missing information and uncertainty. Do not perform actions in other apps.",
+                "Aiutami a preparare il prossimo passo utile da questo contesto. Dammi una breve bozza o lista di controllo. Indica informazioni mancanti e incertezze. Non eseguire azioni in altre app.")
+            self?.commandBar.request(instruction, selection: Selection(text: initiative.quote, app: initiative.app,
+                bundleId: nil, window: initiative.window, element: nil), allowActions: false)
+        }
         tasks.brainFactory = { [weak self] in
             guard let self else { return coordinator }
             let agent = self.bobb.activeAgent
-            if self.state.settings.bobb.cloud.enabled {
-                return CloudBrain(coordinator: coordinator, settings: { [weak self] in self?.state.settings ?? BobbSettings() }, agent: agent)
-            }
             return ProfileBrain(coordinator: coordinator, agent: agent)
         }
-        commandBar.startTask = { [weak self] goal in self?.tasks.start(goal: goal) }
+        tasks.onAccessibilityRequired = { [weak self] in
+            self?.permissions.requestAccessibility()
+            Permissions.openAccessibilitySettings()
+        }
+        commandBar.startTask = { [weak self] goal, url, app in self?.tasks.start(goal: goal, browserURL: url, preferredApp: app) }
         mindWindowController = MindWindowController(state: state, coordinator: coordinator)
         auditWindowController = AuditWindowController(auditPath: AppPaths.auditDatabase)
         statusItemController = StatusItemController(state: state) { [weak self] controller in
             self?.menuActions(closing: controller) ?? MenuBarActions.empty
         }
+        statusItemController.downloader = downloader
+        statusItemController.permissions = permissions
 
         hotkey = GlobalHotkey { [weak self] in self?.openCommandBar() }
         hotkey.register(settings.hotkey)
@@ -129,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         supervisor.start()
         coordinator.start()
+        emailWorkspace.start()
         bobb.start()
         if Self.needsScreenSensor(settings) { screenSensor.start() }
         syncSensors(settings)
@@ -138,12 +162,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.refreshEntitlement() }
         }
 
-        if !settings.onboardingCompleted || (!downloader.isInstalled && settings.bobb.localModelPath.isEmpty && !settings.bobb.cloud.enabled) {
-            showOnboarding()
+        // First launch stays in the menu bar. Models prepare in the background;
+        // permissions are requested only when the user enables a feature.
+        if !AppPaths.flag("--mock-events") && !AppPaths.flag("--no-daemon") && !downloader.isInstalled {
+            startDownload()
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        emailWorkspace?.stop()
+        inlineMail?.stop()
+        commandBar?.close()
         bobb?.stop()
         tasks?.stop()
         coordinator?.stop()
@@ -168,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         syncSensors(settings)
         syncLoginItem(settings.launchAtLogin)
         bobb?.settingsChanged()
+        inlineMail?.settingsChanged()
         if configuredModelPath != settings.bobb.localModelPath {
             configuredModelPath = settings.bobb.localModelPath
             supervisor.reconfigure(DaemonCommand.resolve(dataDir: AppPaths.dataDirectory, modelsDir: AppPaths.modelsDirectory,
@@ -252,11 +282,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 controller?.closePopover()
                 self?.bobb.show()
             },
-            openOnboarding: { [weak self, weak controller] in
-                controller?.closePopover()
-                self?.showOnboarding()
-            },
             quit: { NSApp.terminate(nil) },
+            retryModels: { [weak self] in self?.startDownload() },
+            requestAccessibility: { [weak self] in
+                self?.permissions.requestAccessibility()
+                Permissions.openAccessibilitySettings()
+            },
+            requestMail: { [weak self] in self?.permissions.requestMailAutomation() },
             promise: { [weak self] promise, action in
                 switch action {
                 case .done: self?.coordinator.updateCommitment(promise.id, status: "done")
@@ -266,7 +298,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self?.coordinator.updateCommitment(promise.id, dueTs: tomorrow.addingTimeInterval(18 * 3600).timeIntervalSince1970)
                 }
             },
-            openBobb: { [weak self, weak controller] in controller?.closePopover(); self?.bobb.show() }
+            openBobb: { [weak self, weak controller] in controller?.closePopover(); self?.bobb.show() },
+            openEmail: { [weak self, weak controller] in controller?.closePopover(); self?.emailWorkspace.show() }
         )
     }
 
@@ -315,31 +348,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WindowPresenter.present(memoryWindow)
     }
 
-    private func showOnboarding() {
-        if onboardingWindow == nil {
-            let view = OnboardingView(
-                model: onboardingModel, permissions: permissions, downloader: downloader, calendar: calendar,
-                hotkey: state.settings.hotkey,
-                startDownload: { [weak self] in self?.startDownload() },
-                finish: { [weak self] in self?.finishOnboarding() }
-            )
-            let window = WindowPresenter.makeWindow(title: "Bobb", size: NSSize(width: 640, height: 520), resizable: false, content: view)
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            onboardingWindow = window
-        }
-        if downloader.isInstalled && state.settings.onboardingCompleted == false && onboardingModel.step == .model {
-            onboardingModel.next()
-        }
-        WindowPresenter.present(onboardingWindow)
-    }
-
-    private func finishOnboarding() {
-        coordinator.updateSettings { $0.onboardingCompleted = true }
-        onboardingWindow?.close()
-        bobb.show()
-    }
-
     private func startDownload() {
         downloader.start { [weak self] in
             guard let self else { return }
@@ -374,7 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let summary: [String: Any] = ["language": state.settings.language.rawValue,
             "watching": state.settings.watching, "memory_enabled": state.settings.memoryEnabled,
-            "cloud_enabled": state.settings.bobb.cloud.enabled, "background_enabled": state.settings.bobb.backgroundEnabled]
+            "background_enabled": state.settings.bobb.backgroundEnabled]
         if let data = try? JSONSerialization.data(withJSONObject: summary, options: [.prettyPrinted]) {
             try? data.write(to: staging.appendingPathComponent("app-settings.json"))
         }
@@ -404,7 +412,7 @@ extension MenuBarActions {
     static var empty: MenuBarActions {
         MenuBarActions(
             approve: { _ in }, dismiss: { _ in }, setWatching: { _ in }, openCommandBar: {}, openMind: {},
-            openMemory: {}, openSettings: {}, openLicense: {}, openOnboarding: {}, quit: {}
+            openMemory: {}, openSettings: {}, openLicense: {}, quit: {}
         )
     }
 }

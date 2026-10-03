@@ -51,7 +51,7 @@ struct ReadoutBarView: View {
                     HStack(spacing: 2) {
                         ForEach(ordered, id: \.label) { entry in
                             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(entry.label == chosenLabel ? Color.accentColor : Color.secondary.opacity(0.22))
+                                .fill(entry.label == chosenLabel ? Theme.accent : Color.secondary.opacity(0.22))
                                 .frame(width: max(3, proxy.size.width * entry.p))
                         }
                     }

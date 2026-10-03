@@ -70,8 +70,13 @@ final class SentMailSensor {
     private func look() {
         guard permitted() else { return }
         guard NSRunningApplication.runningApplications(withBundleIdentifier: MailEvents.bundleId).first != nil else { return }
-        guard let raw = try? runner.run(Self.script), !raw.isEmpty else { return }
-        let fresh = tracker.fresh(MailScriptFormat.parseSent(raw))
+        guard let messages = try? MailBridge.batch(sent: true, limit: 15) else { return }
+        let sent = messages.compactMap { message -> SentMessage? in
+            guard let date = message.date else { return nil }
+            return SentMessage(messageId: message.messageId, sent: date, to: message.to, subject: message.subject,
+                               body: message.body, sender: message.sender, cc: message.cc, headers: message.headers)
+        }
+        let fresh = tracker.fresh(sent)
         persist()
         for message in fresh {
             onEvent?(SentMailTracker.event(for: message))

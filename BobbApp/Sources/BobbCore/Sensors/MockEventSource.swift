@@ -32,7 +32,7 @@ public final class MockEventSource: EventSource {
     }
 
     public func start() {
-        guard task == nil else { return }
+        guard task == nil, !scenario.isEmpty else { return }
         let scenario = self.scenario
         let loop = self.loop
         let continuation = self.continuation

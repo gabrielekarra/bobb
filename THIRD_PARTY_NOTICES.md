@@ -1,25 +1,40 @@
 # Third-party notices
 
-Bobb's source code is distributed under the MIT License (see LICENSE).
-It includes, or downloads with your
-permission, the following third-party components under their own licenses.
+Bobb's original source code is distributed under the Bobb Source Available License 1.0 (see LICENSE). Third-party materials are excluded from that license and retain their own permissions and obligations.
+It includes or downloads the following third-party components under their own licenses.
 
-## The language model
+## Local models and decision runtime
 
-**Llama 3.2 3B Instruct** (4-bit MLX conversion by `mlx-community`,
-revision `7f0dc925e0d0afb0322d96f9255cfddf2ba5636e`), downloaded once, with
-your consent, during setup.
+The app downloads pinned weights at first launch and verifies every file's
+SHA-256. See `bobbd/bobbd/model-manifest.json` for the complete file list.
 
-> Llama 3.2 is licensed under the Llama 3.2 Community License, Copyright ©
-> Meta Platforms, Inc. All Rights Reserved.
-
-**Built with Llama.** Use of the model is subject to the
-[Llama 3.2 Community License](https://www.llama.com/llama3_2/license/) and
-the [Acceptable Use Policy](https://www.llama.com/llama3_2/use-policy/).
-Bobb ships only the text model; the license restrictions that apply to
-the multimodal Llama 3.2 models do not apply to it.
+- **Qwen3.5 4B**, MLX 4-bit conversion by `mlx-community`, revision
+  `0e7ffd5c629ef7719d4cbc04069232580bfa9d9c`. Apache-2.0.
+  [Model and license](https://huggingface.co/mlx-community/Qwen3.5-4B-4bit).
+- **Kev 4B**, community merged MLX 8-bit conversion by `RoderickQiu`, revision
+  `6929ac37119fb11c2db74eb66b10a886c6d0dd3a`. Apache-2.0.
+  [Conversion and provenance](https://huggingface.co/RoderickQiu/kev-4b-mlx-8bit).
+  The trained fp32 pointer head is preserved and separately checksum-verified.
+- **Kev inference source**, © Jared Palmer and contributors, Apache-2.0,
+  upstream commit `90512f1c517d977741f2104470a40635408236c9`. Source,
+  license and provenance are bundled in `bobbd/bobbd/vendor/kev/`.
+  [Upstream](https://github.com/jaredpalmer/kev).
 
 ## Bundled with the on-device engine (`bobbd`)
+
+- **Kokoro 82M**, ONNX int8 neural speech weights, Apache-2.0;
+  [model](https://huggingface.co/hexgrad/Kokoro-82M). The model and voice bank
+  come from the pinned `model-files-v1.0` release of
+  [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx), whose runtime is MIT.
+- **CUA Driver 0.31.0**, macOS ARM64, MIT, © Cua AI, Inc.;
+  [source and license](https://github.com/trycua/cua/tree/main/libs/cua-driver).
+  Its license is included at `Contents/Resources/drivers/LICENSE`.
+- **phonemizer**, GPL-3.0; [source](https://github.com/bootphon/phonemizer).
+  **eSpeak NG**, GPL-3.0-or-later; [source](https://github.com/espeak-ng/espeak-ng).
+  The eSpeak shared library and data are provided by **espeakng-loader**,
+  [source and build instructions](https://github.com/thewh1teagle/espeakng-loader).
+  These speech components retain their own licenses; their license files
+  remain in the bundled package distributions.
 
 | Component | License |
 |---|---|
@@ -27,7 +42,14 @@ the multimodal Llama 3.2 models do not apply to it.
 | MLX, mlx-metal | MIT, © Apple Inc. |
 | mlx-lm | MIT, © Apple Inc. |
 | Transformers, Tokenizers, Safetensors, huggingface_hub, hf-xet | Apache-2.0, © Hugging Face |
+| PyTorch | BSD-3-Clause |
+| NetworkX, SymPy | BSD-3-Clause |
+| mpmath, setuptools | BSD / MIT |
 | NumPy | BSD-3-Clause |
+| ONNX Runtime | MIT |
+| kokoro-onnx, espeakng-loader | MIT (eSpeak NG itself GPL-3.0-or-later) |
+| phonemizer | GPL-3.0 |
+| attrs, cloudpickle, dlinfo, flatbuffers, joblib | MIT / BSD / Apache-2.0 |
 | Pillow | MIT-CMU (HPND) |
 | SentencePiece | Apache-2.0, © Google |
 | protobuf | BSD-3-Clause, © Google |

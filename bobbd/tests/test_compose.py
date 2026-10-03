@@ -133,9 +133,18 @@ def test_salutation_follows_language_and_register():
 def test_draft_reply_names_who_writes_to_whom_and_prefills_the_greeting():
     task = for_action("draft_reply", _email(body="Ciao Gabriele, mi confermi il preventivo entro venerdì?"), None, "it")
     system = task.messages[0]["content"]
-    assert "the sender calls them Gabriele" in system
-    assert "Never write as Marco Rossi" in system
-    assert task.prefix == "Ciao Marco,"
+    assert "as Gabriele" in system
+    assert "recipient replying to Marco Rossi" in system
+    assert task.prefix == "Ciao Marco,\n\nGrazie per il messaggio. "
+
+
+def test_default_reply_does_not_choose_a_decision_or_promise_delivery():
+    task = compose.draft_reply(_email(), None, "it")
+    assert "neutral acknowledgement only" in task.messages[1]["content"]
+    assert "No confirmation, agreement, promise" in task.messages[1]["content"]
+    explicit = compose.draft_reply(_email(), None, "it", instruction="accept")
+    assert "neutral acknowledgement only" not in explicit.messages[1]["content"]
+    assert "Accept or confirm" in explicit.messages[1]["content"]
 
 
 def test_reply_variants_expand_to_instructions():

@@ -98,7 +98,7 @@ final class IMessageBridge {
         status = "Listening to your self chat. Start commands with /bobb."
     }
     func reply(_ text: String, to exactAddress: String) throws {
-        guard !address.isEmpty, exactAddress == address else { throw CloudError.configuration }
+        guard !address.isEmpty, exactAddress == address else { throw ConnectorError.configuration }
         let source = """
         on reply_to_self(recipient_address, reply_text)
             tell application "Messages"

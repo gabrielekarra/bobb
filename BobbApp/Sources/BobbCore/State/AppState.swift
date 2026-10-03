@@ -37,6 +37,11 @@ public struct DraftSession: Sendable, Equatable {
 
 /// The command bar: what the user typed, over what selection, and the
 /// answer as it arrives.
+public enum AskInputSource: Sendable, Equatable {
+    case keyboard
+    case microphone
+}
+
 public struct AskSession: Sendable, Equatable {
     public var requestId: String?
     public var prompt: String = ""
@@ -53,6 +58,11 @@ public struct AskSession: Sendable, Equatable {
     /// Set when the daemon decided the request is something to do, not to
     /// answer: the command bar hands this goal to a task.
     public var taskGoal: String?
+    public var taskURL: String?
+    public var continuationID: String?
+    /// App-side provenance; it is never inferred from the model's answer.
+    public var inputSource: AskInputSource = .keyboard
+    public var voiceReplyConsumed = false
 
     public init() {}
 
@@ -71,6 +81,10 @@ public final class AppState {
     public var settings = BobbSettings()
     public var entitlement: Entitlement = .trial(daysLeft: Entitlement.trialDays)
     public var modelInstalled: Bool = true
+    public var email: EmailStateFrame?
+    public var emailWriting: EmailWritingSession?
+    public var inlineEmailWorking = false
+    public var emailError: String?
 
     public var watching: Bool {
         get { settings.watching }
@@ -106,6 +120,7 @@ public final class AppState {
     public var recentTasks: [TaskRecord] = []
     /// Open promises the user made, from the mail they sent.
     public var commitments: [Commitment] = []
+    public var initiativeCount: Int = 0
     /// Ways of doing things Bobb learned, for Settings.
     public var procedures: [LearnedProcedure] = []
 
@@ -126,8 +141,8 @@ public final class AppState {
         if !watching || !entitlement.allowsAssistance { return .paused }
         if overlayVisible { return .suggesting }
         if let mostRecent = entries.first, mostRecent.decision == nil, mostRecent.event.kind.isDecidable { return .thinking }
-        if draft?.streaming == true || ask.streaming { return .thinking }
-        if !forYou.isEmpty { return .waitingForYou }
+        if draft?.streaming == true || ask.streaming || inlineEmailWorking || emailWriting?.streaming == true { return .thinking }
+        if !forYou.isEmpty || initiativeCount > 0 || !promisesDue().isEmpty { return .waitingForYou }
         return .watching
     }
 
@@ -248,7 +263,7 @@ public final class AppState {
 
     // MARK: Command bar
 
-    public func beginAsk(_ frame: AskFrame, mode: AskMode) {
+    public func beginAsk(_ frame: AskFrame, mode: AskMode, inputSource: AskInputSource = .keyboard) {
         ask.requestId = frame.id
         ask.prompt = frame.prompt
         ask.mode = mode
@@ -257,7 +272,28 @@ public final class AppState {
         ask.unsupported = []
         ask.error = nil
         ask.resultKind = nil
+        ask.continuationID = nil
         ask.streaming = true
+        ask.inputSource = inputSource
+        ask.voiceReplyConsumed = false
+    }
+
+    /// Only the current microphone turn may produce one spoken answer.
+    public func consumeSpokenAnswer(_ answer: AnswerFrame) -> Bool {
+        guard ask.inputSource == .microphone, ask.requestId == answer.requestId,
+              !ask.voiceReplyConsumed, answer.ok, answer.cancelled != true,
+              answer.resultKind != "task", !answer.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        ask.voiceReplyConsumed = true
+        return true
+    }
+
+    public func permitsSpokenResponse(requestId: String) -> Bool {
+        ask.inputSource == .microphone && ask.requestId == requestId && ask.voiceReplyConsumed && ask.error == nil
+    }
+
+    public func endVoiceConversation() {
+        ask.inputSource = .keyboard
+        ask.voiceReplyConsumed = false
     }
 
     public func applyAnswerDelta(_ delta: AnswerDeltaFrame) {
@@ -269,7 +305,10 @@ public final class AppState {
         guard ask.requestId == answer.requestId else { return }
         ask.streaming = false
         ask.resultKind = answer.resultKind
+        ask.continuationID = answer.resultKind == "clarification" ? answer.continuationID : nil
+        if let mode = answer.mode.flatMap(AskMode.init(rawValue:)) { ask.mode = mode }
         if answer.resultKind == "task" {
+            ask.taskURL = answer.taskURL
             ask.taskGoal = answer.text
             return
         }
@@ -289,6 +328,9 @@ public final class AppState {
     }
 
     public func reset() {
+        email = nil
+        emailWriting = nil
+        emailError = nil
         entries.removeAll()
         eventsSeen = 0
         decisionsMade = 0

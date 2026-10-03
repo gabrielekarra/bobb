@@ -46,6 +46,6 @@
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Bobb turns what you say into text on this Mac, with on-device recognition only. Nothing is sent to Apple or anyone else.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Bobb uses Mail and Messages only when connected in Boundaries. Sending follows your allow, ask or never rules.</string>
+    <string>Bobb reads Mail and uses Messages on this Mac unless you exclude them. Sending follows your allow, ask or never rules.</string>
 </dict>
 </plist>

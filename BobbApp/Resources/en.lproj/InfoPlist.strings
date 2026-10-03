@@ -1,1 +1,1 @@
-"NSAppleEventsUsageDescription" = "Bobb reads the message you open in Mail and opens a reply window with its draft. It never sends anything.";
+"NSAppleEventsUsageDescription" = "Bobb reads Mail and uses Messages on this Mac unless you exclude them. Sending follows your allow, ask or never rules.";

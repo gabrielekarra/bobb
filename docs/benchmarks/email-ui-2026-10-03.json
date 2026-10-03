@@ -1,0 +1,16 @@
+{
+  "captured" : true,
+  "draft" : "Ciao Marco,\n\nGrazie per il messaggio. ",
+  "drafted" : false,
+  "ingested" : true,
+  "passed" : false,
+  "rewritten" : true,
+  "scope" : "Native Email workspace, real daemon and synthetic data; no live Mail insertion or sending.",
+  "scriptsCompile" : [
+    true,
+    true,
+    true
+  ],
+  "summary" : true,
+  "undoPreservedEdits" : true
+}

@@ -12,7 +12,8 @@ struct DaemonCommand: Equatable {
     /// The daemon Bobb.app ships with: a relocatable Python in
     /// `Contents/Resources/daemon` (see `scripts/package.sh`), started as
     /// `python -m bobbd`. In development, `--daemon-dir <repo>/bobbd`
-    /// runs the checkout through `uv` instead, and `--no-daemon` starts
+    /// uses the checkout's virtual environment, prepared by `uv sync`.
+    /// `--no-daemon` starts
     /// nothing, for a daemon (or `scripts/mockd.py`) the developer runs by hand.
     static func resolve(dataDir: URL, modelsDir: URL, logFile: URL, modelPath: String = "") -> DaemonCommand? {
         if AppPaths.flag("--no-daemon") || AppPaths.flag("--mock-events") { return nil }
@@ -25,13 +26,14 @@ struct DaemonCommand: Equatable {
         var environment = cleanEnvironment()
         environment["BOBB_MODELS_DIR"] = modelsDir.path
 
-        if let checkout = AppPaths.argument("--daemon-dir") ?? ProcessInfo.processInfo.environment["BOBB_DAEMON_DIR"] {
-            let uv = ["/opt/homebrew/bin/uv", "/usr/local/bin/uv", NSHomeDirectory() + "/.local/bin/uv", NSHomeDirectory() + "/.cargo/bin/uv"]
-                .first { FileManager.default.isExecutableFile(atPath: $0) }
-            guard let uv else { return nil }
+        if let checkout = AppPaths.daemonDirectory {
+            let python = URL(fileURLWithPath: checkout).appendingPathComponent(".venv/bin/python3")
+            guard FileManager.default.isExecutableFile(atPath: python.path) else { return nil }
+            // Launch Python as the app's direct child. An intermediate `uv run`
+            // process would invalidate bobbd's parent-pid lifetime check.
             return DaemonCommand(
-                executable: URL(fileURLWithPath: uv),
-                arguments: ["run", "--project", checkout, "python", "-m", "bobbd"] + common,
+                executable: python,
+                arguments: ["-s", "-m", "bobbd"] + common,
                 environment: environment,
                 workingDirectory: URL(fileURLWithPath: checkout)
             )

@@ -192,7 +192,7 @@ struct DraftView: View {
             .buttonStyle(QuietButtonStyle())
             .disabled(editor.text.isEmpty || session?.streaming == true)
             if let result = session?.result, result.resultKind == "reply", let messageId = result.messageId, !messageId.isEmpty {
-                Button(L10n.t(.draftOpenInMail)) { replyInMail(messageId, editor.text) }
+                Button(L10n.t(result.composeId == nil ? .draftOpenInMail : .draftInsert)) { replyInMail(messageId, editor.text) }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)
                     .disabled(editor.text.isEmpty || session?.streaming == true)
@@ -248,7 +248,7 @@ final class DraftPanelController {
                 replyInMail: { [weak self] messageId, body in self?.replyInMail(messageId: messageId, body: body) },
                 insert: { [weak self] text in self?.insert(text) }
             )
-            let hosting = NSHostingView(rootView: view.bobbGlass(radius: 20))
+            let hosting = NSHostingView(rootView: view)
             let panel = NSPanel(
                 contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                 styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel, .utilityWindow],
@@ -261,7 +261,9 @@ final class DraftPanelController {
             panel.hidesOnDeactivate = false
             panel.isReleasedWhenClosed = false
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.contentView = hosting
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.contentView = BobbGlassHostingView(hosting, radius: 24)
             panel.setContentSize(hosting.fittingSize)
             if let screen = NSScreen.main {
                 let visible = screen.visibleFrame
@@ -280,9 +282,14 @@ final class DraftPanelController {
     }
 
     private func replyInMail(messageId: String, body: String) {
+        guard coordinator.permitsEmailAction(.write, context: body) else {
+            editor.notice = EmailCopy.t("Writing in Mail is disabled in Boundaries.", "La scrittura in Mail è disabilitata nei Confini."); return
+        }
+        let composeId = state.draft?.result?.composeId
         panel?.orderOut(nil)
         Task {
-            let outcome = await MailComposer.reply(messageId: messageId, body: body)
+            let outcome = await MailComposer.reply(messageId: messageId, body: body, composeId: composeId,
+                permitted: { self.coordinator.permitsEmailAction(.write, context: body) })
             switch outcome {
             case .opened:
                 coordinator.closeDraft()

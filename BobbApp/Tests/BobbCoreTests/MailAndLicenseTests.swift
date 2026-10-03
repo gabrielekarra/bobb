@@ -64,6 +64,68 @@ struct MailSessionTests {
         #expect(event.payload["message_id"]?.stringValue == "<1@x>")
         #expect(event.payload["unread"]?.boolValue == true)
     }
+
+    @Test func offersAnEmptyReplyOnceAcrossAppSwitches() {
+        let watcher = ReplyStartWatcher()
+        let draft = MailComposeSnapshot(id: "draft-1", subject: "Re: Preventivo", recipients: ["m@x.it"],
+            content: "\n\nFirma automatica\n\nIl giorno 2 ott 2026, Marco ha scritto:\n> Ciao, mi confermi?", signature: "Firma automatica")
+        #expect(draft.authoredText.isEmpty)
+        #expect(!watcher.shouldOffer(draft, original: nil, keyboardIdle: 1))
+        #expect(!watcher.shouldOffer(draft, original: message("1"), keyboardIdle: 0.1))
+        #expect(watcher.shouldOffer(draft, original: message("1"), keyboardIdle: 1))
+        #expect(!watcher.shouldOffer(draft, original: message("1"), keyboardIdle: 10))
+        let next = MailComposeSnapshot(id: "draft-2", subject: "Re: Preventivo", recipients: ["m@x.it"], content: "")
+        #expect(watcher.shouldOffer(next, original: message("1"), keyboardIdle: 1))
+    }
+
+    @Test func writtenReplyStaysQuietEvenIfTheUserDeletesTheirText() {
+        let watcher = ReplyStartWatcher()
+        var draft = MailComposeSnapshot(id: "draft-1", subject: "Re: Preventivo", recipients: ["m@x.it"],
+                                        content: "Ciao Marco,\n\nOn October 2, 2026 Marco wrote:\n> Hello")
+        #expect(draft.authoredText == "Ciao Marco,")
+        #expect(!watcher.shouldOffer(draft, original: message("1"), keyboardIdle: 1))
+        draft.content = ""
+        #expect(!watcher.shouldOffer(draft, original: message("1"), keyboardIdle: 5))
+    }
+
+    @Test func requiresTheOriginalSubjectRecipientAndBody() {
+        let original = message("1")
+        let good = MailComposeSnapshot(id: "1", subject: "Re: Re: Preventivo", recipients: ["other@x.it", "m@x.it"], content: "")
+        #expect(good.replies(to: original))
+        var wrong = good
+        wrong.subject = "Fwd: Preventivo"
+        #expect(!wrong.replies(to: original))
+        wrong.subject = "Preventivo"
+        #expect(!wrong.replies(to: original))
+        wrong.subject = "Re: Un altro progetto"
+        #expect(!wrong.replies(to: original))
+        wrong = good; wrong.recipients = ["different@x.it"]
+        #expect(!wrong.replies(to: original))
+        var noSource = original; noSource.body = ""
+        #expect(!good.replies(to: noSource))
+        var replyTo = original; replyTo.replyTo = "office@x.it"
+        #expect(!good.replies(to: replyTo))
+        wrong = good; wrong.recipients = ["office@x.it"]
+        #expect(wrong.replies(to: replyTo))
+    }
+
+    @Test func parsesComposeIdentitySignatureAndReplySource() {
+        let unit = MailScriptFormat.unit
+        let raw = ["reply-42", "Re: Preventivo", "m@x.it\n", "Grazie, Gabriele", "\nGrazie, Gabriele\n\n> originale"].joined(separator: unit)
+        let draft = MailScriptFormat.parseCompose(raw)
+        #expect(draft?.id == "reply-42")
+        #expect(draft?.recipients == ["m@x.it"])
+        #expect(draft?.authoredText == "")
+        let source = ["42", "<original@x>", "Marco <m@x.it>", "Preventivo", "true", "INBOX", "office@x.it", "Testo originale"].joined(separator: unit)
+        let original = MailScriptFormat.parseSelected(source, includesReplyTo: true)
+        #expect(original?.replyTo == "office@x.it")
+        #expect(original?.body == "Testo originale")
+        let event = MailEvents.replyStarted(original!, composeId: "reply-42", to: ["office@x.it"])
+        #expect(event.kind == .mailReplyStarted)
+        #expect(event.payload["body"]?.stringValue == "Testo originale")
+        #expect(event.payload["compose_id"]?.stringValue == "reply-42")
+        #expect(event.payload["draft"]?.stringValue == "")
+    }
 }
 
 /// Signs with a fixed key so the parser and entitlement rules are tested on

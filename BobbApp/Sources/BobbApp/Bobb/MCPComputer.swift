@@ -1,6 +1,16 @@
 import Foundation
 import BobbCore
 
+enum ConnectorError: LocalizedError {
+    case configuration, response
+    var errorDescription: String? {
+        switch self {
+        case .configuration: "Check the local connector configuration."
+        case .response: "The local connector response was unavailable or invalid."
+        }
+    }
+}
+
 /// Optional stdio MCP, restricted to the executable the user configured.
 /// The model never supplies a path or command; servers cannot request
 /// sampling, credentials or arbitrary host tools from this client.
@@ -13,11 +23,15 @@ final class MCPConnection {
     private var waiting: [String: CheckedContinuation<JSONValue, Error>] = [:]
     private(set) var tools: [JSONValue] = []
     private let configuration: MCPConfiguration
-    init(configuration: MCPConfiguration) { self.configuration = configuration }
+    private let environment: [String: String]
+    private let protocolVersion: String
+    init(configuration: MCPConfiguration, environment: [String: String] = [:], protocolVersion: String = "2025-11-25") {
+        self.configuration = configuration; self.environment = environment; self.protocolVersion = protocolVersion
+    }
 
     func connect() async throws {
         guard configuration.enabled, configuration.executable.hasPrefix("/"),
-              FileManager.default.isExecutableFile(atPath: configuration.executable) else { throw CloudError.configuration }
+              FileManager.default.isExecutableFile(atPath: configuration.executable) else { throw ConnectorError.configuration }
         if process?.isRunning == true { return }
         let process = Process(), stdin = Pipe(), stdout = Pipe()
         process.executableURL = URL(fileURLWithPath: configuration.executable)
@@ -25,6 +39,7 @@ final class MCPConnection {
         // Do not inherit API keys, developer credentials or shell startup files.
         process.environment = ["PATH": "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin", "HOME": NSHomeDirectory(),
                                "LANG": "en_US.UTF-8"]
+        process.environment?.merge(environment) { _, trusted in trusted }
         process.standardInput = stdin; process.standardOutput = stdout; process.standardError = FileHandle.nullDevice
         input = stdin.fileHandleForWriting; output = stdout.fileHandleForReading
         output?.readabilityHandler = { [weak self] handle in
@@ -35,10 +50,10 @@ final class MCPConnection {
         self.process = process
         do {
             try process.run()
-            let hello = try await request("initialize", params: .object(["protocolVersion": "2025-11-25", "capabilities": .object([:]),
+            let hello = try await request("initialize", params: .object(["protocolVersion": .string(protocolVersion), "capabilities": .object([:]),
                 "clientInfo": .object(["name": "Bobb", "version": "2.0.0"])]))
             guard ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"].contains(hello["protocolVersion"]?.stringValue ?? ""),
-                  hello["capabilities"]?["tools"] != nil else { throw CloudError.response }
+                  hello["capabilities"]?["tools"] != nil else { throw ConnectorError.response }
             try send(.object(["jsonrpc": "2.0", "method": "notifications/initialized"]))
             tools = []
             var cursor: String?
@@ -52,7 +67,7 @@ final class MCPConnection {
     }
 
     func call(name: String, arguments: JSONValue) async throws -> JSONValue {
-        guard configuration.enabled, tools.contains(where: { $0["name"]?.stringValue == name }), arguments.objectValue != nil else { throw CloudError.configuration }
+        guard configuration.enabled, tools.contains(where: { $0["name"]?.stringValue == name }), arguments.objectValue != nil else { throw ConnectorError.configuration }
         return try await request("tools/call", params: .object(["name": .string(name), "arguments": arguments]))
     }
 
@@ -66,12 +81,12 @@ final class MCPConnection {
                 try? await Task.sleep(for: .seconds(60))
                 guard let self, let pending = self.waiting.removeValue(forKey: id) else { return }
                 try? self.send(.object(["jsonrpc": "2.0", "method": "notifications/cancelled", "params": .object(["requestId": .string(id), "reason": "timeout"])]))
-                pending.resume(throwing: CloudError.response)
+                pending.resume(throwing: ConnectorError.response)
             }
         }
     }
     private func send(_ value: JSONValue) throws {
-        guard let input, process?.isRunning == true else { throw CloudError.response }
+        guard let input, process?.isRunning == true else { throw ConnectorError.response }
         try input.write(contentsOf: JSONEncoder().encode(value) + Data([10]))
     }
     private func receive(_ data: Data) {
@@ -84,7 +99,7 @@ final class MCPConnection {
             guard let rawID = value["id"], rawID != .null else { continue }
             if let id = rawID.stringValue, let pending = waiting.removeValue(forKey: id) {
                 if let result = value["result"] { pending.resume(returning: result) }
-                else { pending.resume(throwing: CloudError.response) }
+                else { pending.resume(throwing: ConnectorError.response) }
             } else if value["method"] != nil {
                 try? send(.object(["jsonrpc": "2.0", "id": rawID, "error": .object(["code": -32601, "message": "Host requests are not supported"])]))
             }
@@ -97,7 +112,7 @@ final class MCPConnection {
         if process?.isRunning == true { process?.terminate() }
         process = nil; buffer.removeAll()
         let pending = waiting; waiting.removeAll()
-        for continuation in pending.values { continuation.resume(throwing: CloudError.response) }
+        for continuation in pending.values { continuation.resume(throwing: ConnectorError.response) }
     }
 }
 

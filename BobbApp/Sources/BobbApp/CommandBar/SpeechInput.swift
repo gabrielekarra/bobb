@@ -14,6 +14,7 @@ import BobbCore
 final class SpeechInput {
     enum Phase: Equatable {
         case idle
+        case starting
         case listening
         case unavailable(String)
     }
@@ -27,40 +28,48 @@ final class SpeechInput {
     @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var recognition: SFSpeechRecognitionTask?
     @ObservationIgnored private var silence: Timer?
+    @ObservationIgnored private var generation = UUID()
     /// How long a pause ends the sentence.
     @ObservationIgnored var pause: TimeInterval = 1.4
 
     var isListening: Bool { phase == .listening }
+    var isActive: Bool { phase == .starting || isListening }
 
     func toggle(language: String) {
-        isListening ? finish() : start(language: language)
+        isActive ? finish() : start(language: language)
     }
 
     func start(language: String) {
-        guard !isListening else { return }
+        guard !isActive else { return }
         transcript = ""
-        SFSpeechRecognizer.requestAuthorization { status in
+        generation = UUID()
+        let token = generation
+        phase = .starting
+        // Permission callbacks arrive on a system queue. Explicit Sendable
+        // prevents them inheriting MainActor isolation and trapping before
+        // the hop back to the UI executor.
+        SFSpeechRecognizer.requestAuthorization { @Sendable status in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == token, self.phase == .starting else { return }
                 guard status == .authorized else {
                     self.phase = .unavailable(L10n.t(.voiceNotAllowed))
                     return
                 }
-                AVCaptureDevice.requestAccess(for: .audio) { granted in
+                AVCaptureDevice.requestAccess(for: .audio) { @Sendable granted in
                     Task { @MainActor [weak self] in
-                        guard let self else { return }
+                        guard let self, self.generation == token, self.phase == .starting else { return }
                         guard granted else {
                             self.phase = .unavailable(L10n.t(.voiceNoMicrophone))
                             return
                         }
-                        self.begin(language: language)
+                        self.begin(language: language, token: token)
                     }
                 }
             }
         }
     }
 
-    private func begin(language: String) {
+    private func begin(language: String, token: UUID) {
         let locale = Locale(identifier: language == "it" ? "it-IT" : "en-US")
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             phase = .unavailable(L10n.t(.voiceUnavailable))
@@ -98,6 +107,7 @@ final class SpeechInput {
             let final = result?.isFinal ?? false
             let failed = error != nil
             Task { @MainActor [weak self] in
+                guard self?.generation == token else { return }
                 self?.heard(text, final: final, failed: failed)
             }
         }
@@ -116,14 +126,20 @@ final class SpeechInput {
 
     private func armSilence() {
         silence?.invalidate()
+        let token = generation
         silence = Timer.scheduledTimer(withTimeInterval: transcript.isEmpty ? 6 : pause, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.finish() }
+            MainActor.assumeIsolated {
+                guard self?.generation == token else { return }
+                self?.finish()
+            }
         }
     }
 
     /// Stops listening and hands over what was said.
     func finish() {
+        if phase == .starting { cancel(); return }
         guard isListening else { return }
+        generation = UUID()
         teardown()
         phase = .idle
         let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -132,8 +148,9 @@ final class SpeechInput {
 
     /// Stops listening and throws the words away.
     func cancel() {
-        guard isListening else { return }
-        teardown()
+        guard isActive else { return }
+        generation = UUID()
+        if isListening { teardown() }
         phase = .idle
         transcript = ""
     }

@@ -11,6 +11,8 @@
 # Environment:
 #   BOBB_VERSION              marketing version (default: ./VERSION)
 #   BOBB_BUILD                build number (default: git commit count)
+#   BOBB_SWIFT_SDK            optional SDK path for a matching installed toolchain
+#   BOBB_SWIFT_BUILD_SYSTEM   optional SwiftPM build system (e.g. native)
 #   DEVELOPER_ID_APPLICATION     codesign identity, e.g. "Developer ID
 #                                Application: Bobb S.r.l. (TEAMID)"
 #   NOTARY_PROFILE               notarytool keychain profile, or
@@ -48,13 +50,21 @@ fi
 
 step() { printf '\n==> %s\n' "$*"; }
 
-rm -rf "$APP" "$WORK"
-mkdir -p "$WORK" "$APP/Contents/MacOS" "$APP/Contents/Resources"
-
 # ---------------------------------------------------------------- the app
 step "swift build (release, arm64)"
-(cd "$APP_SRC" && swift build -c release --arch arm64)
-BIN="$(cd "$APP_SRC" && swift build -c release --arch arm64 --show-bin-path)"
+SWIFT_OPTIONS=(-c release --arch arm64)
+if [[ -n "${BOBB_SWIFT_SDK:-}" ]]; then
+    # SwiftPM also compiles Package.swift; --sdk alone can leave that
+    # manifest on the system's different default SDK.
+    export SDKROOT="$BOBB_SWIFT_SDK"
+    SWIFT_OPTIONS+=(--sdk "$BOBB_SWIFT_SDK")
+fi
+if [[ -n "${BOBB_SWIFT_BUILD_SYSTEM:-}" ]]; then SWIFT_OPTIONS+=(--build-system "$BOBB_SWIFT_BUILD_SYSTEM"); fi
+(cd "$APP_SRC" && swift build "${SWIFT_OPTIONS[@]}")
+BIN="$(cd "$APP_SRC" && swift build "${SWIFT_OPTIONS[@]}" --show-bin-path)"
+# Preserve the last usable app if compilation fails.
+rm -rf "$APP" "$WORK"
+mkdir -p "$WORK" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/BobbApp" "$APP/Contents/MacOS/BobbApp"
 
 step "Info.plist ($VERSION, build $BUILD, $BUILD_DATE)"
@@ -63,6 +73,14 @@ PLIST="$APP/Contents/Info.plist"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$PLIST"
 plutil -replace CFBundleVersion -string "$BUILD" "$PLIST"
 plutil -replace BobbBuildDate -string "$BUILD_DATE" "$PLIST"
+if [[ "$MODE" == "app" ]]; then
+    # Persist the development runtime: Finder, permission-related restarts
+    # and login items do not preserve the arguments from scripts/run.sh.
+    plutil -insert BobbDevelopmentDaemonDirectory -string "$ROOT/bobbd" "$PLIST"
+    if [[ -d "$ROOT/.runtime/models" ]]; then
+        plutil -insert BobbDevelopmentModelsDirectory -string "$ROOT/.runtime/models" "$PLIST"
+    fi
+fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 step "resources"
@@ -70,6 +88,12 @@ iconutil -c icns "$APP_SRC/Resources/AppIcon.iconset" -o "$APP/Contents/Resource
 cp -R "$APP_SRC/Resources/en.lproj" "$APP_SRC/Resources/it.lproj" "$APP/Contents/Resources/"
 cp "$ROOT/LICENSE" "$APP/Contents/Resources/LICENSE"
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
+
+step "official CUA macOS driver (pinned release, checksum-verified)"
+python3 "$ROOT/scripts/download_driver.py"
+CUA="$ROOT/.runtime/cua-driver/pinned/cua-driver-rs-0.31.0-darwin-arm64"
+mkdir -p "$APP/Contents/Resources/drivers"
+cp "$CUA/cua-driver" "$CUA/LICENSE" "$APP/Contents/Resources/drivers/"
 
 # ---------------------------------------------------------------- the daemon
 if [[ "$MODE" == "full" ]]; then
@@ -133,6 +157,7 @@ fi
 step "signing (identity: $IDENTITY)"
 SIGN=(codesign --force --timestamp --options runtime --sign "$IDENTITY")
 [[ "$IDENTITY" == "-" ]] && SIGN=(codesign --force --sign -)
+"${SIGN[@]}" "$APP/Contents/Resources/drivers/cua-driver"
 if [[ "$MODE" == "full" ]]; then
     # Inside out: every library, then the interpreter with its entitlements.
     while IFS= read -r -d '' file; do

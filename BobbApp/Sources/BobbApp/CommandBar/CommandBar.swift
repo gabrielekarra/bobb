@@ -3,83 +3,37 @@ import Observation
 import SwiftUI
 import BobbCore
 
-/// The command bar's own state: what is being typed, in which mode, over
+/// The command bar's own state: what is being typed, over
 /// which selection. The answer itself lives in `AppState.ask`.
 @MainActor
 @Observable
 final class CommandBarModel {
     var input: String = ""
-    var mode: AskMode = .ask
     var selection: Selection?
     var notice: String?
-    /// Whether Bobb may operate apps (Settings); offers the Do mode.
-    var canAct = true
     @ObservationIgnored weak var field: NSTextField?
-
-    var modes: [AskMode] {
-        if selection != nil { return [.rewrite, .translate, .summarize, .reply, .explain, .ask] }
-        return canAct ? [.ask, .act, .write] : [.ask, .write]
-    }
 
     func reset(with selection: Selection?) {
         self.selection = selection
         input = ""
         notice = nil
-        mode = selection == nil ? .ask : .rewrite
     }
 
-    func cycleMode() {
-        let all = modes
-        guard let index = all.firstIndex(of: mode) else {
-            mode = all.first ?? .ask
-            return
-        }
-        mode = all[(index + 1) % all.count]
-    }
 }
 
 extension AskMode {
-    var title: String {
-        switch self {
-        case .ask: L10n.t(.askModeAsk)
-        case .write: L10n.t(.askModeWrite)
-        case .reply: L10n.t(.askModeReply)
-        case .rewrite: L10n.t(.askModeRewrite)
-        case .translate: L10n.t(.askModeTranslate)
-        case .summarize: L10n.t(.askModeSummarize)
-        case .explain: L10n.t(.askModeExplain)
-        case .compute: "="
-        case .act: L10n.t(.askModeDo)
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .ask: "questionmark.bubble"
-        case .write: "square.and.pencil"
-        case .reply: "arrowshape.turn.up.left"
-        case .rewrite: "wand.and.stars"
-        case .translate: "globe"
-        case .summarize: "text.alignleft"
-        case .explain: "lightbulb"
-        case .compute: "function"
-        case .act: "cursorarrow.rays"
-        }
-    }
-
     /// Modes whose output is meant to replace the selection.
     var replacesSelection: Bool { self == .rewrite || self == .translate }
 }
 
 /// The text field, as AppKit: SwiftUI's cannot be focused reliably in a
-/// non-activating panel, and this one must also turn Tab into "next mode"
-/// and Escape into "close".
+/// non-activating panel, and Escape must close it.
 struct CommandInput: NSViewRepresentable {
     let model: CommandBarModel
     let placeholder: String
     let onSubmit: () -> Void
-    let onTab: () -> Void
     let onEscape: () -> Void
+    let onEdit: () -> Void
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField()
@@ -112,6 +66,7 @@ struct CommandInput: NSViewRepresentable {
 
         func controlTextDidChange(_ notification: Notification) {
             guard let field = notification.object as? NSTextField else { return }
+            parent.onEdit()
             parent.model.input = field.stringValue
         }
 
@@ -119,9 +74,6 @@ struct CommandInput: NSViewRepresentable {
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
                 parent.onSubmit()
-                return true
-            case #selector(NSResponder.insertTab(_:)):
-                parent.onTab()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 parent.onEscape()
@@ -142,6 +94,7 @@ struct CommandBarView: View {
     let apply: (String) -> Void
     let stop: () -> Void
     var toggleVoice: () -> Void = {}
+    var endVoice: () -> Void = {}
 
     private var ask: AskSession { state.ask }
 
@@ -150,9 +103,6 @@ struct CommandBarView: View {
             inputRow
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
-            modeRow
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
             if let selection = model.selection {
                 selectionPreview(selection)
             }
@@ -176,25 +126,29 @@ struct CommandBarView: View {
                 Divider()
                 answer
             }
+            if let notice = model.notice {
+                Text(notice)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 10)
+            }
             Divider()
             hint
         }
         .frame(width: 680)
-        .bobbGlass(radius: 24)
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
         .tint(Theme.accent)
     }
 
     private var inputRow: some View {
         HStack(spacing: 12) {
-            BobbMark(size: 26)
+            BobbMark(size: 26, color: Theme.accentInk)
             CommandInput(
                 model: model,
-                placeholder: model.selection != nil ? L10n.t(.askPlaceholderSelection)
-                    : model.mode == .act ? L10n.t(.askPlaceholderDo) : L10n.t(.askPlaceholder),
+                placeholder: BobbCopy.t("Ask anything, or tell me what to do…", "Chiedimi qualcosa, o dimmi cosa fare…"),
                 onSubmit: submit,
-                onTab: { model.cycleMode() },
-                onEscape: close
+                onEscape: close,
+                onEdit: endVoice
             )
             .frame(height: 26)
             if ask.streaming {
@@ -203,36 +157,16 @@ struct CommandBarView: View {
             }
             if let speech {
                 Button(action: toggleVoice) {
-                    Image(systemName: speech.isListening ? "waveform" : "mic")
+                    Image(systemName: speech.isActive ? "waveform" : "mic")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(speech.isListening ? Theme.attention : Color.secondary)
+                        .foregroundStyle(speech.isActive ? Theme.attention : Color.secondary)
                         .frame(width: 26, height: 26)
-                        .background(speech.isListening ? Theme.attention.opacity(0.15) : Color.clear, in: Circle())
+                        .background(speech.isActive ? Theme.attention.opacity(0.15) : Color.clear, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .help(L10n.t(.voiceTalk))
                 .keyboardShortcut("d", modifiers: .command)
             }
-        }
-    }
-
-    private var modeRow: some View {
-        HStack(spacing: 6) {
-            ForEach(model.modes, id: \.self) { mode in
-                Button {
-                    model.mode = mode
-                    if mode.needsSelection && model.selection != nil && model.input.isEmpty { submit() }
-                } label: {
-                    Label(mode.title, systemImage: mode.icon)
-                        .font(.system(size: 11.5, weight: model.mode == mode ? .semibold : .regular))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .foregroundStyle(model.mode == mode ? Color.white : Color.primary.opacity(0.75))
-                        .background(model.mode == mode ? Theme.accent : Color.primary.opacity(0.06), in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
         }
     }
 
@@ -341,7 +275,7 @@ final class CommandPanel: NSPanel {
         hasShadow = true
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
-        self.contentView = contentView
+        self.contentView = BobbGlassHostingView(contentView, radius: 28)
     }
 
     override var canBecomeKey: Bool { true }
@@ -363,8 +297,10 @@ final class CommandBarController {
     private var hosting: NSHostingView<CommandBarView>?
     private var sizeObservation: NSKeyValueObservation?
     /// Starts a task; returns why it cannot, in the user's words, or nil.
-    var startTask: ((String) -> String?)?
+    var startTask: ((String, URL?, String?) -> String?)?
+    private var sourceApp: String?
     let speech = SpeechInput()
+    private let voice = ResponseVoice()
 
     init(state: AppState, coordinator: BobbCoordinator) {
         self.state = state
@@ -373,18 +309,46 @@ final class CommandBarController {
         speech.onTranscript = { [weak self] text in self?.model.input = text }
         speech.onFinish = { [weak self] text in
             self?.model.input = text
-            self?.submit()
+            self?.submit(inputSource: .microphone)
+        }
+        voice.onError = { [weak self] error in self?.model.notice = error }
+        coordinator.onAnswer = { [weak self] answer in
+            guard let self, self.panel?.isVisible == true, self.state.consumeSpokenAnswer(answer) else { return }
+            self.voice.speak(answer.text, settings: self.state.settings, permitted: { [weak self] in
+                guard let self else { return false }
+                return self.panel?.isVisible == true && !self.speech.isActive
+                    && self.state.permitsSpokenResponse(requestId: answer.requestId)
+            })
         }
     }
 
     /// Opens the bar already listening: talk instead of type.
     func listen() {
         if panel?.isVisible != true { show(selection: nil) }
-        speech.start(language: L10n.code)
+        guard !speech.isActive else { return }
+        startVoiceTurn()
     }
 
     private func toggleVoice() {
-        speech.toggle(language: L10n.code)
+        if speech.isActive { speech.finish() } else { startVoiceTurn() }
+    }
+
+    private func startVoiceTurn() {
+        model.notice = nil
+        endVoiceConversation()
+        coordinator.cancelAsk()
+        speech.start(language: L10n.code)
+    }
+
+    private func endVoiceConversation() {
+        speech.cancel()
+        state.endVoiceConversation()
+        voice.stop()
+    }
+
+    private func stopAnswer() {
+        endVoiceConversation()
+        coordinator.cancelAsk()
     }
 
     /// A request the daemon judged to be something to do becomes a task.
@@ -395,16 +359,27 @@ final class CommandBarController {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let goal = self.state.ask.taskGoal {
+                    let destination = self.state.ask.taskURL
                     self.state.ask.taskGoal = nil
-                    self.beginTask(goal)
+                    self.state.ask.taskURL = nil
+                    self.beginTask(goal, destination: destination)
                 }
                 self.observeRouting()
             }
         }
     }
 
-    private func beginTask(_ goal: String) {
-        if let problem = startTask?(goal) {
+    private func beginTask(_ goal: String, destination: String?) {
+        var url: URL?
+        if let destination {
+            guard let candidate = URL(string: destination), ["https", "http"].contains(candidate.scheme ?? ""),
+                  candidate.host != nil, candidate.user == nil, candidate.password == nil else {
+                state.ask.error = BobbCopy.t("The website address is invalid.", "L’indirizzo del sito non è valido.")
+                return
+            }
+            url = candidate
+        }
+        if let problem = startTask?(goal, url, sourceApp) {
             state.ask = AskSession()
             state.ask.error = problem
             return
@@ -425,8 +400,10 @@ final class CommandBarController {
     }
 
     func show(selection: Selection?) {
+        endVoiceConversation()
+        let front = NSWorkspace.shared.frontmostApplication
+        sourceApp = selection?.bundleId ?? (front?.bundleIdentifier == Bundle.main.bundleIdentifier ? nil : front?.bundleIdentifier)
         model.reset(with: selection)
-        model.canAct = state.settings.actingEnabled
         if !state.ask.streaming { state.ask = AskSession() }
         if panel == nil {
             let view = CommandBarView(
@@ -434,8 +411,9 @@ final class CommandBarController {
                 submit: { [weak self] in self?.submit() },
                 close: { [weak self] in self?.close() },
                 apply: { [weak self] text in self?.apply(text) },
-                stop: { [weak self] in self?.coordinator.cancelAsk() },
-                toggleVoice: { [weak self] in self?.toggleVoice() }
+                stop: { [weak self] in self?.stopAnswer() },
+                toggleVoice: { [weak self] in self?.toggleVoice() },
+                endVoice: { [weak self] in self?.endVoiceConversation() }
             )
             let hosting = NSHostingView(rootView: view)
             hosting.sizingOptions = [.intrinsicContentSize]
@@ -449,6 +427,13 @@ final class CommandBarController {
         panel.makeKey()
         if let field = model.field { panel.makeFirstResponder(field) }
         observeSize()
+    }
+
+    /// Shared entry point for a prefilled request, also used by the real UI smoke check.
+    func request(_ prompt: String, selection: Selection? = nil, allowActions: Bool = true) {
+        show(selection: selection)
+        model.input = prompt
+        submit(allowActions: allowActions)
     }
 
     private func observeSize() {
@@ -483,7 +468,9 @@ final class CommandBarController {
         panel.setFrame(frame, display: true, animate: false)
     }
 
-    private func submit() {
+    private func submit(inputSource: AskInputSource = .keyboard, allowActions: Bool = true) {
+        endVoiceConversation()
+        model.notice = nil
         let prompt = model.input.trimmingCharacters(in: .whitespacesAndNewlines)
         let selection = model.selection
         guard !prompt.isEmpty || selection != nil else { return }
@@ -492,17 +479,12 @@ final class CommandBarController {
             state.ask.error = L10n.t(.askNotReady)
             return
         }
-        if model.mode == .act {
-            beginTask(prompt)
-            return
-        }
-        // With nothing selected, the daemon decides whether this is to
-        // answer or to do ("put on my Focus playlist").
-        let route = model.canAct && selection == nil && model.mode == .ask
         coordinator.ask(
-            prompt: prompt, mode: model.mode, selection: selection?.text ?? "",
-            app: selection?.app ?? "", window: selection?.window ?? "", route: route
+            prompt: prompt, mode: allowActions ? .auto : .ask, selection: selection?.text ?? "",
+            app: selection?.app ?? "", window: selection?.window ?? "", route: allowActions && state.settings.actingEnabled,
+            inputSource: inputSource
         )
+        model.input = ""
     }
 
     private func apply(_ text: String) {
@@ -517,7 +499,7 @@ final class CommandBarController {
     }
 
     func close() {
-        speech.cancel()
+        endVoiceConversation()
         panel?.orderOut(nil)
     }
 }

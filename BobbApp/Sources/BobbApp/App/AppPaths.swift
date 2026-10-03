@@ -15,10 +15,18 @@ enum AppPaths {
     }
 
     static var modelsDirectory: URL {
-        if let override = ProcessInfo.processInfo.environment["BOBB_MODELS_DIR"] {
+        if let override = ProcessInfo.processInfo.environment["BOBB_MODELS_DIR"]
+            ?? Bundle.main.object(forInfoDictionaryKey: "BobbDevelopmentModelsDirectory") as? String {
             return URL(fileURLWithPath: override, isDirectory: true)
         }
         return dataDirectory.appendingPathComponent("Models", isDirectory: true)
+    }
+
+    /// Development bundles remember their checkout so Finder and login-item
+    /// launches work without command-line arguments. Full bundles omit it.
+    static var daemonDirectory: String? {
+        argument("--daemon-dir") ?? ProcessInfo.processInfo.environment["BOBB_DAEMON_DIR"]
+            ?? Bundle.main.object(forInfoDictionaryKey: "BobbDevelopmentDaemonDirectory") as? String
     }
 
     static var logsDirectory: URL {
@@ -34,6 +42,14 @@ enum AppPaths {
     }
 
     static var settingsFile: URL { dataDirectory.appendingPathComponent("app-settings.json") }
+    static var cuaDriver: URL? {
+        let packaged = Bundle.main.resourceURL?.appendingPathComponent("drivers/cua-driver")
+        if let packaged, FileManager.default.isExecutableFile(atPath: packaged.path) { return packaged }
+        guard let daemonDirectory else { return nil }
+        let checkout = URL(fileURLWithPath: daemonDirectory).deletingLastPathComponent()
+        let binary = checkout.appendingPathComponent(".runtime/cua-driver/pinned/cua-driver-rs-0.31.0-darwin-arm64/cua-driver")
+        return FileManager.default.isExecutableFile(atPath: binary.path) ? binary : nil
+    }
     static var licenseFile: URL { dataDirectory.appendingPathComponent("license.key") }
 
     static func prepare() {

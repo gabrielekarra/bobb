@@ -1,0 +1,336 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "mlx-community/Qwen3.5-4B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta: procura firmata",
+        "reason": "Manca il documento necessario per procedere con il deposito della pratica.",
+        "quote": "Pratica cliente Rossi: manca la procura firmata.",
+        "draft": "Buongiorno,\n\nPer procedere con il deposito della pratica Rossi, è necessario ricevere la procura firmata. Potrebbe gentilmente fornirci questo documento mancante?\n\nGrazie per la collaborazione."
+      },
+      "matched": true,
+      "seconds": 5.96,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.7583100787627787
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "message",
+          "confidence": 0.8509110719874394
+        },
+        {
+          "generated": "{\n  \"quote\": \"Pratica cliente Rossi: manca la procura firmata.\",\n  \"item\": \"procura firmata\",\n  \"reason\": \"Manca il documento necessario per procedere con il deposito della pratica.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "Buongiorno,\n\nPer procedere con il deposito della pratica Rossi, è necessario ricevere la procura firmata. Potrebbe gentilmente fornirci questo documento mancante?\n\nGrazie per la collaborazione.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.7805477272436842
+        }
+      ]
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta: fattura relativa al bonifico di 450 euro",
+        "reason": "Manca il documento di prova del bonifico necessario per chiudere la riconciliazione in sospeso.",
+        "quote": "Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro. Non abbiamo ancora chiesto copia del documento al cliente.",
+        "draft": "Buongiorno,\n\nPer la riconciliazione del cliente Alfa, manca ancora la fattura relativa al bonifico di 450 euro. Potrebbe gentilmente fornirci copia del documento?\n\nGrazie."
+      },
+      "matched": true,
+      "seconds": 6.851,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.6257809569506245
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "message",
+          "confidence": 0.6962192401048569
+        },
+        {
+          "generated": "{\n  \"quote\": \"Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro. Non abbiamo ancora chiesto copia del documento al cliente.\",\n  \"item\": \"fattura relativa al bonifico di 450 euro\",\n  \"reason\": \"Manca il documento di prova del bonifico necessario per chiudere la riconciliazione in sospeso.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "Buongiorno,\n\nPer la riconciliazione del cliente Alfa, manca ancora la fattura relativa al bonifico di 450 euro. Potrebbe gentilmente fornirci copia del documento?\n\nGrazie.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.7820584492392381
+        }
+      ]
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta: misure aggiornate del lotto",
+        "reason": "Manca l'input delle misure aggiornate del lotto per procedere al confronto richiesto.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+        "draft": "Buongiorno,\n\nPer procedere con il confronto delle due alternative per il cortile, è necessario ricevere le misure aggiornate del lotto.\n\nPotreste gentilmente fornirci questi dati?\n\nGrazie."
+      },
+      "matched": true,
+      "seconds": 5.941,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.7180231148901712
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "message",
+          "confidence": 0.847291688282779
+        },
+        {
+          "generated": "{\n  \"quote\": \"Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.\",\n  \"item\": \"misure aggiornate del lotto\",\n  \"reason\": \"Manca l'input delle misure aggiornate del lotto per procedere al confronto richiesto.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "Buongiorno,\n\nPer procedere con il confronto delle due alternative per il cortile, è necessario ricevere le misure aggiornate del lotto.\n\nPotreste gentilmente fornirci questi dati?\n\nGrazie.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.7821188294677655
+        }
+      ]
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la verifica: invoice_parser",
+        "reason": "Il modulo invoice_parser è mancante e il comando di importazione fallisce all'avvio.",
+        "quote": "Build failed: ModuleNotFoundError: No module named invoice_parser. The new invoice import command fails on startup.",
+        "draft": "- Confirm if invoice_parser is a required dependency or an internal module.\n- Check the project's requirements.txt for missing packages.\n- Verify if a local module exists but is misnamed or hidden.\n- Ask the developer to confirm the intended source of invoice_parser."
+      },
+      "matched": true,
+      "seconds": 6.418,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.6456289493593201
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "checklist",
+          "confidence": 0.5263786295869977
+        },
+        {
+          "generated": "{\n  \"quote\": \"Build failed: ModuleNotFoundError: No module named invoice_parser. The new invoice import command fails on startup.\",\n  \"item\": \"invoice_parser\",\n  \"reason\": \"Il modulo invoice_parser è mancante e il comando di importazione fallisce all'avvio.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "- 1. Confirm if invoice_parser is a required dependency or an internal module.\n- 2. Check the project's requirements.txt for missing packages.\n- 3. Verify if a local module exists but is misnamed or hidden.\n- 4. Ask the developer to confirm the intended source of invoice_parser.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.6623190376796843
+        }
+      ]
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta: Due invitati non ci hanno ancora detto se hanno allergie.",
+        "reason": "Le allergie degli ospiti non sono state comunicate, rendendo impossibile preparare la lista della spesa in sicurezza.",
+        "quote": "Due invitati non ci hanno ancora detto se hanno allergie.",
+        "draft": "Buongiorno,\n\nPer la cena di domani con otto persone, due ospiti non hanno ancora comunicato le loro allergie. Potreste gentilmente chiedere queste informazioni prima che si prepari la lista della spesa?\n\nGrazie."
+      },
+      "matched": true,
+      "seconds": 5.919,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.6197393396177888
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "message",
+          "confidence": 0.7920727603897811
+        },
+        {
+          "generated": "{\n  \"quote\": \"Due invitati non ci hanno ancora detto se hanno allergie.\",\n  \"item\": \"allergie degli invitati\",\n  \"reason\": \"Le allergie degli ospiti non sono state comunicate, rendendo impossibile preparare la lista della spesa in sicurezza.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "Buongiorno,\n\nPer la cena di domani con otto persone, due ospiti non hanno ancora comunicato le loro allergie. Potreste gentilmente chiedere queste informazioni prima che si prepari la lista della spesa?\n\nGrazie.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.7947340273047911
+        }
+      ]
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara la richiesta: signed approval",
+        "reason": "Manca l'approvazione firmata del layout della cucina richiesta dal cliente.",
+        "quote": "We still need the signed approval for the kitchen layout.",
+        "draft": "Hello,\n\nCould you please provide the signed approval for the kitchen layout? The design review is currently waiting on this item.\n\nThank you."
+      },
+      "matched": true,
+      "seconds": 5.195,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.6640449681580822
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "message",
+          "confidence": 0.8212704975593348
+        },
+        {
+          "generated": "{\n  \"quote\": \"We still need the signed approval for the kitchen layout.\",\n  \"item\": \"signed approval\",\n  \"reason\": \"Manca l'approvazione firmata del layout della cucina richiesta dal cliente.\"\n}",
+          "cancelled": false
+        },
+        {
+          "generated": "Hello,\n\nCould you please provide the signed approval for the kitchen layout? The design review is currently waiting on this item.\n\nThank you.",
+          "cancelled": false
+        },
+        {
+          "decision": "grounded_initiative",
+          "value": true,
+          "confidence": 0.7485586488812477
+        }
+      ]
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 3.008,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.7164421010796949
+        },
+        {
+          "decision": "preparation_kind",
+          "value": "checklist",
+          "confidence": 0.7046676069345672
+        },
+        {
+          "generated": "{\n  \"quote\": \"\\\"The rollback procedure is missing from the current draft. Please prepare a checklist of the missing rollback steps for the discussion.\\\",\n  \"item\": \"rollback procedure\",\n  \"reason\": \"Il documento attuale non include la procedura di rollback richiesta per il meeting.\"\n}",
+          "cancelled": false
+        }
+      ]
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.371,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.5706250017689579
+        }
+      ]
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.374,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": false,
+          "confidence": 0.6250506766189183
+        }
+      ]
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.372,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": false,
+          "confidence": 0.8912206220194561
+        }
+      ]
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.375,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": false,
+          "confidence": 0.9448530874137375
+        }
+      ]
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.371,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": false,
+          "confidence": 0.7956287544583733
+        }
+      ]
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.374,
+      "trace": [
+        {
+          "decision": "useful_initiative",
+          "value": true,
+          "confidence": 0.5473390732195894
+        }
+      ]
+    }
+  ]
+}

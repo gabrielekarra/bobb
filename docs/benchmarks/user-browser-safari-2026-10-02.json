@@ -1,0 +1,18 @@
+{
+  "accessibilityGranted" : true,
+  "application" : "Safari",
+  "applicationPath" : "\/System\/Volumes\/Preboot\/Cryptexes\/App\/System\/Applications\/Safari.app",
+  "automationVerified" : true,
+  "bundleId" : "com.apple.Safari",
+  "detail" : "",
+  "existingPIDs" : [
+
+  ],
+  "leftApplicationRunning" : true,
+  "passed" : true,
+  "profile" : "user_session",
+  "remainingPIDs" : [
+    5704
+  ],
+  "reusedExistingApplication" : true
+}

@@ -1,0 +1,128 @@
+{
+  "scope": "Thirteen synthetic development cases; prompts were iterated against these cases. Not a held-out benchmark, real-app task completion or statistical calibration.",
+  "generator": "mlx-community/Qwen3.5-4B-4bit",
+  "decision": "kev-4b-mlx-8bit",
+  "cases": [
+    {
+      "case": "legal",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta procura firmata",
+        "reason": "Manca la procura firmata necessaria per procedere con il deposito della pratica.",
+        "quote": "Pratica cliente Rossi: manca la procura firmata. Prima di predisporre il deposito, chiedere al cliente il documento mancante.",
+        "draft": "Gentile Cliente Rossi,\n\nLa Sua pratica è in attesa della procura firmata.\nPotrebbe per favore inviarci il documento firmato?\n\nGrazie,\n[Il tuo nome]"
+      },
+      "matched": true,
+      "seconds": 6.083
+    },
+    {
+      "case": "accounting",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta fattura cliente Alfa",
+        "reason": "Manca la copia della fattura relativa al bonifico di 450 euro per chiudere il riepilogo.",
+        "quote": "Riconciliazione cliente Alfa: manca la fattura relativa al bonifico di 450 euro. Non abbiamo ancora chiesto copia del documento al cliente.",
+        "draft": "Gentile Cliente Alfa,\n\nPer procedere con la riconciliazione, si prega di inviarci copia della fattura relativa al bonifico di 450 euro.\n\nGrazie per la collaborazione."
+      },
+      "matched": true,
+      "seconds": 6.479
+    },
+    {
+      "case": "architecture",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara richiesta misure lotto aggiornate",
+        "reason": "Il confronto delle alternative per il cortile richiede le misure attuali del lotto non ancora disponibili.",
+        "quote": "Mancano le misure aggiornate del lotto, necessarie prima di preparare il confronto.",
+        "draft": "Gentile team,\n\nPer procedere con la revisione del progetto cortile e confrontare le due alternative richieste dal cliente, è necessario ricevere le misure aggiornate del lotto.\n\nPotessiste condividerle al più presto?\n\nGrazie,\n[Il tuo nome]"
+      },
+      "matched": true,
+      "seconds": 6.201
+    },
+    {
+      "case": "development",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara il modulo invoice_parser",
+        "reason": "Il log mostra che il modulo invoice_parser è mancante e causa l'errore di importazione.",
+        "quote": "Build failed: ModuleNotFoundError: No module named invoice_parser. The new invoice import command fails on startup.",
+        "draft": "Gentile sviluppatore,\n\nIl log di build indica che il modulo 'invoice_parser' non è installato, causando l'errore.\n\nPotresti verificare se il modulo è incluso nel progetto o se è necessario installarlo?\n\nGrazie."
+      },
+      "matched": true,
+      "seconds": 6.094
+    },
+    {
+      "case": "everyday",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara messaggio per chiedere allergie",
+        "reason": "Due ospiti non hanno ancora comunicato eventuali allergie alimentari per la cena di domani.",
+        "quote": "Due invitati non ci hanno ancora detto se hanno allergie.",
+        "draft": "Ciao, per la cena di domani con gli otto ospiti, potresti gentilmente confermare se hai eventuali allergie alimentari? Grazie!"
+      },
+      "matched": true,
+      "seconds": 5.124
+    },
+    {
+      "case": "client_followup",
+      "expected_suggestion": true,
+      "proposal": {
+        "title": "Prepara il messaggio di reminder per la firma",
+        "reason": "Il cliente richiede un breve reminder per l'approvazione firmata del layout della cucina.",
+        "quote": "We still need the signed approval for the kitchen layout. Could you prepare a short reminder for the client?",
+        "draft": "Gentile [Nome Cliente],\n\nVi ricordiamo gentilmente che stiamo ancora in attesa dell'approvazione firmata per il layout della cucina.\n\nLa revisione del design è attualmente in sospeso fino al ricevimento di questo documento.\n\nRestiamo a disposizione per qualsiasi chiarimento.\n\nGrazie,\n[Il Tuo Nome]"
+      },
+      "matched": true,
+      "seconds": 6.706
+    },
+    {
+      "case": "meeting_input",
+      "expected_suggestion": true,
+      "proposal": null,
+      "matched": false,
+      "seconds": 5.748
+    },
+    {
+      "case": "advertisement",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.384
+    },
+    {
+      "case": "quoted_example",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.383
+    },
+    {
+      "case": "resolved_error",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.387
+    },
+    {
+      "case": "finished",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.389
+    },
+    {
+      "case": "navigation",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.384
+    },
+    {
+      "case": "injection",
+      "expected_suggestion": false,
+      "proposal": null,
+      "matched": true,
+      "seconds": 0.384
+    }
+  ]
+}
