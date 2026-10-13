@@ -136,22 +136,83 @@ final class NativeComputer: TaskDriver {
     private let primary: AXDriver
     private let fallback: CUANativeComputer?
     private var active: any TaskDriver
-    init(primary: AXDriver, fallback: CUANativeComputer?) { self.primary=primary; self.fallback=fallback; active=primary }
+    private var toolComputer: AppToolComputer?
+    private var connectorComputer: MCPComputer?
+    private var selectedConnector: MCPConfiguration?
+    private let settings: (() -> BobbSettings)?
+    private let ownsScreen: () -> Bool
+    private var usingTools = false
+    init(primary: AXDriver, fallback: CUANativeComputer?, settings: (() -> BobbSettings)? = nil, ownsScreen: @escaping () -> Bool = { true }) {
+        self.primary=primary; self.fallback=fallback; active=primary; self.settings = settings; self.ownsScreen = ownsScreen
+        if let settings {
+            let permitted: (AppTool) -> Bool = { tool in
+                let s = settings()
+                let actualName = NSWorkspace.shared.urlForApplication(withBundleIdentifier: tool.bundleId)
+                    .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? tool.app
+                return ownsScreen() && s.actingEnabled && s.bobb.boundaries.canWork()
+                    && s.bobb.boundaries.app(bundleId: tool.bundleId, name: tool.app) != nil
+                    && !s.bobb.boundaries.isExcluded(bundleId: tool.bundleId, name: actualName)
+                    && !ActionPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: tool.bundleId, appName: tool.app)
+                    && !ActionPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: tool.bundleId, appName: actualName)
+            }
+            let adapters = NativeAppTools(permitted: permitted)
+            toolComputer = AppToolComputer(tools: NativeAppToolCatalog.tools, name: NativeAppToolCatalog.applicationName,
+                bundleId: NativeAppToolCatalog.bundleId, permitted: permitted, execute: { tool, arguments in try await adapters.execute(tool, arguments) })
+        }
+    }
     func observe() async -> ScreenObservation? {
+        if usingTools { return await active.observe() }
         if let screen = await primary.observe(), !screen.elements.isEmpty, !screen.unreadable { active=primary; return screen }
         if let fallback, let screen = await fallback.observe() { active=fallback; return screen }
         active=primary; return await primary.observe()
     }
-    func installedApps() -> [String] { primary.installedApps() }
-    func bundleIdentifier(forApp name: String) -> String? { primary.bundleIdentifier(forApp:name) }
+    func installedApps() -> [String] {
+        var apps = primary.installedApps()
+        if toolComputer != nil, let s = settings?(), s.bobb.boundaries.app(bundleId: NativeAppToolCatalog.bundleId, name: NativeAppToolCatalog.applicationName) != nil {
+            apps.append(NativeAppToolCatalog.applicationName)
+        }
+        for config in settings?().bobb.connectors ?? [] where config.enabled {
+            if settings?().bobb.boundaries.app(bundleId: "mcp:\(config.id)", name: "MCP \(config.id)") != nil { apps.append("MCP \(config.id)") }
+        }
+        return apps
+    }
+    func bundleIdentifier(forApp name: String) -> String? {
+        if name == NativeAppToolCatalog.applicationName { return NativeAppToolCatalog.bundleId }
+        if let config = settings?().bobb.connectors.first(where: { "MCP \($0.id)" == name && $0.enabled }) { return "mcp:\(config.id)" }
+        return primary.bundleIdentifier(forApp:name)
+    }
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { active.offeredKeys(for:observation) }
     func permissionDetail(for action: DriverAction) -> String? { active.permissionDetail(for:action) }
+    func actionContext(for action: DriverAction) -> DriverActionContext? {
+        if case .openApp = action { return nil }
+        return active.actionContext(for: action)
+    }
+    func supportsUndo(for action: DriverAction) -> Bool {
+        if case .openApp = action { return false }
+        return active.supportsUndo(for: action)
+    }
     func perform(_ action: DriverAction) async -> DriverResult {
-        if case .openApp = action { active = primary; return await primary.perform(action) }
+        if case .openApp(let name) = action {
+            guard ownsScreen(), installedApps().contains(name) else { return .stale }
+            if name == NativeAppToolCatalog.applicationName, let toolComputer { active = toolComputer; usingTools = true; return .ok }
+            if let config = settings?().bobb.connectors.first(where: { "MCP \($0.id)" == name && $0.enabled }), let settings {
+                if selectedConnector != config {
+                    connectorComputer?.close(); selectedConnector = config
+                    connectorComputer = MCPComputer(configuration: config, goal: "", enabled: { [ownsScreen = self.ownsScreen] in
+                        let s = settings()
+                        return ownsScreen() && s.actingEnabled && s.bobb.boundaries.canWork()
+                            && s.bobb.connectors.contains(config)
+                            && s.bobb.boundaries.app(bundleId: "mcp:\(config.id)", name: name) != nil
+                    })
+                }
+                if let connectorComputer { active = connectorComputer; usingTools = true; return .ok }
+            }
+            usingTools = false; active = primary; return await primary.perform(action)
+        }
         return await active.perform(action)
     }
     func settle() async { await active.settle() }
     func undoLast() async -> Bool { await active.undoLast() }
     func completionProblem(goal: String) async -> String? { await active.completionProblem(goal:goal) }
-    func close() async { await fallback?.close() }
+    func close() async { await fallback?.close(); await toolComputer?.close(); connectorComputer?.close() }
 }

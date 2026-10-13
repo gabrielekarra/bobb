@@ -51,6 +51,16 @@ public enum DriverResult: Sendable, Equatable {
     case failed(String)
 }
 
+/// Trusted metadata supplied by a driver, never by model-generated text.
+public struct DriverActionContext: Sendable, Equatable {
+    public var bundleId: String
+    public var app: String
+    public var categories: [ActionCategory]
+    public init(bundleId: String, app: String, categories: [ActionCategory]) {
+        self.bundleId = bundleId; self.app = app; self.categories = categories
+    }
+}
+
 /// The platform half of a task: reads the accessibility tree and operates
 /// applications. Implemented with AX in the app, with fakes in tests.
 @MainActor
@@ -65,6 +75,8 @@ public protocol TaskDriver: AnyObject {
     func bundleIdentifier(forApp name: String) -> String?
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord]
     func permissionDetail(for action: DriverAction) -> String?
+    func actionContext(for action: DriverAction) -> DriverActionContext?
+    func supportsUndo(for action: DriverAction) -> Bool
     func perform(_ action: DriverAction) async -> DriverResult
     /// Waits for the screen to stop changing after an action.
     func settle() async
@@ -81,6 +93,8 @@ extension TaskDriver {
     public func bundleIdentifier(forApp name: String) -> String? { nil }
     public func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { KeyChord.offered(bundleId: observation.bundleId) }
     public func permissionDetail(for action: DriverAction) -> String? { nil }
+    public func actionContext(for action: DriverAction) -> DriverActionContext? { nil }
+    public func supportsUndo(for action: DriverAction) -> Bool { if case .openApp = action { return false }; return true }
 }
 
 /// The daemon half of a task: plans and decides. Implemented over the
@@ -232,13 +246,15 @@ public final class TaskLoop {
 
             let element = resolved.element
             let actionDetail = driver.permissionDetail(for: resolved.action) ?? act.text
+            let actionContext = driver.actionContext(for: resolved.action)
             let multiline = element?.role == "AXTextArea" || element?.role == "AXWebArea"
             let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: element?.role ?? resolved.role,
-                                          appBundleId: act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId,
-                                          appName: act.operation == .openApp ? resolved.label : observation.app,
+                                          appBundleId: actionContext?.bundleId ?? (act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId),
+                                          appName: actionContext?.app ?? (act.operation == .openApp ? resolved.label : observation.app),
                                           secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
                                           window: observation.window, key: resolved.key, defaultButton: observation.defaultButton,
-                                          context: observation.screenText, typedText: actionDetail ?? "", websiteURL: observation.sourceURL)
+                                          context: observation.screenText, typedText: actionDetail ?? "", websiteURL: actionContext == nil ? observation.sourceURL : nil,
+                                          actionCategories: actionContext?.categories)
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
@@ -246,7 +262,7 @@ public final class TaskLoop {
                 return await finish(.blocked, detail: reason)
             case .ask(let reason):
                 let request = PermissionRequest(operation: act.operation, label: resolved.label, role: resolved.role,
-                                                app: observation.app, reason: reason, text: actionDetail)
+                                                app: actionContext?.app ?? observation.app, reason: reason, text: actionDetail)
                 state.task?.phase = .waitingForPermission(request)
                 let answer = await askPermission()
                 if answer == .deny || stopped {
@@ -286,7 +302,7 @@ public final class TaskLoop {
                          permission: permissionUsed, digest: digest, latency: Date().timeIntervalSince(started) * 1000)
             if outcome == .ok {
                 failures = 0
-                state.task?.canUndo = act.operation != .openApp
+                state.task?.canUndo = driver.supportsUndo(for: resolved.action)
             } else {
                 failures += 1
                 if failures >= maxConsecutiveFailures { return await finish(.failed, detail: "actions") }

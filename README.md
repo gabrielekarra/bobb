@@ -134,6 +134,9 @@ built apps, models and runtime data are not.
 
 ## What else it can do
 
+- Use native Calendar, Reminders, Contacts, Shortcuts, Music and Mail tools
+  alongside desktop controls and configured MCP connectors in a desktop task.
+  See [app integrations and their limits](docs/APP-INTEGRATIONS.md).
 - Answer questions and transform selected text using local generation and
   relevant local memory, with source references when memory is used.
 - Propose and execute steps through macOS Accessibility, with a typed CUA fallback

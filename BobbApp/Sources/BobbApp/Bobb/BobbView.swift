@@ -28,6 +28,7 @@ struct BobbView: View {
     @State private var connectorName = ""
     @State private var connectorExecutable = ""
     @State private var connectorArguments = ""
+    @State private var connectorImportStatus = ""
     @State private var guestAddress = ""
     @State private var guestUser = ""
     @State private var guestKey = ""
@@ -581,12 +582,25 @@ struct BobbView: View {
                 hint(workspace.messages.status)
                 hint(t("On iPhone: /bobb your question, /bobb status, or /bobb run https://site.example your task. Requires Full Disk Access and Messages Automation on the Mac. Replies follow Messages' send boundary.", "Da iPhone: /bobb la tua domanda, /bobb status oppure /bobb run https://sito.example il tuo incarico. Richiede Accesso completo al disco e Automazione di Messaggi sul Mac. Le risposte rispettano il Confine di invio di Messaggi."))
             }
+            Section(t("Native app integrations", "Integrazioni native delle app")) {
+                Text(t("Calendar, Reminders, Contacts, Shortcuts, Music and Mail", "Calendario, Promemoria, Contatti, Comandi Rapidi, Musica e Mail"))
+                hint(t("Ask Bobb from Option–Space or a desktop assignment. It can choose native tools, configured connectors and your real app controls in the same task. macOS asks for access when a tool first needs it; app boundaries apply to every call.", "Chiedi a Bobb da Option–Spazio o da un incarico sul desktop. Può scegliere strumenti nativi, connettori configurati e controlli delle tue app nello stesso incarico. macOS chiede accesso quando uno strumento ne ha bisogno; i confini delle app valgono per ogni chiamata."))
+            }
             Section(t("Optional MCP connectors", "Connettori MCP opzionali")) {
                 ForEach(state.settings.bobb.connectors) { config in
                     HStack { Text(config.id); hint(config.executable); Spacer()
-                        Button(t("Remove", "Rimuovi"), role: .destructive) { workspace.coordinator.updateSettings { $0.bobb.connectors.removeAll { $0.id == config.id }; $0.bobb.boundaries.apps.removeAll { $0.id == "mcp:\(config.id)" } } }
+                        Toggle(t("Enabled", "Attivo"), isOn: Binding(get: { state.settings.bobb.connectors.first { $0.id == config.id }?.enabled == true }, set: { value in
+                            workspace.coordinator.updateSettings { s in if let index = s.bobb.connectors.firstIndex(where: { $0.id == config.id }) { s.bobb.connectors[index].enabled = value } }
+                            if value { connect(id: "mcp:\(config.id)", name: "MCP \(config.id)") }
+                        }))
+                        Button(t("Remove", "Rimuovi"), role: .destructive) {
+                            config.environmentReferences.values.forEach(MCPSecrets.remove)
+                            workspace.coordinator.updateSettings { $0.bobb.connectors.removeAll { $0.id == config.id }; $0.bobb.boundaries.apps.removeAll { $0.id == "mcp:\(config.id)" } }
+                        }
                     }
                 }
+                Button(t("Import MCP configuration…", "Importa configurazione MCP…"), action: importConnectors)
+                if !connectorImportStatus.isEmpty { hint(connectorImportStatus) }
                 TextField(t("Connector name", "Nome connettore"), text: $connectorName)
                 TextField(t("Absolute executable path", "Percorso assoluto dell’eseguibile"), text: $connectorExecutable)
                 TextField(t("Arguments, one per line", "Argomenti, uno per riga"), text: $connectorArguments, axis: .vertical).lineLimit(1...3)
@@ -624,6 +638,23 @@ struct BobbView: View {
                 hint(t("Select the virtual-mac connector for an assignment. Host and guest boundaries both apply. An action that asks in the guest remains blocked until you review that category there.", "Seleziona il connettore virtual-mac per un incarico. Valgono i confini sia del Mac principale sia del guest. Un’azione che chiede nel guest resta bloccata finché rivedi lì quella categoria."))
             }
         }.formStyle(.grouped)
+    }
+
+    private func importConnectors() {
+        let picker = NSOpenPanel(); picker.allowedContentTypes = [.json]; picker.allowsMultipleSelection = false
+        guard picker.runModal() == .OK, let file = picker.url else { return }
+        do {
+            let configurations = try MCPSecrets.imported(Data(contentsOf: file))
+            let replaced = state.settings.bobb.connectors.filter { previous in configurations.contains { $0.id == previous.id } }
+            workspace.coordinator.updateSettings { settings in
+                settings.bobb.connectors.removeAll { previous in configurations.contains { $0.id == previous.id } }
+                settings.bobb.connectors += configurations
+            }
+            replaced.flatMap { $0.environmentReferences.values }.forEach(MCPSecrets.remove)
+            connectorImportStatus = t("Imported disabled connectors. Review their executables and enable the ones you want; environment values are kept in Keychain.", "Connettori importati disattivati. Verifica gli eseguibili e attiva quelli desiderati; i valori di ambiente sono nel Portachiavi.")
+        } catch {
+            connectorImportStatus = t("Import failed. Use a local stdio mcpServers JSON with installed executables and no shell/environment overrides.", "Importazione fallita. Usa un JSON mcpServers stdio con eseguibili installati, senza modifiche a shell o ambiente di sistema.")
+        }
     }
 
     private func connectGuest() {

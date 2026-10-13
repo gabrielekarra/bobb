@@ -4,7 +4,7 @@ import Foundation
 /// Runs small AppleScripts in-process. Scripts are compiled once and cached,
 /// because compiling costs more than running a one-line `tell`.
 ///
-/// Only ever scripts Mail, only ever with the fixed sources in this target:
+/// Only uses the fixed Mail, Messages and Music sources in this target:
 /// no text from an email or from the model is ever spliced into script
 /// source. Values go in as handler arguments, which AppleScript treats as
 /// data.

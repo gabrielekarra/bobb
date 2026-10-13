@@ -1,1 +1,4 @@
-"NSAppleEventsUsageDescription" = "Bobb reads Mail and uses Messages on this Mac unless you exclude them. Sending follows your allow, ask or never rules.";
+"NSAppleEventsUsageDescription" = "Bobb uses Mail, Messages and Music on this Mac for your requests, following your allow, ask or never rules.";
+"NSCalendarsFullAccessUsageDescription" = "Bobb reads your calendar and changes events you request, following your app boundaries.";
+"NSRemindersFullAccessUsageDescription" = "Bobb reads, creates and updates reminders you request, following your app boundaries.";
+"NSContactsUsageDescription" = "Bobb searches contacts on this Mac to resolve exact people and addresses for your requests.";
