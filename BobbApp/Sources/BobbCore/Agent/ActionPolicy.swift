@@ -139,13 +139,6 @@ public struct ActionPolicy: Sendable {
         default:
             break
         }
-        if appBundleId == "com.apple.shortcuts", actionCategories?.contains(.execute) == true {
-            // A shortcut may affect apps whose boundaries cannot be inspected
-            // here. Denials still win; otherwise review this exact invocation.
-            if let boundaries, case .deny(let reason) = boundaries.evaluate(category: .execute, bundleId: appBundleId, name: appName,
-                context: context + " " + typedText) { return .deny(reason: reason) }
-            return .ask(reason: "boundary:execute")
-        }
         if let bundle = appBundleId, Self.askEveryStepApps.contains(bundle) {
             if window.isEmpty || Self.isDeniedPane(window) { return .deny(reason: "protected") }
             if let boundaries { return boundaries.evaluate(category: .settings, bundleId: bundle, name: appName, context: context) }

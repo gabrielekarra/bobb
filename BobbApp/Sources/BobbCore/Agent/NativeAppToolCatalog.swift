@@ -45,7 +45,7 @@ public enum NativeAppToolCatalog {
              ["query": requiredText("Name to search"), "limit": limit, "offset": offset], ["query"]),
         tool("shortcuts.list", "Shortcuts / Comandi Rapidi: list shortcuts", "Discover installed shortcuts. Any installed app exposing Shortcuts can be reached through them.", "Shortcuts", "com.apple.shortcuts", .navigate,
              ["limit": limit, "offset": offset]),
-        tool("shortcuts.run", "Shortcuts / Comandi Rapidi: run shortcut", "Run an exact name from the current list. May affect other apps; always requires review of this invocation.", "Shortcuts", "com.apple.shortcuts", .execute,
+        tool("shortcuts.run", "Shortcuts / Comandi Rapidi: run shortcut", "Run an exact name from the current list, following the Shortcuts execute boundary. The shortcut can act in other apps.", "Shortcuts", "com.apple.shortcuts", .execute,
              ["name": requiredText("Exact name returned by shortcuts.list"), "input": text("Optional plain text input", max: 32000)], ["name"]),
         tool("music.status", "Music / Musica: now playing", "Read current track, playback state and volume.", "Music", "com.apple.Music"),
         tool("music.search", "Music / Musica: search library", "Search the user's local Music library. Returns exact track ids.", "Music", "com.apple.Music", .navigate,

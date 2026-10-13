@@ -179,8 +179,7 @@ final class NativeAppTools {
         case "shortcuts.run":
             let name = string(args, "name")
             guard shortcutNames.contains(name) else { throw Failure.unavailable("List shortcuts first and choose an exact returned name.") }
-            // Effects of a shortcut cannot be inferred from its name. An
-            // explicit review is required even when execute is set to allow.
+            // TaskLoop applied the user's execute boundary before this call.
             let output = try await AppIntegrationProcess.runShortcut(name: name, input: args["input"]?.stringValue)
             return ["status": "finished", "shortcut": .string(name), "output": .string(output),
                     "verification": "The shortcut process finished; verify its app effects on screen."]

@@ -35,7 +35,8 @@ import Testing
         #expect(policy.evaluate(operation: .click, label: "Read", role: "button", appBundleId: "com.apple.iCal", appName: "Calendar", actionCategories: [.delete]) == .deny(reason: "boundary:delete"))
         #expect(policy.evaluate(operation: .click, label: "Call create", role: "button", appBundleId: "com.apple.iCal", appName: "Calendar", actionCategories: [.write]) == .allow)
         boundaries.apps = [AppBoundary(id: "com.apple.shortcuts", name: "Shortcuts", actions: ["execute": .allow])]
-        #expect(ActionPolicy(boundaries: boundaries).evaluate(operation: .click, label: "Call", role: "button", appBundleId: "com.apple.shortcuts", appName: "Shortcuts", actionCategories: [.execute]) == .ask(reason: "boundary:execute"))
+        #expect(ActionPolicy(boundaries: boundaries).evaluate(operation: .click, label: "Call", role: "button", appBundleId: "com.apple.shortcuts", appName: "Shortcuts", actionCategories: [.execute]) == .allow)
+        #expect(ActionPolicy(boundaries: BoundaryConfiguration()).evaluate(operation: .click, label: "Call", role: "button", appBundleId: "com.apple.shortcuts", appName: "Shortcuts", actionCategories: [.execute]) == .ask(reason: "boundary:execute"))
     }
 }
 
