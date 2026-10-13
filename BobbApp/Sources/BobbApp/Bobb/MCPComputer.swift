@@ -185,5 +185,6 @@ final class MCPComputer: TaskDriver {
     func undoLast() async -> Bool { false }
     func supportsUndo(for action: DriverAction) -> Bool { false }
     func completionProblem(goal: String) async -> String? { await computer?.completionProblem(goal: goal) ?? "No connector result has been observed." }
-    func close() { closed = true; connection.disconnect(); let computer = computer; Task { await computer?.close() } }
+    func shutdown() { closed = true; connection.disconnect() }
+    func close() async { shutdown(); await computer?.close() }
 }

@@ -40,6 +40,7 @@ import Testing
 }
 
 @MainActor @Suite struct AppToolComputerTests {
+    @MainActor private final class Access { var allowed = true }
     private var tool: AppTool { NativeAppToolCatalog.tools.first { $0.id == "reminders.create" }! }
     @Test func discoveryAndPreparationDoNotExecuteAndWritesAreDeduplicated() async {
         var calls = 0
@@ -58,14 +59,14 @@ import Testing
         #expect((await driver.observe())?.screenText.contains("created") == true)
     }
     @Test func invalidArgumentsAndRevokedAppsNeverRun() async {
-        var allowed = true; var calls = 0
-        let driver = AppToolComputer(tools: [tool], permitted: { _ in allowed }) { _, _ in calls += 1; return ["status": "created"] }
+        let access = Access(); var calls = 0
+        let driver = AppToolComputer(tools: [tool], permitted: { _ in access.allowed }) { _, _ in calls += 1; return ["status": "created"] }
         _ = await driver.perform(.press(key: 0))
         _ = await driver.perform(.type(key: -2, text: #"{"unknown":1}"#, submit: false))
         #expect(await driver.perform(.press(key: -3)) == .failed("invalidToolArguments"))
         #expect(calls == 0)
         _ = await driver.perform(.type(key: -2, text: #"{"title":"x"}"#, submit: false))
-        allowed = false
+        access.allowed = false
         #expect(await driver.perform(.press(key: -3)) == .failed("invalidToolArguments"))
         #expect((await driver.observe())?.elements.isEmpty == true)
         #expect(calls == 0)
@@ -79,6 +80,24 @@ import Testing
         await driver.close()
         #expect(await driver.perform(.press(key: -3)) == .stale)
         #expect(await driver.observe() == nil)
+    }
+    @Test func repeatablePlaybackCommandsRunAgainAndRevokedResultsAreHidden() async {
+        let next = NativeAppToolCatalog.tools.first { $0.id == "music.next" }!
+        let access = Access(); var calls = 0
+        let driver = AppToolComputer(tools: [next], permitted: { _ in access.allowed }) { _, _ in
+            calls += 1
+            if calls == 3 { access.allowed = false }
+            return ["title": .string("Track \(calls)")]
+        }
+        _ = await driver.perform(.press(key: 0))
+        #expect(await driver.perform(.press(key: -3)) == .ok)
+        let first = await driver.observe()
+        #expect(first == (await driver.observe()))
+        #expect(await driver.perform(.press(key: -3)) == .ok)
+        #expect(calls == 2)
+        #expect(await driver.perform(.press(key: -3)) == .stale)
+        #expect(await driver.completionProblem(goal: "next") != nil)
+        #expect((await driver.observe())?.screenText.contains("Track 3") == false)
     }
     @Test func taskLoopDeniesToolDeletionBeforeTheAdapter() async {
         let delete = NativeAppToolCatalog.tools.first { $0.id == "reminders.delete" }!

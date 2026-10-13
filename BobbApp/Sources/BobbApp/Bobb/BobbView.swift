@@ -583,7 +583,7 @@ struct BobbView: View {
                 hint(t("On iPhone: /bobb your question, /bobb status, or /bobb run https://site.example your task. Requires Full Disk Access and Messages Automation on the Mac. Replies follow Messages' send boundary.", "Da iPhone: /bobb la tua domanda, /bobb status oppure /bobb run https://sito.example il tuo incarico. Richiede Accesso completo al disco e Automazione di Messaggi sul Mac. Le risposte rispettano il Confine di invio di Messaggi."))
             }
             Section(t("Native app integrations", "Integrazioni native delle app")) {
-                Text(t("Calendar, Reminders, Contacts, Shortcuts, Music and Mail", "Calendario, Promemoria, Contatti, Comandi Rapidi, Musica e Mail"))
+                Text(t("Calendar, Reminders, Contacts, Shortcuts, Music, Mail and Messages", "Calendario, Promemoria, Contatti, Comandi Rapidi, Musica, Mail e Messaggi"))
                 hint(t("Ask Bobb from Option–Space or a desktop assignment. It can choose native tools, configured connectors and your real app controls in the same task. macOS asks for access when a tool first needs it; app boundaries apply to every call.", "Chiedi a Bobb da Option–Spazio o da un incarico sul desktop. Può scegliere strumenti nativi, connettori configurati e controlli delle tue app nello stesso incarico. macOS chiede accesso quando uno strumento ne ha bisogno; i confini delle app valgono per ogni chiamata."))
             }
             Section(t("Optional MCP connectors", "Connettori MCP opzionali")) {

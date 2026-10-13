@@ -1,7 +1,7 @@
 import Foundation
 
 public enum NativeAppToolCatalog {
-    public static let applicationName = "Mac tools: Calendario Promemoria Contatti Comandi Rapidi Musica Mail / Calendar Reminders Contacts Shortcuts Music"
+    public static let applicationName = "Mac tools: Calendario Promemoria Contatti Comandi Rapidi Musica Mail Messaggi / Calendar Reminders Contacts Shortcuts Music Messages"
     public static let bundleId = "com.bobb.integrations"
     private static func text(_ description: String, max: Int = 8000) -> JSONValue {
         ["type": "string", "description": .string(description), "maxLength": .number(Double(max))]
@@ -64,5 +64,11 @@ public enum NativeAppToolCatalog {
              ["to": ["type": "array", "maxItems": 20, "items": requiredText("Exact email address")], "subject": text("Subject"), "body": requiredText("Body")], ["to", "subject", "body"]),
         tool("mail.mark", "Mail / Posta: mark email", "Change read/unread or flag status for an exact Message-ID.", "Mail", "com.apple.mail", .write,
              ["message_id": identifier, "operation": ["type": "string", "enum": ["read", "unread", "flag", "unflag"]]], ["message_id", "operation"]),
+        tool("messages.list", "Messages / Messaggi: list conversations", "Read individual iMessage chats on request. Requires Full Disk Access; returns exact chat ids and recipient addresses.", "Messages", "com.apple.MobileSMS", .navigate,
+             ["limit": limit, "offset": offset]),
+        tool("messages.read", "Messages / Messaggi: read conversation", "Read a page of an exact previously listed individual chat. Attachment contents and unsupported text archives are not read.", "Messages", "com.apple.MobileSMS", .navigate,
+             ["chat_id": identifier, "limit": limit, "before_row": ["type": "integer", "minimum": 1, "maximum": 9007199254740991]], ["chat_id"]),
+        tool("messages.send", "Messages / Messaggi: send message", "Submit an iMessage to the exact address of a previously listed individual chat. A submission receipt does not prove delivery.", "Messages", "com.apple.MobileSMS", .send,
+             ["chat_id": identifier, "address": requiredText("Exact recipient address returned by messages.list"), "body": requiredText("Message body")], ["chat_id", "address", "body"]),
     ]
 }

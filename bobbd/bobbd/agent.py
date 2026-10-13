@@ -564,12 +564,13 @@ def is_tool_arguments(target: Candidate) -> bool:
 
 def tool_schema(observation: dict) -> dict | None:
     text = str(observation.get("screen_text") or "")
-    match = re.search(r"<tool_schema>\s*(.*?)\s*</tool_schema>", text, re.DOTALL)
-    if match is None:
+    opening = text.find("<tool_schema>")
+    if opening < 0:
         return None
     try:
-        value = json.loads(match.group(1))
-        return value if isinstance(value, dict) else None
+        raw = text[opening + len("<tool_schema>"):].lstrip()
+        value, end = json.JSONDecoder().raw_decode(raw)
+        return value if isinstance(value, dict) and raw[end:].lstrip().startswith("</tool_schema>") else None
     except (ValueError, TypeError):
         return None
 

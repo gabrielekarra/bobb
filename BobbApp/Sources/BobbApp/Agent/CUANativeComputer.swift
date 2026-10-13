@@ -145,7 +145,7 @@ final class NativeComputer: TaskDriver {
     init(primary: AXDriver, fallback: CUANativeComputer?, settings: (() -> BobbSettings)? = nil, ownsScreen: @escaping () -> Bool = { true }) {
         self.primary=primary; self.fallback=fallback; active=primary; self.settings = settings; self.ownsScreen = ownsScreen
         if let settings {
-            let permitted: (AppTool) -> Bool = { tool in
+            let permitted: @MainActor (AppTool) -> Bool = { tool in
                 let s = settings()
                 let actualName = NSWorkspace.shared.urlForApplication(withBundleIdentifier: tool.bundleId)
                     .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? tool.app
@@ -197,7 +197,7 @@ final class NativeComputer: TaskDriver {
             if name == NativeAppToolCatalog.applicationName, let toolComputer { active = toolComputer; usingTools = true; return .ok }
             if let config = settings?().bobb.connectors.first(where: { "MCP \($0.id)" == name && $0.enabled }), let settings {
                 if selectedConnector != config {
-                    connectorComputer?.close(); selectedConnector = config
+                    await connectorComputer?.close(); selectedConnector = config
                     connectorComputer = MCPComputer(configuration: config, goal: "", enabled: { [ownsScreen = self.ownsScreen] in
                         let s = settings()
                         return ownsScreen() && s.actingEnabled && s.bobb.boundaries.canWork()
@@ -214,5 +214,5 @@ final class NativeComputer: TaskDriver {
     func settle() async { await active.settle() }
     func undoLast() async -> Bool { await active.undoLast() }
     func completionProblem(goal: String) async -> String? { await active.completionProblem(goal:goal) }
-    func close() async { await fallback?.close(); await toolComputer?.close(); connectorComputer?.close() }
+    func close() async { await fallback?.close(); await toolComputer?.close(); await connectorComputer?.close() }
 }

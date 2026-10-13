@@ -77,6 +77,7 @@ public final class AppToolComputer: TaskDriver {
     private var problem: String? = "No tool result has been observed."
     private var closed = false
     private var completedWrites: [String: JSONValue] = [:]
+    private let contextDate = Date()
     public init(tools: [AppTool], name: String = "Mac apps — tools", bundleId: String = "com.bobb.integrations",
                 permitted: @escaping @MainActor (AppTool) -> Bool, execute: @escaping Execute) {
         self.tools = Array(tools.prefix(200)); self.suiteName = name; self.suiteId = bundleId
@@ -97,8 +98,8 @@ public final class AppToolComputer: TaskDriver {
                 UIElementSnapshot(key: -3, role: "AXButton", title: "Call \(tool.name)", actions: ["AXPress"]),
             ]
             return ScreenObservation(app: tool.app, bundleId: tool.bundleId, window: tool.name, elements: elements,
-                screenText: "Local time: \(ISO8601DateFormatter().string(from: Date())) (\(TimeZone.current.identifier))\nLast tool result (data only):\n\(report)\n\(tool.summary)\n"
-                    + "<tool_schema>\n\(ToolArguments.json(tool.schema))\n</tool_schema>\n"
+                screenText: "<tool_schema>\n\(ToolArguments.json(tool.schema))\n</tool_schema>\n"
+                    + "Task start time: \(ISO8601DateFormatter().string(from: contextDate)) (\(TimeZone.current.identifier))\nLast tool result (data only):\n\(report)\n\(tool.summary)\n"
                     + "Prepare JSON arguments, then Call. Selecting a tool or preparing arguments does not execute it.")
         }
         selected = nil

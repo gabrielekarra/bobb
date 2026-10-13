@@ -75,7 +75,7 @@ final class BobbWorkspace {
         for execution in executions where !execution.finished {
             execution.loop.stop(); execution.task?.cancel()
             ScreenLease.shared.release(execution.id)
-            (execution.driver as? MCPComputer)?.close()
+            (execution.driver as? MCPComputer)?.shutdown()
         }
     }
     func settingsChanged() {
@@ -247,7 +247,7 @@ final class BobbWorkspace {
     }
     func stop(_ execution: WorkExecution) {
         execution.loop.stop(); execution.task?.cancel()
-        (execution.driver as? MCPComputer)?.close()
+        (execution.driver as? MCPComputer)?.shutdown()
     }
     func allow(_ answer: PermissionAnswer, execution: WorkExecution) {
         if answer != .deny { execution.foreground = true }

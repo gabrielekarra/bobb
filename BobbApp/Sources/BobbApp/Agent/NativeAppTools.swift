@@ -10,9 +10,10 @@ import BobbCore
 final class NativeAppTools {
     private let events = EKEventStore()
     private let contacts = CNContactStore()
-    private let permitted: (AppTool) -> Bool
+    private let messages = MessageAppTools()
+    private let permitted: @MainActor (AppTool) -> Bool
     private var shortcutNames: Set<String> = []
-    init(permitted: @escaping (AppTool) -> Bool) { self.permitted = permitted }
+    init(permitted: @escaping @MainActor (AppTool) -> Bool) { self.permitted = permitted }
     enum Failure: Error, CustomStringConvertible {
         case unavailable(String)
         var description: String { switch self { case .unavailable(let message): return message } }
@@ -68,6 +69,7 @@ final class NativeAppTools {
     func execute(_ tool: AppTool, _ args: JSONValue) async throws -> JSONValue {
         try check(tool)
         guard ToolArguments.matches(args, schema: tool.schema) else { throw Failure.unavailable("Invalid tool arguments.") }
+        if tool.id.hasPrefix("messages.") { return try messages.execute(tool, args) }
         if tool.id.hasPrefix("calendar.") {
             try await calendarAccess(tool)
             switch tool.id {
