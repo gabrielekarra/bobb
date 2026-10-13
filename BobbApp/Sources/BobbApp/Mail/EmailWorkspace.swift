@@ -59,7 +59,7 @@ final class EmailWorkspace {
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                Task<Void, Never> { @MainActor [weak self] in await self?.tick() }
+                _ = Task<Void, Never> { @MainActor [weak self] in await self?.tick() }
             }
         }
         if let timer { RunLoop.main.add(timer, forMode: .common) }

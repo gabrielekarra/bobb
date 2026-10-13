@@ -59,11 +59,11 @@ final class NativeAppTools {
          "calendar": .string(event.calendar.title), "location": .string(event.location ?? ""), "notes": .string(event.notes ?? ""),
          "has_attendees": .bool(!(event.attendees ?? []).isEmpty), "recurring": .bool(event.hasRecurrenceRules)]
     }
-    private func reminderSnapshot(_ reminder: EKReminder) -> JSONValue {
+    private nonisolated static func reminderSnapshot(_ reminder: EKReminder) -> JSONValue {
         var result: [String: JSONValue] = ["reminder_id": .string(reminder.calendarItemIdentifier), "title": .string(reminder.title ?? ""),
             "list_id": .string(reminder.calendar.calendarIdentifier), "list": .string(reminder.calendar.title),
             "completed": .bool(reminder.isCompleted), "notes": .string(reminder.notes ?? ""), "priority": .number(Double(reminder.priority))]
-        if let components = reminder.dueDateComponents, let due = Calendar.current.date(from: components) { result["due"] = iso(due) }
+        if let components = reminder.dueDateComponents, let due = Calendar.current.date(from: components) { result["due"] = .string(ISO8601DateFormatter().string(from: due)) }
         return .object(result)
     }
     func execute(_ tool: AppTool, _ args: JSONValue) async throws -> JSONValue {
@@ -123,20 +123,26 @@ final class NativeAppTools {
                 if id.isEmpty { lists = nil }
                 else { guard let list = events.calendar(withIdentifier: id), list.allowedEntityTypes.contains(.reminder) else { throw Failure.unavailable("Reminder list not found.") }; lists = [list] }
                 let predicate = events.predicateForReminders(in: lists)
-                let reminders: [EKReminder] = await withCheckedContinuation { continuation in
-                    events.fetchReminders(matching: predicate) { continuation.resume(returning: $0 ?? []) }
+                let includeCompleted = args["include_completed"]?.boolValue == true
+                let reminders: [JSONValue] = await withCheckedContinuation { continuation in
+                    events.fetchReminders(matching: predicate) { result in
+                        // EventKit objects stay in their callback. Only plain
+                        // Sendable snapshots cross the continuation boundary.
+                        let snapshots = (result ?? []).filter { includeCompleted || !$0.isCompleted }
+                            .sorted { $0.calendarItemIdentifier < $1.calendarItemIdentifier }.map(Self.reminderSnapshot)
+                        continuation.resume(returning: snapshots)
+                    }
                 }
                 try check(tool)
                 guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else { throw Failure.unavailable("Reminders access was revoked.") }
-                return page(reminders.filter { args["include_completed"]?.boolValue == true || !$0.isCompleted }
-                    .sorted { $0.calendarItemIdentifier < $1.calendarItemIdentifier }.map(reminderSnapshot), args)
+                return page(reminders, args)
             case "reminders.create":
                 let reminder = EKReminder(eventStore: events); reminder.calendar = try calendar(args, reminders: true)
                 reminder.title = string(args, "title"); reminder.notes = string(args, "notes"); reminder.priority = Int(args["priority"]?.numberValue ?? 0)
                 if args["due"] != nil { reminder.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second, .timeZone], from: try date(args, "due")) }
                 try check(tool); try events.save(reminder, commit: true)
                 guard let saved = events.calendarItem(withIdentifier: reminder.calendarItemIdentifier) as? EKReminder else { throw Failure.unavailable("The reminder could not be read back.") }
-                return ["status": "created", "reminder": reminderSnapshot(saved)]
+                return ["status": "created", "reminder": Self.reminderSnapshot(saved)]
             default:
                 let id = string(args, "reminder_id")
                 guard let reminder = events.calendarItem(withIdentifier: id) as? EKReminder, reminder.calendar.allowsContentModifications else { throw Failure.unavailable("The exact reminder is unavailable or read-only.") }
@@ -148,7 +154,7 @@ final class NativeAppTools {
                 }
                 reminder.isCompleted = args["completed"]!.boolValue!; try events.save(reminder, commit: true)
                 guard let saved = events.calendarItem(withIdentifier: id) as? EKReminder, saved.isCompleted == reminder.isCompleted else { throw Failure.unavailable("Completion could not be verified.") }
-                return ["status": "updated", "reminder": reminderSnapshot(saved)]
+                return ["status": "updated", "reminder": Self.reminderSnapshot(saved)]
             }
         }
         switch tool.id {
