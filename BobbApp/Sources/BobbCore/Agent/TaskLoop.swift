@@ -17,9 +17,11 @@ public struct ScreenObservation: Sendable, Equatable {
     public var unreadable: Bool
     /// URL attested by the current native web area, independent of its title.
     public var sourceURL: String?
+    /// Driver-owned schema, kept separate from potentially untrusted result text.
+    public var toolSchema: JSONValue?
 
     public init(app: String, bundleId: String?, window: String, elements: [UIElementSnapshot], screen: ScreenRect? = nil,
-                screenText: String = "", defaultButton: String = "", unreadable: Bool = false, sourceURL: String? = nil) {
+                screenText: String = "", defaultButton: String = "", unreadable: Bool = false, sourceURL: String? = nil, toolSchema: JSONValue? = nil) {
         self.app = app
         self.bundleId = bundleId
         self.window = window
@@ -28,7 +30,7 @@ public struct ScreenObservation: Sendable, Equatable {
         self.screenText = screenText
         self.defaultButton = defaultButton
         self.unreadable = unreadable
-        self.sourceURL = sourceURL
+        self.sourceURL = sourceURL; self.toolSchema = toolSchema
     }
 }
 
@@ -205,13 +207,17 @@ public final class TaskLoop {
             let focusWords = plan.steps.joined(separator: " ")
             let ranked = ranker.rank(observation.elements, goal: goal, focus: focusWords, recent: recentTargets, screen: observation.screen)
             let table = CandidateTable(ranked: ranked, observation: step)
-            let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app)
+            let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app,
+                alwaysOffered: apps.filter { name in
+                    let id = driver.bundleIdentifier(forApp: name) ?? ""
+                    return id == NativeAppToolCatalog.bundleId || id.hasPrefix("mcp:")
+                })
             let screenText = String(observation.screenText.prefix(Self.maxScreenText))
             let keys = driver.offeredKeys(for: observation)
             let digest = table.digest(screenText: screenText)
             let frame = TaskObserveFrame(taskId: taskId, step: step, app: observation.app, window: observation.window,
                                          digest: digest, candidates: table.candidates, apps: appChoices,
-                                         screenText: screenText.isEmpty ? nil : screenText, keys: keys.map(\.rawValue))
+                                         screenText: screenText.isEmpty ? nil : screenText, keys: keys.map(\.rawValue), toolSchema: observation.toolSchema)
             guard let act = await brain.decide(frame) else {
                 return await finish(.failed, detail: "engine")
             }
@@ -358,9 +364,9 @@ public final class TaskLoop {
 
     /// Installed applications worth offering for this request: those whose
     /// names share a word with it, best first, never the one already in front.
-    static func appCandidates(_ apps: [String], goal: String, current: String, limit: Int = 10) -> [AppCandidate] {
+    static func appCandidates(_ apps: [String], goal: String, current: String, limit: Int = 10, alwaysOffered: [String] = []) -> [AppCandidate] {
         let words = Set(Tokens.words(goal))
-        guard !words.isEmpty else { return [] }
+        guard !words.isEmpty || !alwaysOffered.isEmpty else { return [] }
         var scored: [(String, Double)] = []
         for name in apps where name != current {
             let nameWords = Tokens.words(name)
@@ -370,6 +376,7 @@ public final class TaskLoop {
                 if words.contains(word) { score += 2 }
                 else if word.count >= 4, words.contains(where: { $0.count >= 4 && ($0.hasPrefix(word) || word.hasPrefix($0)) }) { score += 1 }
             }
+            if alwaysOffered.contains(name) { score = max(score, 1) }
             if score > 0 { scored.append((name, score / Double(nameWords.count))) }
         }
         scored.sort { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0 < $1.0 }

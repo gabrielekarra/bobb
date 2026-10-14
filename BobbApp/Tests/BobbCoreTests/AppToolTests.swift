@@ -161,3 +161,20 @@ import Testing
         #expect(calls == 1)
     }
 }
+
+@MainActor @Test func largeToolSchemaIsSeparateFromResultAndFitsScreenBudget() async {
+    let schema: JSONValue = ["type": "object", "properties": ["name": ["type": "string", "description": .string(String(repeating: "x", count: 9000))]]]
+    let tool = AppTool(id: "large", name: "Large", summary: "", bundleId: "mcp:test", app: "MCP test", category: .execute, schema: schema, validatesSchema: false)
+    let driver = AppToolComputer(tools: [tool], permitted: { _ in true }) { _, _ in ["receipt": "tail-result"] }
+    #expect(await driver.perform(.press(key: 0)) == .ok)
+    #expect(await driver.perform(.press(key: -3)) == .ok)
+    let observation = await driver.observe()
+    #expect(observation?.toolSchema == schema)
+    #expect(observation?.screenText.contains("tail-result") == true, "\(observation?.screenText ?? "nil")")
+    #expect((observation?.screenText.count ?? 0) < 6000)
+}
+
+@MainActor @Test func configuredToolRoutesRemainDiscoverableWithoutAnAppKeyword() {
+    let choices = TaskLoop.appCandidates(["Unrelated", "MCP project", NativeAppToolCatalog.applicationName], goal: "Help with my workflow", current: "Safari", alwaysOffered: ["MCP project", NativeAppToolCatalog.applicationName])
+    #expect(Set(choices.map(\.label)) == ["MCP project", NativeAppToolCatalog.applicationName])
+}

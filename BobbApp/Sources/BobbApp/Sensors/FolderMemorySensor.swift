@@ -32,6 +32,20 @@ final class FolderMemorySensor {
         let generation = generation
         job = Task { [weak self] in
             let scan = Task.detached(priority: .utility) { () -> [(FileFolder, URL, String, String, String)] in
+                Self.scan(selected: selected, known: known)
+            }
+            let results = await withTaskCancellationHandler { await scan.value } onCancel: { scan.cancel() }
+            guard let self, self.generation == generation else { return }; defer { self.job = nil }
+            for (folder, url, key, digest, text) in results {
+                guard !Task.isCancelled, self.allowed(self.settings()), self.settings().bobb.fileFolders?.contains(folder) == true else { break }
+                self.remembered[key] = digest
+                self.onMemory?(MemoryObserveFrame(ts: Date().timeIntervalSince1970, app: "Finder", bundleId: "com.apple.finder", window: folder.name + "/" + url.lastPathComponent,
+                    text: "File: \(url.lastPathComponent)\nContent excerpt (up to 8000 characters):\n" + text, url: url.absoluteString, source: "file"))
+            }
+            if self.remembered.count > 5000 { self.remembered.removeAll() }
+        }
+    }
+    private nonisolated static func scan(selected: [FileFolder], known: [String: String]) -> [(FileFolder, URL, String, String, String)] {
                 var results: [(FileFolder, URL, String, String, String)] = []
                 for folder in selected {
                     guard !Task.isCancelled, let root = try? FileAppTools.root(folder) else { continue }
@@ -52,16 +66,6 @@ final class FolderMemorySensor {
                     }
                 }
                 return results
-            }
-            let results = await withTaskCancellationHandler { await scan.value } onCancel: { scan.cancel() }
-            guard let self, self.generation == generation else { return }; defer { self.job = nil }
-            for (folder, url, key, digest, text) in results {
-                guard !Task.isCancelled, self.allowed(self.settings()), self.settings().bobb.fileFolders?.contains(folder) == true else { break }
-                self.remembered[key] = digest
-                self.onMemory?(MemoryObserveFrame(ts: Date().timeIntervalSince1970, app: "Finder", bundleId: "com.apple.finder", window: folder.name + "/" + url.lastPathComponent,
-                    text: "File: \(url.lastPathComponent)\nContent excerpt (up to 8000 characters):\n" + text, url: url.absoluteString, source: "file"))
-            }
-            if self.remembered.count > 5000 { self.remembered.removeAll() }
-        }
     }
+
 }

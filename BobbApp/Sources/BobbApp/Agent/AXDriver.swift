@@ -324,11 +324,15 @@ final class AXDriver: TaskDriver {
     func actionContext(for action: DriverAction) -> DriverActionContext? {
         let key: Int
         switch action { case .press(let k), .open(let k): key = k; default: return nil }
-        guard let operation = nativeActions[key], let front = NSWorkspace.shared.frontmostApplication else { return nil }
-        return DriverActionContext(bundleId: front.bundleIdentifier, app: front.localizedName ?? "", categories: [operation == .increase || operation == .decrease ? .write : .navigate])
+        guard let operation = nativeActions[key], let front = NSWorkspace.shared.frontmostApplication, let bundleId = front.bundleIdentifier else { return nil }
+        return DriverActionContext(bundleId: bundleId, app: front.localizedName ?? "", categories: [operation == .increase || operation == .decrease ? .write : .navigate])
     }
     func supportsUndo(for action: DriverAction) -> Bool {
-        switch action { case .press(let k), .open(let k): return nativeActions[k] == nil; default: return true }
+        switch action {
+        case .press(let k), .open(let k): return nativeActions[k] == nil
+        case .type(let k, _, _): return elements[k].map { !["AXSlider", "AXValueIndicator"].contains(AX.string($0, "AXRole") ?? "") } ?? false
+        default: return true
+        }
     }
     private func performNative(_ key: Int) -> DriverResult {
         guard let operation = nativeActions[key], let element = live(key) else { return .stale }

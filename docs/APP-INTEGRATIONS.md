@@ -23,7 +23,7 @@ capabilities in Swift, without importing their runtimes or replacing its models.
 | Messages | Individual/group iMessage and SMS pages, supported archived text, sender and attachment metadata, paginated document extraction, exact-chat submission | Full Disk Access and Automation required. Complete observed group recipients must match; live membership is checked again. SMS depends on relay setup. Delivery is not attested. Unknown archives are marked unavailable; ambiguous typed streams are not guessed. |
 | Files/documents | User-selected folders; list/search, paginated text extraction, new UTF-8 files, exact-version plain-text replacement, move/rename, Trash | Text/code, text PDF, RTF, DOCX, ODT. Relative paths only; symlink traversal blocked. No silent overwrite or rich-document flattening. Images/scanned PDFs use the owning app/screen route. |
 | Document memory | Separate opt-in per selected folder; local excerpts while watching and memory are on | Bounded polling, not a complete filesystem index: skips hidden files/packages/links, scans up to 2000 entries per folder with a three-second budget, at most 100 changed documents/pass, 2 MB/file and 8000-character excerpts. Existing memories retain normal deletion/retention behavior. |
-| MCP | Local stdio, Streamable HTTP JSON/SSE, legacy HTTP+SSE, common JSON import, paginated tool discovery, exclusions, notification refresh | Up to 200 tools over ten pages. Server validates its schema; all calls use execute boundaries even if annotated read-only. No server-initiated sampling, host tools or credential requests. |
+| MCP | Local stdio, Streamable HTTP JSON/SSE, legacy HTTP+SSE, common JSON import, paginated tool discovery, exclusions, notification refresh | Up to 200 tools over ten pages, with schemas up to 64 KB. Server validates its schema; all calls use execute boundaries even if annotated read-only. No server-initiated sampling, host tools or credential requests. |
 | Authentication | Per-value Keychain environment/HTTP headers; native OAuth discovery, external-browser sign-in, loopback callback, S256 PKCE, dynamic registration or supplied client id, refresh and local sign-out | Service must support the native public-client flow. A service without dynamic registration needs a registered client id allowing loopback redirects. Client metadata-document registration, incremental scope challenges and provider-specific authentication are not implemented. |
 
 The self-chat `/bobb` listener remains separate: only the configured exact self
@@ -94,7 +94,7 @@ starting another attempt. MCP writes are never replayed after session expiration
 Cancellation removes pending requests immediately and sends MCP cancellation;
 remote cancellation does not guarantee the service has undone its action.
 
-Results have explicit pages rather than silently dropping their tail. Completion
+Results have explicit pages rather than silently dropping their tail. Driver-owned schemas are carried separately from screen/result text, including schemas longer than the screen excerpt. Completion
 requires a current permitted result; failed or prepared-but-unsubmitted calls
 cannot become successful completion. Calendar/Reminder writes and file changes
 are read back; Mail drafts, Messages and Shortcuts retain their limited receipts.

@@ -563,6 +563,12 @@ def is_tool_arguments(target: Candidate) -> bool:
 
 
 def tool_schema(observation: dict) -> dict | None:
+    # New clients carry the driver-owned schema separately so long schemas
+    # cannot be cut by the screen excerpt or replaced by result-text markers.
+    supplied = observation.get("tool_schema")
+    if isinstance(supplied, dict):
+        encoded = json.dumps(supplied, ensure_ascii=False)
+        return supplied if len(encoded.encode("utf-8")) <= 64_000 else None
     text = str(observation.get("screen_text") or "")
     opening = text.find("<tool_schema>")
     if opening < 0:

@@ -131,16 +131,18 @@ public struct TaskObserveFrame: Codable, Sendable, Equatable {
     public var screenText: String?
     /// The keys that make sense here, by `KeyChord` name.
     public var keys: [String]?
+    public var toolSchema: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case ts, id, step, app, window, digest, candidates, apps, keys
         case taskId = "task_id"
         case screenText = "screen_text"
+        case toolSchema = "tool_schema"
     }
 
     public init(ts: Double = Date().timeIntervalSince1970, id: String = TaskObserveFrame.newID(), taskId: String, step: Int,
                 app: String, window: String, digest: String, candidates: [AgentCandidate], apps: [AppCandidate],
-                screenText: String? = nil, keys: [String]? = nil) {
+                screenText: String? = nil, keys: [String]? = nil, toolSchema: JSONValue? = nil) {
         self.ts = ts
         self.id = id
         self.taskId = taskId
@@ -151,7 +153,7 @@ public struct TaskObserveFrame: Codable, Sendable, Equatable {
         self.candidates = candidates
         self.apps = apps
         self.screenText = screenText
-        self.keys = keys
+        self.keys = keys; self.toolSchema = toolSchema
     }
 
     public static func newID() -> String {

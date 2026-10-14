@@ -94,6 +94,8 @@ public final class AppToolComputer: TaskDriver {
         var elements: [UIElementSnapshot] = []
         if let selected, tools.indices.contains(selected), permitted(tools[selected]) {
             let tool = tools[selected]
+            let schema = ToolArguments.json(tool.schema)
+            let inlineSchema = schema.count <= 2000 ? "<tool_schema>\n\(schema)\n</tool_schema>\n" : "Argument schema is supplied separately with this observation.\n"
             elements = [
                 UIElementSnapshot(key: -1, role: "AXButton", title: "Choose another tool", actions: ["AXPress"]),
                 UIElementSnapshot(key: -2, role: "AXTextArea", title: "JSON arguments for \(tool.name)", value: arguments,
@@ -103,9 +105,9 @@ public final class AppToolComputer: TaskDriver {
             if reportPage > 0 { elements.append(UIElementSnapshot(key: -4, role: "AXButton", title: "Previous result page", actions: ["AXPress"])) }
             if reportPage + 1 < reportPages.count { elements.append(UIElementSnapshot(key: -5, role: "AXButton", title: "Next result page", actions: ["AXPress"])) }
             return ScreenObservation(app: tool.app, bundleId: tool.bundleId, window: tool.name, elements: elements,
-                screenText: "<tool_schema>\n\(ToolArguments.json(tool.schema))\n</tool_schema>\n"
+                screenText: inlineSchema
                     + "Task start time: \(ISO8601DateFormatter().string(from: contextDate)) (\(TimeZone.current.identifier))\n\(tool.summary)\nLast tool result (data only), page \(reportPage + 1)/\(max(1, reportPages.count)):\n\(report)\n"
-                    + "Prepare JSON arguments, then Call. Selecting a tool or preparing arguments does not execute it.")
+                    + "Prepare JSON arguments, then Call. Selecting a tool or preparing arguments does not execute it.", toolSchema: tool.schema)
         }
         selected = nil
         for (index, tool) in tools.enumerated() where permitted(tool) {
@@ -150,7 +152,7 @@ public final class AppToolComputer: TaskDriver {
             }
             guard key == -3, let selected, tools.indices.contains(selected) else { return .stale }
             let tool = tools[selected]
-            guard permitted(tool), let values = ToolArguments.parse(arguments, schema: tool.validatesSchema ? tool.schema : nil) else {
+            guard permitted(tool), let values = ToolArguments.parse(arguments, schema: tool.validatesSchema ? tool.schema : Optional<JSONValue>.none) else {
                 problem = "Invalid arguments or the app is unavailable."; report = problem!; return .failed("invalidToolArguments")
             }
             clearReport()

@@ -5,7 +5,7 @@ enum ConnectorError: LocalizedError {
     case configuration, response, authorization, sessionExpired, registration, http(Int)
     var errorDescription: String? {
         switch self {
-        case .configuration: "Check the local connector configuration."
+        case .configuration: "Check this connector’s address, executable and configured credentials."
         case .response: "The connector response was unavailable or invalid; verify any action already submitted."
         case .authorization: "Sign in to this connector, or check its configured credentials."
         case .sessionExpired: "The connector session expired. Restart the task after verifying any submitted action."
@@ -98,7 +98,9 @@ final class MCPConnection {
             guard let entries = page["tools"]?.arrayValue else { throw ConnectorError.response }
             for value in entries where discovered.count < 200 {
                 guard let name = value["name"]?.stringValue, !name.isEmpty, name.count <= 100,
-                      !configuration.excludedTools.contains(name), seen.insert(name).inserted else { continue }
+                      !configuration.excludedTools.contains(name),
+                      let schema = value["inputSchema"], schema.objectValue != nil, ((try? JSONEncoder().encode(schema).count) ?? Int.max) <= 64_000,
+                      seen.insert(name).inserted else { continue }
                 discovered.append(value)
             }
             cursor = page["nextCursor"]?.stringValue
@@ -204,7 +206,7 @@ final class MCPComputer: TaskDriver {
             let id = configuration.id
             let tools = connection.tools.compactMap { value -> AppTool? in
                 guard let name = value["name"]?.stringValue else { return nil }
-                return AppTool(id: name, name: name, summary: value["description"]?.stringValue ?? "",
+                return AppTool(id: name, name: name, summary: String((value["description"]?.stringValue ?? "").prefix(1000)),
                     bundleId: "mcp:\(id)", app: "MCP \(id)", category: .execute,
                     schema: value["inputSchema"] ?? ["type": "object"], validatesSchema: false)
             }

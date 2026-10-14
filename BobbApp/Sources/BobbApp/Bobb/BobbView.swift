@@ -35,6 +35,7 @@ struct BobbView: View {
     @State private var connectorOAuth = false
     @State private var connectorClientId = ""
     @State private var connectorStatus: [String: String] = [:]
+    @State private var connectorGenerations: [String: UUID] = [:]
     @State private var connectorJobs: [String: Task<Void, Never>] = [:]
     @State private var guestAddress = ""
     @State private var guestUser = ""
@@ -655,10 +656,10 @@ struct BobbView: View {
                         Toggle(t("Enabled", "Attivo"), isOn: Binding(get: { state.settings.bobb.connectors.first { $0.id == config.id }?.enabled == true }, set: { value in
                             workspace.coordinator.updateSettings { s in if let index = s.bobb.connectors.firstIndex(where: { $0.id == config.id }) { s.bobb.connectors[index].enabled = value } }
                             if value { connect(id: "mcp:\(config.id)", name: "MCP \(config.id)") }
-                            else { connectorJobs.removeValue(forKey: config.id)?.cancel() }
+                            else { cancelConnector(config.id) }
                         }))
                         Button(t("Remove", "Rimuovi"), role: .destructive) {
-                            connectorJobs.removeValue(forKey: config.id)?.cancel(); MCPOAuth.logout(config)
+                            cancelConnector(config.id); MCPOAuth.logout(config)
                             config.secretReferences.forEach(MCPSecrets.remove)
                             workspace.coordinator.updateSettings { $0.bobb.connectors.removeAll { $0.id == config.id }; $0.bobb.boundaries.apps.removeAll { $0.id == "mcp:\(config.id)" } }
                         }
@@ -673,11 +674,11 @@ struct BobbView: View {
                         if config.oauth != nil {
                             Button(t("Sign in", "Accedi")) { connectorAction(config, login: true) }
                             Button(t("Forget sign-in", "Dimentica accesso")) {
-                                connectorJobs.removeValue(forKey: config.id)?.cancel(); MCPOAuth.logout(config)
+                                cancelConnector(config.id); MCPOAuth.logout(config)
                                 connectorStatus[config.id] = t("Sign-in removed from this Mac.", "Accesso rimosso da questo Mac.")
                             }
                         }
-                        if connectorJobs[config.id] != nil { Button(t("Cancel", "Annulla")) { connectorJobs.removeValue(forKey: config.id)?.cancel() } }
+                        if connectorJobs[config.id] != nil { Button(t("Cancel", "Annulla")) { cancelConnector(config.id) } }
                     }
                     if let status = connectorStatus[config.id] { hint(status) }
                 }
@@ -725,10 +726,15 @@ struct BobbView: View {
         connect(id: "mcp:\(config.id)", name: "MCP \(config.id)")
         connectorName = ""; connectorExecutable = ""; connectorArguments = ""; connectorEndpoint = ""; connectorBearer = ""; connectorClientId = ""
     }
+    private func cancelConnector(_ id: String) {
+        connectorJobs.removeValue(forKey: id)?.cancel(); connectorGenerations[id] = UUID()
+    }
     private func connectorAction(_ config: MCPConfiguration, login: Bool) {
-        connectorJobs.removeValue(forKey: config.id)?.cancel()
+        cancelConnector(config.id)
+        let generation = connectorGenerations[config.id]!
         connectorStatus[config.id] = login ? t("Complete sign-in in your browser…", "Completa l’accesso nel browser…") : t("Checking…", "Verifica in corso…")
         connectorJobs[config.id] = Task { @MainActor in
+            defer { if connectorGenerations[config.id] == generation { connectorJobs[config.id] = nil } }
             do {
                 if login { try await MCPOAuth.login(config) }
                 try Task.checkCancellation()
@@ -737,9 +743,9 @@ struct BobbView: View {
                 let connection = MCPConnection(configuration: test); defer { connection.disconnect() }
                 try await connection.connect()
                 try Task.checkCancellation()
+                guard connectorGenerations[config.id] == generation else { return }
                 connectorStatus[config.id] = "\(connection.tools.count) " + t("tools available.", "strumenti disponibili.")
-            } catch { connectorStatus[config.id] = Task.isCancelled ? t("Cancelled.", "Annullato.") : error.localizedDescription }
-            connectorJobs[config.id] = nil
+            } catch { if connectorGenerations[config.id] == generation { connectorStatus[config.id] = Task.isCancelled ? t("Cancelled.", "Annullato.") : error.localizedDescription } }
         }
     }
 
@@ -753,7 +759,7 @@ struct BobbView: View {
                 settings.bobb.connectors.removeAll { previous in configurations.contains { $0.id == previous.id } }
                 settings.bobb.connectors += configurations
             }
-            replaced.forEach { connectorJobs.removeValue(forKey: $0.id)?.cancel(); MCPOAuth.logout($0) }; replaced.flatMap(\.secretReferences).forEach(MCPSecrets.remove)
+            replaced.forEach { cancelConnector($0.id); MCPOAuth.logout($0) }; replaced.flatMap(\.secretReferences).forEach(MCPSecrets.remove)
             connectorImportStatus = t("Imported disabled connectors. Review their addresses or executables and enable the ones you want; credentials are kept in Keychain.", "Connettori importati disattivati. Verifica indirizzi o eseguibili e attiva quelli desiderati; le credenziali sono nel Portachiavi.")
         } catch {
             connectorImportStatus = t("Import failed. Use an mcpServers JSON with installed executables or HTTPS URLs and valid credentials.", "Importazione fallita. Usa un JSON mcpServers con eseguibili installati o URL HTTPS e credenziali valide.")

@@ -9,6 +9,7 @@ func runIntegrationSmokeCheck() {
     Task { @MainActor in
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("bobb-integrations-" + UUID().uuidString)
         let process = Process()
+        var outcome: Int32 = 0
         do {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
@@ -84,6 +85,14 @@ func runIntegrationSmokeCheck() {
                 catch { try require(String(describing: error) != "unexpected success", "unauthorized/redirect") }
                 connection.disconnect()
             }
+            let staged = MCPComputer(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, excludedTools: ["delayed"], transport: .http, endpoint: origin + "/mcp"), goal: "echo", enabled: { true })
+            _ = await staged.observe()
+            try require(await staged.perform(.press(key: 0)) == .ok, "MCP tool selection")
+            try require(await staged.perform(.type(key: -2, text: #"{"sentinel":"prepared"}"#, submit: false)) == .ok, "MCP argument preparation")
+            try require(await staged.perform(.press(key: -3)) == .ok, "MCP staged invocation")
+            let stagedResult = await staged.observe()
+            try require(stagedResult?.screenText.contains("prepared") == true, "MCP result observation")
+            await staged.close()
             let delayed = MCPConnection(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, transport: .http, endpoint: origin + "/mcp"))
             try await delayed.connect()
             let request = Task { try await delayed.call(name: "delayed", arguments: [:]) }
@@ -98,10 +107,10 @@ func runIntegrationSmokeCheck() {
             let authenticated = MCPConnection(configuration: oauth); defer { authenticated.disconnect() }
             try await authenticated.connect(); try require(authenticated.tools.count == 2, "OAuth PKCE and refresh")
             print("Integration checks passed: files, messages, HTTP/SSE, OAuth, cancellation.")
-            exit(0)
         } catch {
             if process.isRunning { process.terminate() }
-            print("Integration check failed: \(error)"); exit(1)
+            print("Integration check failed: \(error)"); outcome = 1
         }
+        exit(outcome)
     }
 }
