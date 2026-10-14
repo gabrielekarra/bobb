@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import BobbCore
 
 enum ConnectorError: LocalizedError {
@@ -18,12 +19,18 @@ enum ConnectorError: LocalizedError {
 /// Optional stdio MCP, restricted to the executable the user configured.
 /// The model never supplies a path or command; servers cannot request
 /// sampling, credentials or arbitrary host tools from this client.
+private final class MCPProcessReaper: @unchecked Sendable {
+    private let process: Process
+    init(_ process: Process) { self.process = process }
+    func killIfRunning() { if process.isRunning { _ = Darwin.kill(process.processIdentifier, SIGKILL) } }
+}
 @MainActor
 final class MCPConnection {
     private var remote: MCPHTTPTransport?
     private var connected = false
     private var jobs: [String: Task<Void, Never>] = [:]
     private var timers: [String: Task<Void, Never>] = [:]
+    private let writeQueue = DispatchQueue(label: "com.bobb.mcp-stdin")
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
@@ -149,7 +156,14 @@ final class MCPConnection {
     private func send(_ value: JSONValue) async throws {
         if let remote { try await remote.send(value); return }
         guard let input, process?.isRunning == true else { throw ConnectorError.response }
-        try input.write(contentsOf: JSONEncoder().encode(value) + Data([10]))
+        let data = try JSONEncoder().encode(value) + Data([10])
+        // A server that stops reading must not block the app's main actor.
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            writeQueue.async {
+                do { try input.write(contentsOf: data); continuation.resume() }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
     }
     private func receive(_ data: Data) {
         if data.isEmpty { disconnect(); return }
@@ -174,9 +188,13 @@ final class MCPConnection {
         jobs.values.forEach { $0.cancel() }; jobs.removeAll()
         timers.values.forEach { $0.cancel() }; timers.removeAll()
         output?.readabilityHandler = nil
-        try? input?.close(); try? output?.close(); input = nil; output = nil
         process?.terminationHandler = nil
-        if process?.isRunning == true { process?.terminate() }
+        if let process, process.isRunning {
+            process.terminate()
+            let reaper = MCPProcessReaper(process)
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 1) { reaper.killIfRunning() }
+        }
+        try? input?.close(); try? output?.close(); input = nil; output = nil
         process = nil; buffer.removeAll()
         tools.removeAll(); needsToolRefresh = false
         let pending = waiting; waiting.removeAll()

@@ -5,6 +5,7 @@ import http.server
 import json
 import queue
 import sys
+import socketserver
 import threading
 import urllib.parse
 from pathlib import Path
@@ -94,6 +95,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.sse(); self.event(reply); self.close_connection = True; return
         return self.response(200, reply, {"MCP-Session-Id": "fixture-session"})
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+class FixtureServer(http.server.ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer otherwise performs a reverse-DNS lookup at startup. This
+        # disposable loopback server does not need DNS or an external network.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = "localhost"
+        self.server_port = self.server_address[1]
+
+if sys.argv[1] == "--stdio":
+    for line in sys.stdin:
+        value = json.loads(line)
+        if "id" not in value:
+            continue
+        method = value["method"]
+        if method == "initialize": result = {"protocolVersion": "2025-11-25", "capabilities": {"tools": {}}}
+        elif method == "tools/list": result = {"tools": [{"name": "echo", "inputSchema": {"type": "object"}}]}
+        else: result = {"structuredContent": value.get("params", {}).get("arguments", {})}
+        print(json.dumps({"jsonrpc": "2.0", "id": value["id"], "result": result}), flush=True)
+    sys.exit(0)
+
+print("Loopback fixture binding", file=sys.stderr, flush=True)
+server = FixtureServer(("127.0.0.1", 0), Handler)
 Path(sys.argv[1]).write_text(str(server.server_port))
+print("Loopback fixture ready", file=sys.stderr, flush=True)
 server.serve_forever()

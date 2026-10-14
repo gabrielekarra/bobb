@@ -68,8 +68,15 @@ func runIntegrationSmokeCheck() {
             process.environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory()]
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.standardError
             try process.run(); defer { if process.isRunning { process.terminate() } }
+            stage = "stdio transport"
+            let stdio = MCPConnection(configuration: MCPConfiguration(id: "fixture-stdio", executable: process.executableURL!.path, arguments: [fixture, "--stdio"], enabled: true))
+            try await stdio.connect()
+            let stdioResult = try await stdio.call(name: "echo", arguments: ["sentinel": "stdio"])
+            try require(stdioResult["structuredContent"]?["sentinel"] == .string("stdio"), "stdio request/result")
+            stdio.disconnect()
+            stage = "HTTP fixture startup"
             var port: Int?
-            for _ in 0..<200 {
+            for _ in 0..<800 {
                 port = (try? String(contentsOf: portFile, encoding: .utf8)).flatMap { Int($0) }
                 if port != nil { break }; try await Task.sleep(for: .milliseconds(25))
             }
