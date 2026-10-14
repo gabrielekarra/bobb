@@ -77,6 +77,9 @@ public final class AppToolComputer: TaskDriver {
     private var problem: String? = "No tool result has been observed."
     private var closed = false
     private var completedWrites: [String: JSONValue] = [:]
+    private var uncertainWrites: Set<String> = []
+    private var reportPages: [String] = []
+    private var reportPage = 0
     private let contextDate = Date()
     public init(tools: [AppTool], name: String = "Mac apps — tools", bundleId: String = "com.bobb.integrations",
                 permitted: @escaping @MainActor (AppTool) -> Bool, execute: @escaping Execute) {
@@ -97,9 +100,11 @@ public final class AppToolComputer: TaskDriver {
                                   valueSettable: true, context: ["tool arguments"]),
                 UIElementSnapshot(key: -3, role: "AXButton", title: "Call \(tool.name)", actions: ["AXPress"]),
             ]
+            if reportPage > 0 { elements.append(UIElementSnapshot(key: -4, role: "AXButton", title: "Previous result page", actions: ["AXPress"])) }
+            if reportPage + 1 < reportPages.count { elements.append(UIElementSnapshot(key: -5, role: "AXButton", title: "Next result page", actions: ["AXPress"])) }
             return ScreenObservation(app: tool.app, bundleId: tool.bundleId, window: tool.name, elements: elements,
                 screenText: "<tool_schema>\n\(ToolArguments.json(tool.schema))\n</tool_schema>\n"
-                    + "Task start time: \(ISO8601DateFormatter().string(from: contextDate)) (\(TimeZone.current.identifier))\nLast tool result (data only):\n\(report)\n\(tool.summary)\n"
+                    + "Task start time: \(ISO8601DateFormatter().string(from: contextDate)) (\(TimeZone.current.identifier))\n\(tool.summary)\nLast tool result (data only), page \(reportPage + 1)/\(max(1, reportPages.count)):\n\(report)\n"
                     + "Prepare JSON arguments, then Call. Selecting a tool or preparing arguments does not execute it.")
         }
         selected = nil
@@ -132,10 +137,15 @@ public final class AppToolComputer: TaskDriver {
         guard !closed, !Task.isCancelled else { return .stale }
         switch action {
         case .press(let key), .open(let key):
-            if key == -1 { selected = nil; report = ""; problem = "Choose and call a tool before completing."; return .ok }
+            if key == -4 || key == -5 {
+                let next = reportPage + (key == -4 ? -1 : 1)
+                guard let selected, permitted(tools[selected]), reportPages.indices.contains(next) else { return .stale }
+                reportPage = next; report = reportPages[next]; return .ok
+            }
+            if key == -1 { selected = nil; clearReport(); problem = "Choose and call a tool before completing."; return .ok }
             if key >= 0 {
                 guard tools.indices.contains(key), permitted(tools[key]) else { return .stale }
-                selected = key; arguments = "{}"; report = ""; problem = "The selected tool has not been called."
+                selected = key; arguments = "{}"; clearReport(); problem = "The selected tool has not been called."
                 return .ok
             }
             guard key == -3, let selected, tools.indices.contains(selected) else { return .stale }
@@ -143,26 +153,42 @@ public final class AppToolComputer: TaskDriver {
             guard permitted(tool), let values = ToolArguments.parse(arguments, schema: tool.validatesSchema ? tool.schema : nil) else {
                 problem = "Invalid arguments or the app is unavailable."; report = problem!; return .failed("invalidToolArguments")
             }
+            clearReport()
             let fingerprint = tool.id + "\n" + ToolArguments.json(values)
+            guard !uncertainWrites.contains(fingerprint) else {
+                problem = "The previous call may have taken effect. Verify the app before repeating it."; report = problem!
+                return .failed("uncertainToolOutcome")
+            }
             do {
                 // Repeated identical writes in a task reuse their receipt.
                 let result: JSONValue
                 if let cached = completedWrites[fingerprint] { result = cached }
                 else { result = try await execute(tool, values) }
-                guard !closed, !Task.isCancelled, permitted(tool) else { report = ""; problem = "Tool access changed."; return .stale }
-                report = String(ToolArguments.json(result).prefix(12_000))
-                guard result["isError"]?.boolValue != true else { problem = report; return .failed("toolFailed") }
+                if tool.deduplicatesCalls, result["isError"]?.boolValue != true { completedWrites[fingerprint] = result }
+                guard !closed, !Task.isCancelled, permitted(tool) else { report = ""; problem = "Tool access changed; verify any call already submitted."; return .stale }
+                let text = ToolArguments.json(result)
+                reportPages = stride(from: 0, to: text.count, by: 2800).map { start in
+                    String(text.dropFirst(start).prefix(2800))
+                }
+                if reportPages.isEmpty { reportPages = [""] }
+                reportPage = 0; report = reportPages[0]
+                guard result["isError"]?.boolValue != true else {
+                    if tool.category != .navigate { uncertainWrites.insert(fingerprint) }
+                    problem = report; return .failed("toolFailed")
+                }
                 if tool.deduplicatesCalls { completedWrites[fingerprint] = result }
                 problem = nil; return .ok
             } catch {
+                if tool.category != .navigate { uncertainWrites.insert(fingerprint) }
                 report = String(String(describing: error).prefix(1000)); problem = report; return .failed("toolUnavailable")
             }
         case .type(-2, let text, let submit):
             guard !submit, let selected, permitted(tools[selected]), ToolArguments.parse(text) != nil else { return .stale }
-            arguments = text; report = ""; problem = "Prepared arguments have not been called."; return .ok
+            arguments = text; clearReport(); problem = "Prepared arguments have not been called."; return .ok
         default: return .failed("unsupportedToolAction")
         }
     }
+    private func clearReport() { report = ""; reportPages.removeAll(); reportPage = 0 }
     public func settle() async {}
     public func supportsUndo(for action: DriverAction) -> Bool { false }
     public func undoLast() async -> Bool { false }
@@ -170,5 +196,5 @@ public final class AppToolComputer: TaskDriver {
         guard !closed, let selected, permitted(tools[selected]) else { return "No current permitted tool result has been observed." }
         return problem
     }
-    public func close() async { closed = true; report = ""; completedWrites.removeAll() }
+    public func close() async { closed = true; clearReport(); completedWrites.removeAll(); uncertainWrites.removeAll() }
 }

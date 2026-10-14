@@ -2,11 +2,15 @@ import Foundation
 import BobbCore
 
 enum ConnectorError: LocalizedError {
-    case configuration, response
+    case configuration, response, authorization, sessionExpired, registration, http(Int)
     var errorDescription: String? {
         switch self {
         case .configuration: "Check the local connector configuration."
-        case .response: "The local connector response was unavailable or invalid."
+        case .response: "The connector response was unavailable or invalid; verify any action already submitted."
+        case .authorization: "Sign in to this connector, or check its configured credentials."
+        case .sessionExpired: "The connector session expired. Restart the task after verifying any submitted action."
+        case .registration: "This service requires a registered OAuth client id with native loopback redirects."
+        case .http(let code): "The connector returned HTTP \(code); verify any submitted action before retrying."
         }
     }
 }
@@ -16,6 +20,10 @@ enum ConnectorError: LocalizedError {
 /// sampling, credentials or arbitrary host tools from this client.
 @MainActor
 final class MCPConnection {
+    private var remote: MCPHTTPTransport?
+    private var connected = false
+    private var jobs: [String: Task<Void, Never>] = [:]
+    private var timers: [String: Task<Void, Never>] = [:]
     private var process: Process?
     private var input: FileHandle?
     private var output: FileHandle?
@@ -32,12 +40,34 @@ final class MCPConnection {
     }
 
     func connect() async throws {
-        guard configuration.enabled, configuration.executable.hasPrefix("/"),
-              FileManager.default.isExecutableFile(atPath: configuration.executable) else { throw ConnectorError.configuration }
-        if process?.isRunning == true {
+        guard configuration.enabled else { throw ConnectorError.configuration }
+        if connected {
             if needsToolRefresh { try await discoverTools() }
             return
         }
+        do {
+            if configuration.transport == .stdio { try launch() }
+            else {
+                let transport = try MCPHTTPTransport(configuration: configuration); remote = transport
+                transport.receive = { [weak self] value in
+                    if let data = try? JSONEncoder().encode(value) { self?.receive(data + Data([10])) }
+                }
+                transport.ended = { [weak self] in self?.disconnect() }
+                try await transport.start()
+            }
+            let hello = try await request("initialize", params: .object(["protocolVersion": .string(protocolVersion), "capabilities": .object([:]),
+                "clientInfo": .object(["name": "Bobb", "version": "2.0.0"])]))
+            guard let version = hello["protocolVersion"]?.stringValue,
+                  ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"].contains(version),
+                  hello["capabilities"]?["tools"] != nil else { throw ConnectorError.response }
+            remote?.protocolVersion = version
+            try await send(.object(["jsonrpc": "2.0", "method": "notifications/initialized"]))
+            connected = true; remote?.listen()
+            try await discoverTools()
+        } catch { disconnect(); throw error }
+    }
+    private func launch() throws {
+        guard configuration.executable.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: configuration.executable) else { throw ConnectorError.configuration }
         let process = Process(), stdin = Pipe(), stdout = Pipe()
         process.executableURL = URL(fileURLWithPath: configuration.executable)
         process.arguments = configuration.arguments
@@ -58,15 +88,7 @@ final class MCPConnection {
         }
         process.terminationHandler = { [weak self] _ in Task { @MainActor [weak self] in self?.disconnect() } }
         self.process = process
-        do {
-            try process.run()
-            let hello = try await request("initialize", params: .object(["protocolVersion": .string(protocolVersion), "capabilities": .object([:]),
-                "clientInfo": .object(["name": "Bobb", "version": "2.0.0"])]))
-            guard ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"].contains(hello["protocolVersion"]?.stringValue ?? ""),
-                  hello["capabilities"]?["tools"] != nil else { throw ConnectorError.response }
-            try send(.object(["jsonrpc": "2.0", "method": "notifications/initialized"]))
-            try await discoverTools()
-        } catch { disconnect(); throw error }
+        try process.run()
     }
 
     private func discoverTools() async throws {
@@ -93,19 +115,37 @@ final class MCPConnection {
 
     private func request(_ method: String, params: JSONValue) async throws -> JSONValue {
         let id = UUID().uuidString
-        return try await withCheckedThrowingContinuation { continuation in
-            waiting[id] = continuation
-            do { try send(.object(["jsonrpc": "2.0", "id": .string(id), "method": .string(method), "params": params])) }
-            catch { waiting.removeValue(forKey: id)?.resume(throwing: error) }
-            Task { [weak self] in
-                try? await Task.sleep(for: .seconds(60))
-                guard let self, let pending = self.waiting.removeValue(forKey: id) else { return }
-                try? self.send(.object(["jsonrpc": "2.0", "method": "notifications/cancelled", "params": .object(["requestId": .string(id), "reason": "timeout"])]))
-                pending.resume(throwing: ConnectorError.response)
+        return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            return try await withCheckedThrowingContinuation { continuation in
+                waiting[id] = continuation
+                jobs[id] = Task { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try Task.checkCancellation()
+                        try await self.send(.object(["jsonrpc": "2.0", "id": .string(id), "method": .string(method), "params": params]))
+                    } catch { self.fail(id, error: error) }
+                }
+                timers[id] = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                    self?.cancel(id, error: ConnectorError.response)
+                }
             }
+        } onCancel: { Task { @MainActor [weak self] in self?.cancel(id, error: CancellationError()) } }
+    }
+    private func fail(_ id: String, error: Error) {
+        jobs.removeValue(forKey: id)?.cancel(); timers.removeValue(forKey: id)?.cancel()
+        waiting.removeValue(forKey: id)?.resume(throwing: error)
+    }
+    private func cancel(_ id: String, error: Error) {
+        guard waiting[id] != nil else { return }
+        fail(id, error: error)
+        Task { [weak self] in
+            try? await self?.send(.object(["jsonrpc": "2.0", "method": "notifications/cancelled", "params": .object(["requestId": .string(id), "reason": "cancelled"])]))
         }
     }
-    private func send(_ value: JSONValue) throws {
+    private func send(_ value: JSONValue) async throws {
+        if let remote { try await remote.send(value); return }
         guard let input, process?.isRunning == true else { throw ConnectorError.response }
         try input.write(contentsOf: JSONEncoder().encode(value) + Data([10]))
     }
@@ -119,14 +159,18 @@ final class MCPConnection {
             if value["method"]?.stringValue == "notifications/tools/list_changed" { needsToolRefresh = true }
             guard let rawID = value["id"], rawID != .null else { continue }
             if let id = rawID.stringValue, let pending = waiting.removeValue(forKey: id) {
+                jobs.removeValue(forKey: id)?.cancel(); timers.removeValue(forKey: id)?.cancel()
                 if let result = value["result"] { pending.resume(returning: result) }
                 else { pending.resume(throwing: ConnectorError.response) }
             } else if value["method"] != nil {
-                try? send(.object(["jsonrpc": "2.0", "id": rawID, "error": .object(["code": -32601, "message": "Host requests are not supported"])]))
+                Task { [weak self] in try? await self?.send(.object(["jsonrpc": "2.0", "id": rawID, "error": .object(["code": -32601, "message": "Host requests are not supported"])])) }
             }
         }
     }
     func disconnect() {
+        connected = false; remote?.close(); remote = nil
+        jobs.values.forEach { $0.cancel() }; jobs.removeAll()
+        timers.values.forEach { $0.cancel() }; timers.removeAll()
         output?.readabilityHandler = nil
         try? input?.close(); try? output?.close(); input = nil; output = nil
         process?.terminationHandler = nil
@@ -153,7 +197,7 @@ final class MCPComputer: TaskDriver {
     func observe() async -> ScreenObservation? {
         guard !closed, enabled() else { return nil }
         do { try await connection.connect() } catch {
-            return ScreenObservation(app: "MCP \(configuration.id)", bundleId: "mcp:\(configuration.id)", window: "", elements: [], screenText: "Connector could not start.", unreadable: true)
+            return ScreenObservation(app: "MCP \(configuration.id)", bundleId: "mcp:\(configuration.id)", window: "", elements: [], screenText: error.localizedDescription, unreadable: true)
         }
         if computer == nil || generation != connection.generation {
             await computer?.close(); generation = connection.generation

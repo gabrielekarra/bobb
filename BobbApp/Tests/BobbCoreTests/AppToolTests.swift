@@ -25,7 +25,7 @@ import Testing
         for key in ["PATH", "HOME", "DYLD_INSERT_LIBRARIES", "NODE_OPTIONS", "BASH_ENV", "LD_PRELOAD", "A=B"] {
             #expect(!MCPImportedServer.allowedEnvironmentKey(key))
         }
-        #expect(throws: (any Error).self) { try MCPImportedServer.parse(Data(#"{"mcpServers":{"x":{"url":"https://example.com/mcp"}}}"#.utf8)) }
+        #expect(try MCPImportedServer.parse(Data(#"{"mcpServers":{"x":{"url":"https://example.com/mcp"}}}"#.utf8))["x"]?.transport == .http)
         #expect(throws: (any Error).self) { try MCPImportedServer.parse(Data(#"{"mcpServers":{"x":{"command":"node","env":{"NODE_OPTIONS":"evil"}}}}"#.utf8)) }
     }
     @Test func typedEffectsCannotHideBehindAReadLabel() {
@@ -120,5 +120,44 @@ import Testing
         #expect(await loop.run() == .blocked)
         #expect(calls == 0)
         #expect(brain.steps.last?.outcome == .denied)
+    }
+}
+
+@MainActor @Suite struct ToolRecoveryTests {
+    @Test func largeResultsHavePagesAndNeverDiscardTheTail() async {
+        let tool = NativeAppToolCatalog.tools.first { $0.id == "music.status" }!
+        let output = String(repeating: "abcdef", count: 3000) + "END_RECEIPT"
+        let driver = AppToolComputer(tools: [tool], permitted: { _ in true }) { _, _ in ["text": .string(output)] }
+        _ = await driver.perform(.press(key: 0)); _ = await driver.perform(.press(key: -3))
+        var pages = ""
+        while let observation = await driver.observe() {
+            pages += observation.screenText
+            guard observation.elements.contains(where: { $0.key == -5 }) else { break }
+            #expect(await driver.perform(.press(key: -5)) == .ok)
+        }
+        #expect(pages.contains("END_RECEIPT"))
+        #expect(await driver.perform(.press(key: -4)) == .ok)
+        #expect(driver.actionContext(for: .press(key: -4))?.categories == [.navigate])
+    }
+    @Test func uncertainWritesCannotBeBlindlyRetried() async {
+        var calls = 0
+        let tool = NativeAppToolCatalog.tools.first { $0.id == "messages.send" }!
+        let driver = AppToolComputer(tools: [tool], permitted: { _ in true }) { _, _ in calls += 1; throw CocoaError(.fileWriteUnknown) }
+        _ = await driver.perform(.press(key: 0))
+        _ = await driver.perform(.type(key: -2, text: #"{"chat_id":"exact","members":["a"],"body":"Hi"}"#, submit: false))
+        #expect(await driver.perform(.press(key: -3)) == .failed("toolUnavailable"))
+        #expect(await driver.perform(.press(key: -3)) == .failed("uncertainToolOutcome"))
+        #expect(calls == 1)
+        #expect(await driver.completionProblem(goal: "send") != nil)
+    }
+    @Test func receiptSurvivesPermissionChangeAfterAnEffect() async {
+        var allowed = true; var calls = 0
+        let tool = NativeAppToolCatalog.tools.first { $0.id == "reminders.create" }!
+        let driver = AppToolComputer(tools: [tool], permitted: { _ in allowed }) { _, _ in calls += 1; allowed = false; return ["status": "created"] }
+        _ = await driver.perform(.press(key: 0)); _ = await driver.perform(.type(key: -2, text: #"{"title":"x"}"#, submit: false))
+        #expect(await driver.perform(.press(key: -3)) == .stale)
+        allowed = true
+        #expect(await driver.perform(.press(key: -3)) == .ok)
+        #expect(calls == 1)
     }
 }

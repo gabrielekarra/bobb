@@ -1,7 +1,7 @@
 import Foundation
 
 public enum NativeAppToolCatalog {
-    public static let applicationName = "Mac tools: Calendario Promemoria Contatti Comandi Rapidi Musica Mail Messaggi / Calendar Reminders Contacts Shortcuts Music Messages"
+    public static let applicationName = "Mac tools: Calendario Promemoria Contatti Comandi Rapidi Musica Mail Messaggi / Calendar Reminders Contacts Shortcuts Music Messages File Files Documenti Finder"
     public static let bundleId = "com.bobb.integrations"
     private static func text(_ description: String, max: Int = 8000) -> JSONValue {
         ["type": "string", "description": .string(description), "maxLength": .number(Double(max))]
@@ -17,8 +17,25 @@ public enum NativeAppToolCatalog {
                              _ category: ActionCategory = .navigate, _ properties: [String: JSONValue] = [:], _ required: [String] = []) -> AppTool {
         AppTool(id: id, name: name, summary: summary, bundleId: bundle, app: app, category: category,
             schema: ["type": "object", "properties": .object(properties), "required": .array(required.map(JSONValue.string)), "additionalProperties": false],
-            deduplicatesCalls: ["calendar.create", "reminders.create", "mail.draft"].contains(id))
+            deduplicatesCalls: ["calendar.create", "reminders.create", "mail.draft", "messages.send", "files.create"].contains(id))
     }
+    public static let fileTools: [AppTool] = [
+        tool("files.folders", "Finder / File: selected folders", "List only folders selected by the user.", "Finder", "com.apple.finder"),
+        tool("files.list", "Finder / File: list directory", "List exact file ids and versions in a selected folder; relative path only.", "Finder", "com.apple.finder", .navigate,
+             ["folder_id": identifier, "path": text("Relative directory, or empty for root"), "limit": limit, "offset": offset], ["folder_id"]),
+        tool("files.search", "Finder / File: find documents", "Search filenames in a selected folder. Reports bounded scan truncation and pagination.", "Finder", "com.apple.finder", .navigate,
+             ["folder_id": identifier, "path": text("Relative subfolder"), "query": requiredText("Filename search"), "limit": limit, "offset": offset], ["folder_id", "query"]),
+        tool("files.read", "Finder / File: read document", "Read text, PDF, RTF, DOCX or ODT by an observed file id, in pages.", "Finder", "com.apple.finder", .navigate,
+             ["file_id": identifier, "offset": offset, "characters": ["type": "integer", "minimum": 100, "maximum": 8000]], ["file_id"]),
+        tool("files.create", "Finder / File: create text file", "Create a new UTF-8 file in a selected folder without overwriting anything.", "Finder", "com.apple.finder", .write,
+             ["folder_id": identifier, "path": requiredText("Relative new filename"), "text": text("File content", max: 32000)], ["folder_id", "path", "text"]),
+        tool("files.replace", "Finder / File: replace text", "Replace an exact observed version of a plain text file; no rich-format conversion.", "Finder", "com.apple.finder", .write,
+             ["file_id": identifier, "expected_version": identifier, "text": text("Complete replacement text", max: 32000)], ["file_id", "expected_version", "text"]),
+        tool("files.move", "Finder / File: move or rename", "Move an exact observed file inside the same selected folder, without overwriting.", "Finder", "com.apple.finder", .write,
+             ["file_id": identifier, "expected_version": identifier, "destination": requiredText("New relative path")], ["file_id", "expected_version", "destination"]),
+        tool("files.trash", "Finder / File: move to Trash", "Trash an exact observed version; never delete a selected root.", "Finder", "com.apple.finder", .delete,
+             ["file_id": identifier, "expected_version": identifier], ["file_id", "expected_version"]),
+    ]
     public static let tools: [AppTool] = [
         tool("calendar.list", "Calendar / Calendario: list events", "Read a bounded date range; use returned event ids and start dates for changes.", "Calendar", "com.apple.iCal", .navigate,
              ["from": date, "to": date, "limit": limit, "offset": offset], ["from", "to"]),
@@ -64,11 +81,13 @@ public enum NativeAppToolCatalog {
              ["to": ["type": "array", "maxItems": 20, "items": requiredText("Exact email address")], "subject": text("Subject"), "body": requiredText("Body")], ["to", "subject", "body"]),
         tool("mail.mark", "Mail / Posta: mark email", "Change read/unread or flag status for an exact Message-ID.", "Mail", "com.apple.mail", .write,
              ["message_id": identifier, "operation": ["type": "string", "enum": ["read", "unread", "flag", "unflag"]]], ["message_id", "operation"]),
-        tool("messages.list", "Messages / Messaggi: list conversations", "Read individual iMessage chats on request. Requires Full Disk Access; returns exact chat ids and recipient addresses.", "Messages", "com.apple.MobileSMS", .navigate,
+        tool("messages.list", "Messages / Messaggi: list conversations", "Read individual and group iMessage/SMS chats on request. Requires Full Disk Access; returns exact chat ids and recipient addresses.", "Messages", "com.apple.MobileSMS", .navigate,
              ["limit": limit, "offset": offset]),
-        tool("messages.read", "Messages / Messaggi: read conversation", "Read a page of an exact previously listed individual chat. Attachment contents and unsupported text archives are not read.", "Messages", "com.apple.MobileSMS", .navigate,
+        tool("messages.read", "Messages / Messaggi: read conversation", "Read a page of an exact listed chat, including supported archived text and attachment metadata.", "Messages", "com.apple.MobileSMS", .navigate,
              ["chat_id": identifier, "limit": limit, "before_row": ["type": "integer", "minimum": 1, "maximum": 9007199254740991]], ["chat_id"]),
-        tool("messages.send", "Messages / Messaggi: send message", "Submit an iMessage to the exact address of a previously listed individual chat. A submission receipt does not prove delivery.", "Messages", "com.apple.MobileSMS", .send,
-             ["chat_id": identifier, "address": requiredText("Exact recipient address returned by messages.list"), "body": requiredText("Message body")], ["chat_id", "address", "body"]),
-    ]
+        tool("messages.send", "Messages / Messaggi: send message", "Submit to an exact listed iMessage/SMS conversation and its complete observed recipients. A submission receipt does not prove delivery.", "Messages", "com.apple.MobileSMS", .send,
+             ["chat_id": identifier, "address": text("Exact address for an individual chat"), "members": ["type": "array", "maxItems": 100, "items": identifier], "body": requiredText("Message body")], ["chat_id", "body"]),
+        tool("messages.attachment", "Messages / Messaggi: read attachment", "Read a supported document from an exact attachment in a previously read chat. No execution of attachments.", "Messages", "com.apple.MobileSMS", .navigate,
+             ["chat_id": identifier, "attachment_id": identifier, "offset": offset], ["chat_id", "attachment_id"]),
+    ] + fileTools
 }

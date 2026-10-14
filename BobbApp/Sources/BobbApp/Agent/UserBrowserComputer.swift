@@ -41,7 +41,7 @@ final class UserBrowserComputer: TaskDriver {
         applicationURL = location; bundleId = selected.bundleId; applicationName = selected.name
         self.settings = settings; self.ownsScreen = ownsScreen
         let primary = AXDriver(); primary.settings = settings; primary.stillOwnsScreen = ownsScreen
-        native = NativeComputer(primary: primary, fallback: CUANativeComputer(settings: settings, ownsScreen: ownsScreen))
+        native = NativeComputer(primary: primary, fallback: CUANativeComputer(settings: settings, ownsScreen: ownsScreen), settings: settings, ownsScreen: ownsScreen)
         startURL = url
         if let url, !permits(url) { return nil }
         if front?.bundleIdentifier == bundleId { expectedPID = front?.processIdentifier }
@@ -107,6 +107,7 @@ final class UserBrowserComputer: TaskDriver {
     }
     func observe() async -> ScreenObservation? {
         guard !closed, ownsScreen(), !Task.isCancelled else { return nil }
+        if native.usingTools { error = ""; return await native.observe() }
         if !prepared, !(await prepare()) { return unavailable() }
         guard let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier == expectedPID else {
             error = "applicationChanged"; return unavailable()
@@ -129,21 +130,36 @@ final class UserBrowserComputer: TaskDriver {
         error = ""; return screen
     }
     func perform(_ action: DriverAction) async -> DriverResult {
-        guard !closed, ownsScreen(), !Task.isCancelled, AXIsProcessTrusted(),
-              NSWorkspace.shared.frontmostApplication?.processIdentifier == expectedPID else { return .stale }
+        guard !closed, ownsScreen(), !Task.isCancelled else { return .stale }
+        if native.usingTools {
+            let result = await native.perform(action)
+            if case .openApp = action, result == .ok, !native.usingTools { bindForeground() }
+            return result
+        }
+        guard AXIsProcessTrusted(), NSWorkspace.shared.frontmostApplication?.processIdentifier == expectedPID else { return .stale }
         guard let pid = expectedPID, let window = AX.element(AX.application(pid), "AXFocusedWindow"),
               expectedWindow.map({ CFEqual($0, window) }) == true else { return .stale }
         if let currentURL {
             guard let pid = expectedPID, AX.pageURL(pid: pid) == currentURL, permits(currentURL) else { return .stale }
         }
         let result = await native.perform(action)
-        if result == .ok { mayNavigateUntil = Date().addingTimeInterval(10) }
-        if case .openApp = action, result == .ok {
-            expectedPID = NSWorkspace.shared.frontmostApplication?.processIdentifier; currentURL = nil
-            expectedWindow = expectedPID.flatMap { AX.element(AX.application($0), "AXFocusedWindow") }
+        if result == .ok {
+            mayNavigateUntil = Date().addingTimeInterval(10)
+            if let raised = native.raisedWindow, let pid = expectedPID,
+               let focused = AX.element(AX.application(pid), "AXFocusedWindow"), CFEqual(raised, focused) {
+                expectedWindow = raised; currentURL = nil
+            }
         }
+        if case .openApp = action, result == .ok, !native.usingTools { bindForeground() }
         return result
     }
+    private func bindForeground() {
+        expectedPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        expectedWindow = expectedPID.flatMap { AX.element(AX.application($0), "AXFocusedWindow") }
+        currentURL = nil; mayNavigateUntil = Date().addingTimeInterval(10)
+    }
+    func actionContext(for action: DriverAction) -> DriverActionContext? { native.actionContext(for: action) }
+    func supportsUndo(for action: DriverAction) -> Bool { native.supportsUndo(for: action) }
     func installedApps() -> [String] { native.installedApps() }
     func bundleIdentifier(forApp name: String) -> String? { native.bundleIdentifier(forApp: name) }
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { native.offeredKeys(for: observation) }

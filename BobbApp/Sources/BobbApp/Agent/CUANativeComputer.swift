@@ -141,7 +141,7 @@ final class NativeComputer: TaskDriver {
     private var selectedConnector: MCPConfiguration?
     private let settings: (() -> BobbSettings)?
     private let ownsScreen: () -> Bool
-    private var usingTools = false
+    private(set) var usingTools = false
     init(primary: AXDriver, fallback: CUANativeComputer?, settings: (() -> BobbSettings)? = nil, ownsScreen: @escaping () -> Bool = { true }) {
         self.primary=primary; self.fallback=fallback; active=primary; self.settings = settings; self.ownsScreen = ownsScreen
         if let settings {
@@ -155,11 +155,12 @@ final class NativeComputer: TaskDriver {
                     && !ActionPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: tool.bundleId, appName: tool.app)
                     && !ActionPolicy(extraProtected: s.extraProtectedApps).isProtected(bundleId: tool.bundleId, appName: actualName)
             }
-            let adapters = NativeAppTools(permitted: permitted)
+            let adapters = NativeAppTools(permitted: permitted, folders: { settings().bobb.fileFolders ?? [] })
             toolComputer = AppToolComputer(tools: NativeAppToolCatalog.tools, name: NativeAppToolCatalog.applicationName,
                 bundleId: NativeAppToolCatalog.bundleId, permitted: permitted, execute: { tool, arguments in try await adapters.execute(tool, arguments) })
         }
     }
+    var raisedWindow: AXUIElement? { active is AXDriver ? primary.raisedWindow : nil }
     func observe() async -> ScreenObservation? {
         if usingTools { return await active.observe() }
         if let screen = await primary.observe(), !screen.elements.isEmpty, !screen.unreadable { active=primary; return screen }

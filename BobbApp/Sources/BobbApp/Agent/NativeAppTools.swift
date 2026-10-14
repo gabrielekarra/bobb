@@ -11,9 +11,10 @@ final class NativeAppTools {
     private let events = EKEventStore()
     private let contacts = CNContactStore()
     private let messages = MessageAppTools()
+    private let files: FileAppTools
     private let permitted: @MainActor (AppTool) -> Bool
     private var shortcutNames: Set<String> = []
-    init(permitted: @escaping @MainActor (AppTool) -> Bool) { self.permitted = permitted }
+    init(permitted: @escaping @MainActor (AppTool) -> Bool, folders: @escaping () -> [FileFolder] = { [] }) { self.permitted = permitted; files = FileAppTools(folders: folders) }
     enum Failure: Error, CustomStringConvertible {
         case unavailable(String)
         var description: String { switch self { case .unavailable(let message): return message } }
@@ -69,6 +70,7 @@ final class NativeAppTools {
     func execute(_ tool: AppTool, _ args: JSONValue) async throws -> JSONValue {
         try check(tool)
         guard ToolArguments.matches(args, schema: tool.schema) else { throw Failure.unavailable("Invalid tool arguments.") }
+        if tool.id.hasPrefix("files.") { return try files.execute(tool, args) }
         if tool.id.hasPrefix("messages.") { return try messages.execute(tool, args) }
         if tool.id.hasPrefix("calendar.") {
             try await calendarAccess(tool)

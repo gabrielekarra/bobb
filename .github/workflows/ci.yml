@@ -90,6 +90,12 @@ jobs:
       - name: Test
         working-directory: BobbApp
         run: swift test -j 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native integration fixtures
+        working-directory: BobbApp
+        run: BOBB_TEST_PYTHON="$(python -c 'import sys; print(sys.executable)')" .build/debug/BobbApp --check-integrations ../tests/fixtures/mcp_http_server.py
 
   package:
     name: Bobb.dmg (bundle, daemon smoke test, DMG)

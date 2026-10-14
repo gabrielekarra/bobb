@@ -29,6 +29,13 @@ struct BobbView: View {
     @State private var connectorExecutable = ""
     @State private var connectorArguments = ""
     @State private var connectorImportStatus = ""
+    @State private var connectorTransport = MCPTransportKind.stdio
+    @State private var connectorEndpoint = ""
+    @State private var connectorBearer = ""
+    @State private var connectorOAuth = false
+    @State private var connectorClientId = ""
+    @State private var connectorStatus: [String: String] = [:]
+    @State private var connectorJobs: [String: Task<Void, Never>] = [:]
     @State private var guestAddress = ""
     @State private var guestUser = ""
     @State private var guestKey = ""
@@ -586,33 +593,8 @@ struct BobbView: View {
                 Text(t("Calendar, Reminders, Contacts, Shortcuts, Music, Mail and Messages", "Calendario, Promemoria, Contatti, Comandi Rapidi, Musica, Mail e Messaggi"))
                 hint(t("Ask Bobb from Option–Space or a desktop assignment. It can choose native tools, configured connectors and your real app controls in the same task. macOS asks for access when a tool first needs it; app boundaries apply to every call.", "Chiedi a Bobb da Option–Spazio o da un incarico sul desktop. Può scegliere strumenti nativi, connettori configurati e controlli delle tue app nello stesso incarico. macOS chiede accesso quando uno strumento ne ha bisogno; i confini delle app valgono per ogni chiamata."))
             }
-            Section(t("Optional MCP connectors", "Connettori MCP opzionali")) {
-                ForEach(state.settings.bobb.connectors) { config in
-                    HStack { Text(config.id); hint(config.executable); Spacer()
-                        Toggle(t("Enabled", "Attivo"), isOn: Binding(get: { state.settings.bobb.connectors.first { $0.id == config.id }?.enabled == true }, set: { value in
-                            workspace.coordinator.updateSettings { s in if let index = s.bobb.connectors.firstIndex(where: { $0.id == config.id }) { s.bobb.connectors[index].enabled = value } }
-                            if value { connect(id: "mcp:\(config.id)", name: "MCP \(config.id)") }
-                        }))
-                        Button(t("Remove", "Rimuovi"), role: .destructive) {
-                            config.environmentReferences.values.forEach(MCPSecrets.remove)
-                            workspace.coordinator.updateSettings { $0.bobb.connectors.removeAll { $0.id == config.id }; $0.bobb.boundaries.apps.removeAll { $0.id == "mcp:\(config.id)" } }
-                        }
-                    }
-                }
-                Button(t("Import MCP configuration…", "Importa configurazione MCP…"), action: importConnectors)
-                if !connectorImportStatus.isEmpty { hint(connectorImportStatus) }
-                TextField(t("Connector name", "Nome connettore"), text: $connectorName)
-                TextField(t("Absolute executable path", "Percorso assoluto dell’eseguibile"), text: $connectorExecutable)
-                TextField(t("Arguments, one per line", "Argomenti, uno per riga"), text: $connectorArguments, axis: .vertical).lineLimit(1...3)
-                Button(t("Enable local connector", "Attiva connettore locale")) {
-                    let config = MCPConfiguration(id: connectorName, executable: connectorExecutable, arguments: connectorArguments.split(separator: "\n").map(String.init), enabled: true)
-                    guard !config.id.isEmpty, config.executable.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: config.executable) else { return }
-                    workspace.coordinator.updateSettings { s in s.bobb.connectors.removeAll { $0.id == config.id }; s.bobb.connectors.append(config) }
-                    connect(id: "mcp:\(config.id)", name: "MCP \(config.id)")
-                    connectorName = ""; connectorExecutable = ""; connectorArguments = ""
-                }
-                hint(t("Only explicitly configured stdio servers run. Review the executable yourself; it runs with your account's permissions. Every tool call follows its connector's command boundary.", "Partono solo server stdio configurati da te. Verifica l’eseguibile: viene avviato con i permessi del tuo account. Ogni chiamata rispetta il Confine comandi del connettore."))
-            }
+            folderSettings
+            connectorSettings
             Section(t("Experimental virtual Mac", "Mac virtuale sperimentale")) {
                 Text(workspace.virtualMac.status)
                 if workspace.virtualMac.progress > 0, workspace.virtualMac.progress < 1 { ProgressView(value: workspace.virtualMac.progress) }
@@ -640,6 +622,127 @@ struct BobbView: View {
         }.formStyle(.grouped)
     }
 
+    private var folderSettings: some View {
+        Section(t("Selected folders", "Cartelle selezionate")) {
+            ForEach(state.settings.bobb.fileFolders ?? []) { folder in
+                HStack {
+                    Text(folder.name)
+                    Toggle(t("Remember documents", "Ricorda documenti"), isOn: Binding(get: {
+                        state.settings.bobb.fileFolders?.first(where: { $0.id == folder.id })?.indexEnabled == true
+                    }, set: { value in workspace.coordinator.updateSettings { s in
+                        if let index = s.bobb.fileFolders?.firstIndex(where: { $0.id == folder.id }) { s.bobb.fileFolders?[index].indexEnabled = value }
+                    } }))
+                    Button(t("Remove", "Rimuovi"), role: .destructive) { workspace.coordinator.updateSettings { $0.bobb.fileFolders?.removeAll { $0.id == folder.id } } }
+                }
+            }
+            Button(t("Choose folder…", "Scegli cartella…")) {
+                let picker = NSOpenPanel(); picker.canChooseDirectories = true; picker.canChooseFiles = false
+                guard picker.runModal() == .OK, let url = picker.url,
+                      let bookmark = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
+                let folder = FileFolder(name: url.lastPathComponent, bookmark: bookmark)
+                workspace.coordinator.updateSettings { if $0.bobb.fileFolders == nil { $0.bobb.fileFolders = [] }; $0.bobb.fileFolders?.append(folder) }
+                connect(id: "com.apple.finder", name: "Finder")
+            }
+            hint(t("Bobb can search, read and edit files inside these folders. Finder's boundaries control its actions. Remember documents adds bounded excerpts to local memory while observation and memory are enabled; removing a folder stops new reads. Existing memories follow retention and can be deleted in Memory.", "Bobb può cercare, leggere e modificare file in queste cartelle. I Confini di Finder controllano le azioni. Ricorda documenti aggiunge estratti alla memoria locale quando osservazione e memoria sono attive; rimuovere una cartella ferma le letture. I ricordi già salvati seguono la conservazione e si eliminano da Memoria."))
+        }
+    }
+    private var connectorSettings: some View {
+        Section(t("Optional MCP connectors", "Connettori MCP opzionali")) {
+            ForEach(state.settings.bobb.connectors) { config in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(config.id); hint(config.endpoint ?? config.executable); Spacer()
+                        Toggle(t("Enabled", "Attivo"), isOn: Binding(get: { state.settings.bobb.connectors.first { $0.id == config.id }?.enabled == true }, set: { value in
+                            workspace.coordinator.updateSettings { s in if let index = s.bobb.connectors.firstIndex(where: { $0.id == config.id }) { s.bobb.connectors[index].enabled = value } }
+                            if value { connect(id: "mcp:\(config.id)", name: "MCP \(config.id)") }
+                            else { connectorJobs.removeValue(forKey: config.id)?.cancel() }
+                        }))
+                        Button(t("Remove", "Rimuovi"), role: .destructive) {
+                            connectorJobs.removeValue(forKey: config.id)?.cancel(); MCPOAuth.logout(config)
+                            config.secretReferences.forEach(MCPSecrets.remove)
+                            workspace.coordinator.updateSettings { $0.bobb.connectors.removeAll { $0.id == config.id }; $0.bobb.boundaries.apps.removeAll { $0.id == "mcp:\(config.id)" } }
+                        }
+                    }
+                    TextField(t("Excluded tools, one per line", "Strumenti esclusi, uno per riga"), text: Binding(get: {
+                        state.settings.bobb.connectors.first { $0.id == config.id }?.excludedTools.joined(separator: "\n") ?? ""
+                    }, set: { text in workspace.coordinator.updateSettings { s in
+                        if let index = s.bobb.connectors.firstIndex(where: { $0.id == config.id }) { s.bobb.connectors[index].excludedTools = text.split(separator: "\n").map(String.init) }
+                    } }), axis: .vertical).lineLimit(1...3)
+                    HStack {
+                        Button(t("Test connection", "Verifica connessione")) { connectorAction(config, login: false) }
+                        if config.oauth != nil {
+                            Button(t("Sign in", "Accedi")) { connectorAction(config, login: true) }
+                            Button(t("Forget sign-in", "Dimentica accesso")) {
+                                connectorJobs.removeValue(forKey: config.id)?.cancel(); MCPOAuth.logout(config)
+                                connectorStatus[config.id] = t("Sign-in removed from this Mac.", "Accesso rimosso da questo Mac.")
+                            }
+                        }
+                        if connectorJobs[config.id] != nil { Button(t("Cancel", "Annulla")) { connectorJobs.removeValue(forKey: config.id)?.cancel() } }
+                    }
+                    if let status = connectorStatus[config.id] { hint(status) }
+                }
+            }
+            Button(t("Import MCP configuration…", "Importa configurazione MCP…"), action: importConnectors)
+            if !connectorImportStatus.isEmpty { hint(connectorImportStatus) }
+            TextField(t("Connector name", "Nome connettore"), text: $connectorName)
+            Picker(t("Connection", "Connessione"), selection: $connectorTransport) {
+                Text(t("Local process", "Processo locale")).tag(MCPTransportKind.stdio)
+                Text("HTTPS / Streamable HTTP").tag(MCPTransportKind.http)
+                Text("HTTPS / SSE").tag(MCPTransportKind.sse)
+            }
+            if connectorTransport == .stdio {
+                TextField(t("Absolute executable path", "Percorso assoluto dell’eseguibile"), text: $connectorExecutable)
+                TextField(t("Arguments, one per line", "Argomenti, uno per riga"), text: $connectorArguments, axis: .vertical).lineLimit(1...3)
+            } else {
+                TextField(t("Service URL", "URL del servizio"), text: $connectorEndpoint)
+                SecureField(t("Access token (optional)", "Token di accesso (opzionale)"), text: $connectorBearer)
+                Toggle(t("Use browser sign-in", "Accedi dal browser"), isOn: $connectorOAuth)
+                if connectorOAuth { TextField(t("Registered client id (blank for automatic registration)", "ID client registrato (vuoto per registrazione automatica)"), text: $connectorClientId) }
+            }
+            Button(t("Add connector", "Aggiungi connettore"), action: addConnector)
+            hint(t("Local processes run with your account's permissions. Connected services receive the arguments of their calls; language and decision models remain on your Mac. Credentials stay in Keychain. Tool calls follow the connector's command boundary.", "I processi locali usano i permessi del tuo account. I servizi collegati ricevono gli argomenti delle chiamate; i modelli di linguaggio e decisione restano sul Mac. Le credenziali sono nel Portachiavi. Le chiamate seguono il Confine comandi del connettore."))
+        }
+    }
+    private func addConnector() {
+        guard !connectorName.isEmpty, connectorName.count <= 100, !connectorName.contains(where: { $0.isNewline || $0 == "\0" }),
+              !state.settings.bobb.connectors.contains(where: { $0.id == connectorName }) else { return }
+        var config = MCPConfiguration(id: connectorName, executable: connectorExecutable,
+            arguments: connectorArguments.split(separator: "\n").map(String.init), enabled: true,
+            transport: connectorTransport, endpoint: connectorTransport == .stdio ? nil : connectorEndpoint)
+        if connectorTransport == .stdio {
+            guard config.executable.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: config.executable) else { return }
+        } else {
+            guard MCPRemoteProtocol.endpoint(connectorEndpoint) != nil else { connectorImportStatus = t("Use HTTPS, or HTTP for a local loopback service.", "Usa HTTPS, o HTTP per un servizio locale loopback."); return }
+            do {
+                if !connectorBearer.isEmpty {
+                    guard MCPRemoteProtocol.allowedHeader("Authorization", value: "Bearer " + connectorBearer) else { throw ConnectorError.configuration }
+                    config.headerReferences["Authorization"] = try MCPSecrets.store("Bearer " + connectorBearer)
+                }
+            } catch { connectorImportStatus = error.localizedDescription; return }
+            if connectorOAuth { config.oauth = MCPOAuthConfiguration(clientId: connectorClientId) }
+        }
+        workspace.coordinator.updateSettings { $0.bobb.connectors.append(config) }
+        connect(id: "mcp:\(config.id)", name: "MCP \(config.id)")
+        connectorName = ""; connectorExecutable = ""; connectorArguments = ""; connectorEndpoint = ""; connectorBearer = ""; connectorClientId = ""
+    }
+    private func connectorAction(_ config: MCPConfiguration, login: Bool) {
+        connectorJobs.removeValue(forKey: config.id)?.cancel()
+        connectorStatus[config.id] = login ? t("Complete sign-in in your browser…", "Completa l’accesso nel browser…") : t("Checking…", "Verifica in corso…")
+        connectorJobs[config.id] = Task { @MainActor in
+            do {
+                if login { try await MCPOAuth.login(config) }
+                try Task.checkCancellation()
+                guard state.settings.bobb.connectors.contains(config) else { if login { MCPOAuth.logout(config) }; return }
+                var test = config; test.enabled = true
+                let connection = MCPConnection(configuration: test); defer { connection.disconnect() }
+                try await connection.connect()
+                try Task.checkCancellation()
+                connectorStatus[config.id] = "\(connection.tools.count) " + t("tools available.", "strumenti disponibili.")
+            } catch { connectorStatus[config.id] = Task.isCancelled ? t("Cancelled.", "Annullato.") : error.localizedDescription }
+            connectorJobs[config.id] = nil
+        }
+    }
+
     private func importConnectors() {
         let picker = NSOpenPanel(); picker.allowedContentTypes = [.json]; picker.allowsMultipleSelection = false
         guard picker.runModal() == .OK, let file = picker.url else { return }
@@ -650,10 +753,10 @@ struct BobbView: View {
                 settings.bobb.connectors.removeAll { previous in configurations.contains { $0.id == previous.id } }
                 settings.bobb.connectors += configurations
             }
-            replaced.flatMap { $0.environmentReferences.values }.forEach(MCPSecrets.remove)
-            connectorImportStatus = t("Imported disabled connectors. Review their executables and enable the ones you want; environment values are kept in Keychain.", "Connettori importati disattivati. Verifica gli eseguibili e attiva quelli desiderati; i valori di ambiente sono nel Portachiavi.")
+            replaced.forEach { connectorJobs.removeValue(forKey: $0.id)?.cancel(); MCPOAuth.logout($0) }; replaced.flatMap(\.secretReferences).forEach(MCPSecrets.remove)
+            connectorImportStatus = t("Imported disabled connectors. Review their addresses or executables and enable the ones you want; credentials are kept in Keychain.", "Connettori importati disattivati. Verifica indirizzi o eseguibili e attiva quelli desiderati; le credenziali sono nel Portachiavi.")
         } catch {
-            connectorImportStatus = t("Import failed. Use a local stdio mcpServers JSON with installed executables and no shell/environment overrides.", "Importazione fallita. Usa un JSON mcpServers stdio con eseguibili installati, senza modifiche a shell o ambiente di sistema.")
+            connectorImportStatus = t("Import failed. Use an mcpServers JSON with installed executables or HTTPS URLs and valid credentials.", "Importazione fallita. Usa un JSON mcpServers con eseguibili installati o URL HTTPS e credenziali valide.")
         }
     }
 
