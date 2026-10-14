@@ -25,6 +25,9 @@ final class AXDriver: TaskDriver {
     private var fingerprints: [Int: String] = [:]
     private var windowTitle = ""
     private var websiteURL: URL?
+    private enum NativeAction { case raise, menu, increase, decrease }
+    private var nativeActions: [Int: NativeAction] = [:]
+    private(set) var raisedWindow: AXUIElement?
     private var visualTargets: [Int: ScreenTextRecognizer.Control] = [:]
 
     static let maxNodes = 2600
@@ -48,6 +51,7 @@ final class AXDriver: TaskDriver {
         let app = AX.application(front.processIdentifier)
         AX.enableFullTree(app, pid: front.processIdentifier)
         elements.removeAll(keepingCapacity: true)
+        nativeActions.removeAll(keepingCapacity: true)
         visualTargets.removeAll(keepingCapacity: true)
         frames.removeAll(keepingCapacity: true)
         let window = AX.element(app, "AXFocusedWindow") ?? AX.element(app, "AXMainWindow")
@@ -70,6 +74,12 @@ final class AXDriver: TaskDriver {
         if let window {
             visible = Self.rect(of: window).map(Self.screenRect)
             snapshots = walk(window)
+        }
+        for other in AX.attribute(app, "AXWindows") as? [AXUIElement] ?? [] {
+            let name = AX.string(other, "AXTitle") ?? ""
+            guard !name.isEmpty, !ScreenMemoryPolicy().isPrivateWindow(title: name), window.map({ !CFEqual($0, other) }) == true else { continue }
+            let key = register(other); nativeActions[key] = .raise
+            snapshots.append(UIElementSnapshot(key: key, role: "AXButton", title: "Show window: " + name, actions: ["AXPress"], context: ["windows"]))
         }
         snapshots += menuItems(app: app, pid: front.processIdentifier)
         // Editors, terminals and spreadsheet selections may expose only a
@@ -137,7 +147,7 @@ final class AXDriver: TaskDriver {
             if role == "AXSecureTextField" || subrole == "AXSecureTextField" { continue }
 
             var actions: [String] = []
-            if Self.needsActionCheck.contains(role) {
+            if Self.needsActionCheck.contains(role) || ["AXSlider", "AXIncrementor", "AXValueIndicator"].contains(role) {
                 actions = Self.actionNames(element)
             }
             let frame = Self.frame(values)
@@ -158,6 +168,19 @@ final class AXDriver: TaskDriver {
                 valueSettable: false,
                 context: context
             )
+            if ["AXSlider", "AXValueIndicator"].contains(role) {
+                var settable = DarwinBoolean(false); AXUIElementIsAttributeSettable(element, "AXValue" as CFString, &settable)
+                snapshot.valueSettable = settable.boolValue
+            }
+            let label = ElementClassifier.label(of: snapshot)
+            if !label.isEmpty {
+                var special = actions
+                if special.isEmpty, ElementClassifier.kind(of: snapshot) != nil { special = Self.actionNames(element) }
+                for (name, prefix, operation) in [("AXShowMenu", "Context menu: ", NativeAction.menu), ("AXIncrement", "Increase: ", .increase), ("AXDecrement", "Decrease: ", .decrease)] where special.contains(name) {
+                    let key = register(element); nativeActions[key] = operation
+                    out.append(UIElementSnapshot(key: key, role: "AXButton", title: prefix + label, value: snapshot.value, actions: ["AXPress"], context: context))
+                }
+            }
             if let kind = ElementClassifier.kind(of: snapshot) {
                 if kind == .press, ElementClassifier.label(of: snapshot).isEmpty {
                     // Web and Electron controls often carry their name in a child.
@@ -257,6 +280,7 @@ final class AXDriver: TaskDriver {
     // MARK: Acting
 
     func perform(_ action: DriverAction) async -> DriverResult {
+        raisedWindow = nil
         guard !Task.isCancelled, stillOwnsScreen?() != false else { return .stale }
         if case .openApp = action {} else {
             guard NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
@@ -273,10 +297,12 @@ final class AXDriver: TaskDriver {
         case .openApp(let name):
             return await openApp(name)
         case .press(let key):
+            if nativeActions[key] != nil { return performNative(key) }
             if visualTargets[key] != nil { return await pressVisual(key: key, count: 1) }
             guard let element = live(key) else { return .stale }
             return await press(element, key: key)
         case .open(let key):
+            if nativeActions[key] != nil { return performNative(key) }
             if visualTargets[key] != nil { return await pressVisual(key: key, count: 2) }
             guard let element = live(key), !AX.isSecure(element) else { return .stale }
             if Self.actionNames(element).contains("AXOpen"), AXUIElementPerformAction(element, "AXOpen" as CFString) == .success { return .ok }
@@ -293,6 +319,28 @@ final class AXDriver: TaskDriver {
             guard let element = live(key) else { return .stale }
             return scroll(element, key: key, down: down)
         }
+    }
+
+    func actionContext(for action: DriverAction) -> DriverActionContext? {
+        let key: Int
+        switch action { case .press(let k), .open(let k): key = k; default: return nil }
+        guard let operation = nativeActions[key], let front = NSWorkspace.shared.frontmostApplication, let bundleId = front.bundleIdentifier else { return nil }
+        return DriverActionContext(bundleId: bundleId, app: front.localizedName ?? "", categories: [operation == .increase || operation == .decrease ? .write : .navigate])
+    }
+    func supportsUndo(for action: DriverAction) -> Bool {
+        switch action {
+        case .press(let k), .open(let k): return nativeActions[k] == nil
+        case .type(let k, _, _): return elements[k].map { !["AXSlider", "AXValueIndicator"].contains(AX.string($0, "AXRole") ?? "") } ?? false
+        default: return true
+        }
+    }
+    private func performNative(_ key: Int) -> DriverResult {
+        guard let operation = nativeActions[key], let element = live(key) else { return .stale }
+        let action: String
+        switch operation { case .raise: action = "AXRaise"; case .menu: action = "AXShowMenu"; case .increase: action = "AXIncrement"; case .decrease: action = "AXDecrement" }
+        guard Self.actionNames(element).contains(action), AXUIElementPerformAction(element, action as CFString) == .success else { return .failed("nativeControlUnavailable") }
+        if operation == .raise { raisedWindow = element }
+        return .ok
     }
 
     /// The element for `key`, if it still exists.
@@ -345,6 +393,14 @@ final class AXDriver: TaskDriver {
         try? await Task.sleep(nanoseconds: 120_000_000)
         guard !Task.isCancelled, stillOwnsScreen?() != false, NSWorkspace.shared.frontmostApplication?.processIdentifier == lastApp else { return .stale }
         let role = AX.string(element, "AXRole") ?? ""
+        if ["AXSlider", "AXValueIndicator"].contains(role) {
+            guard !submit, let value = Double(text), value.isFinite,
+                  let minimum = AX.attribute(element, "AXMinValue") as? NSNumber, let maximum = AX.attribute(element, "AXMaxValue") as? NSNumber,
+                  value >= minimum.doubleValue, value <= maximum.doubleValue else { return .failed("numericControlRange") }
+            guard AXUIElementSetAttributeValue(element, "AXValue" as CFString, NSNumber(value: value)) == .success,
+                  let saved = AX.attribute(element, "AXValue") as? NSNumber, abs(saved.doubleValue - value) < 0.001 else { return .failed("numericControlUnverified") }
+            return .ok
+        }
         let previous = Self.stringValue(AX.attribute(element, "AXValue"))
         let multiline = role == "AXTextArea" || role == "AXWebArea"
         lastTyped = (element, previous)

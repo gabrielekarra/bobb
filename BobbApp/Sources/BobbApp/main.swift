@@ -45,6 +45,12 @@ if CommandLine.arguments.contains("--render-docs") {
     exit(0)
 }
 
+if CommandLine.arguments.contains("--check-integrations") {
+    runIntegrationSmokeCheck()
+    app.run()
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--mcp-guest") {
     let server = GuestMCPServer()
     server.start()

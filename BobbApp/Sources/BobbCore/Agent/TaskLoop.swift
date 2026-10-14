@@ -17,9 +17,11 @@ public struct ScreenObservation: Sendable, Equatable {
     public var unreadable: Bool
     /// URL attested by the current native web area, independent of its title.
     public var sourceURL: String?
+    /// Driver-owned schema, kept separate from potentially untrusted result text.
+    public var toolSchema: JSONValue?
 
     public init(app: String, bundleId: String?, window: String, elements: [UIElementSnapshot], screen: ScreenRect? = nil,
-                screenText: String = "", defaultButton: String = "", unreadable: Bool = false, sourceURL: String? = nil) {
+                screenText: String = "", defaultButton: String = "", unreadable: Bool = false, sourceURL: String? = nil, toolSchema: JSONValue? = nil) {
         self.app = app
         self.bundleId = bundleId
         self.window = window
@@ -28,7 +30,7 @@ public struct ScreenObservation: Sendable, Equatable {
         self.screenText = screenText
         self.defaultButton = defaultButton
         self.unreadable = unreadable
-        self.sourceURL = sourceURL
+        self.sourceURL = sourceURL; self.toolSchema = toolSchema
     }
 }
 
@@ -51,6 +53,16 @@ public enum DriverResult: Sendable, Equatable {
     case failed(String)
 }
 
+/// Trusted metadata supplied by a driver, never by model-generated text.
+public struct DriverActionContext: Sendable, Equatable {
+    public var bundleId: String
+    public var app: String
+    public var categories: [ActionCategory]
+    public init(bundleId: String, app: String, categories: [ActionCategory]) {
+        self.bundleId = bundleId; self.app = app; self.categories = categories
+    }
+}
+
 /// The platform half of a task: reads the accessibility tree and operates
 /// applications. Implemented with AX in the app, with fakes in tests.
 @MainActor
@@ -65,6 +77,8 @@ public protocol TaskDriver: AnyObject {
     func bundleIdentifier(forApp name: String) -> String?
     func offeredKeys(for observation: ScreenObservation) -> [KeyChord]
     func permissionDetail(for action: DriverAction) -> String?
+    func actionContext(for action: DriverAction) -> DriverActionContext?
+    func supportsUndo(for action: DriverAction) -> Bool
     func perform(_ action: DriverAction) async -> DriverResult
     /// Waits for the screen to stop changing after an action.
     func settle() async
@@ -81,6 +95,8 @@ extension TaskDriver {
     public func bundleIdentifier(forApp name: String) -> String? { nil }
     public func offeredKeys(for observation: ScreenObservation) -> [KeyChord] { KeyChord.offered(bundleId: observation.bundleId) }
     public func permissionDetail(for action: DriverAction) -> String? { nil }
+    public func actionContext(for action: DriverAction) -> DriverActionContext? { nil }
+    public func supportsUndo(for action: DriverAction) -> Bool { if case .openApp = action { return false }; return true }
 }
 
 /// The daemon half of a task: plans and decides. Implemented over the
@@ -191,13 +207,17 @@ public final class TaskLoop {
             let focusWords = plan.steps.joined(separator: " ")
             let ranked = ranker.rank(observation.elements, goal: goal, focus: focusWords, recent: recentTargets, screen: observation.screen)
             let table = CandidateTable(ranked: ranked, observation: step)
-            let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app)
+            let appChoices = Self.appCandidates(apps, goal: goal + " " + focusWords, current: observation.app,
+                alwaysOffered: apps.filter { name in
+                    let id = driver.bundleIdentifier(forApp: name) ?? ""
+                    return id == NativeAppToolCatalog.bundleId || id.hasPrefix("mcp:")
+                })
             let screenText = String(observation.screenText.prefix(Self.maxScreenText))
             let keys = driver.offeredKeys(for: observation)
             let digest = table.digest(screenText: screenText)
             let frame = TaskObserveFrame(taskId: taskId, step: step, app: observation.app, window: observation.window,
                                          digest: digest, candidates: table.candidates, apps: appChoices,
-                                         screenText: screenText.isEmpty ? nil : screenText, keys: keys.map(\.rawValue))
+                                         screenText: screenText.isEmpty ? nil : screenText, keys: keys.map(\.rawValue), toolSchema: observation.toolSchema)
             guard let act = await brain.decide(frame) else {
                 return await finish(.failed, detail: "engine")
             }
@@ -232,13 +252,15 @@ public final class TaskLoop {
 
             let element = resolved.element
             let actionDetail = driver.permissionDetail(for: resolved.action) ?? act.text
+            let actionContext = driver.actionContext(for: resolved.action)
             let multiline = element?.role == "AXTextArea" || element?.role == "AXWebArea"
             let verdict = policy.evaluate(operation: act.operation, label: resolved.label, role: element?.role ?? resolved.role,
-                                          appBundleId: act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId,
-                                          appName: act.operation == .openApp ? resolved.label : observation.app,
+                                          appBundleId: actionContext?.bundleId ?? (act.operation == .openApp ? driver.bundleIdentifier(forApp: resolved.label) : observation.bundleId),
+                                          appName: actionContext?.app ?? (act.operation == .openApp ? resolved.label : observation.app),
                                           secure: element?.isSecure ?? false, submit: act.submit, multiline: multiline,
                                           window: observation.window, key: resolved.key, defaultButton: observation.defaultButton,
-                                          context: observation.screenText, typedText: actionDetail ?? "", websiteURL: observation.sourceURL)
+                                          context: observation.screenText, typedText: actionDetail ?? "", websiteURL: actionContext == nil ? observation.sourceURL : nil,
+                                          actionCategories: actionContext?.categories)
             var permissionUsed = "allowed"
             switch verdict {
             case .deny(let reason):
@@ -246,7 +268,7 @@ public final class TaskLoop {
                 return await finish(.blocked, detail: reason)
             case .ask(let reason):
                 let request = PermissionRequest(operation: act.operation, label: resolved.label, role: resolved.role,
-                                                app: observation.app, reason: reason, text: actionDetail)
+                                                app: actionContext?.app ?? observation.app, reason: reason, text: actionDetail)
                 state.task?.phase = .waitingForPermission(request)
                 let answer = await askPermission()
                 if answer == .deny || stopped {
@@ -286,7 +308,7 @@ public final class TaskLoop {
                          permission: permissionUsed, digest: digest, latency: Date().timeIntervalSince(started) * 1000)
             if outcome == .ok {
                 failures = 0
-                state.task?.canUndo = act.operation != .openApp
+                state.task?.canUndo = driver.supportsUndo(for: resolved.action)
             } else {
                 failures += 1
                 if failures >= maxConsecutiveFailures { return await finish(.failed, detail: "actions") }
@@ -342,9 +364,9 @@ public final class TaskLoop {
 
     /// Installed applications worth offering for this request: those whose
     /// names share a word with it, best first, never the one already in front.
-    static func appCandidates(_ apps: [String], goal: String, current: String, limit: Int = 10) -> [AppCandidate] {
+    static func appCandidates(_ apps: [String], goal: String, current: String, limit: Int = 10, alwaysOffered: [String] = []) -> [AppCandidate] {
         let words = Set(Tokens.words(goal))
-        guard !words.isEmpty else { return [] }
+        guard !words.isEmpty || !alwaysOffered.isEmpty else { return [] }
         var scored: [(String, Double)] = []
         for name in apps where name != current {
             let nameWords = Tokens.words(name)
@@ -354,6 +376,7 @@ public final class TaskLoop {
                 if words.contains(word) { score += 2 }
                 else if word.count >= 4, words.contains(where: { $0.count >= 4 && ($0.hasPrefix(word) || word.hasPrefix($0)) }) { score += 1 }
             }
+            if alwaysOffered.contains(name) { score = max(score, 1) }
             if score > 0 { scored.append((name, score / Double(nameWords.count))) }
         }
         scored.sort { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0 < $1.0 }

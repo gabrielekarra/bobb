@@ -38,14 +38,20 @@
     <key>NSHumanReadableCopyright</key>
     <string>© 2026 Gabriele Karra and contributors. MIT License.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
-    <string>Bobb reads your calendar on this Mac to brief you before meetings and to answer questions about your schedule. It never changes your calendar.</string>
+    <string>Bobb reads your calendar to prepare meeting briefs and uses it to create or change events you request, following your app boundaries.</string>
     <key>NSCalendarsUsageDescription</key>
-    <string>Bobb reads your calendar on this Mac to brief you before meetings. It never changes your calendar.</string>
+    <string>Bobb reads and updates events on this Mac when you request calendar work.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Bobb reads, creates and updates reminders you request, following your app boundaries.</string>
+    <key>NSRemindersUsageDescription</key>
+    <string>Bobb helps with your reminders on this Mac when you request it.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>Bobb searches contacts on this Mac to resolve exact people and addresses for your requests.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>When you talk to Bobb, it listens through the microphone. Your voice is turned into text on this Mac and never sent anywhere.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Bobb turns what you say into text on this Mac, with on-device recognition only. Nothing is sent to Apple or anyone else.</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Bobb reads Mail and uses Messages on this Mac unless you exclude them. Sending follows your allow, ask or never rules.</string>
+    <string>Bobb uses Mail, Messages and Music on this Mac for your requests, following your allow, ask or never rules.</string>
 </dict>
 </plist>

@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var downloader: ModelDownloader!
     private var permissions: Permissions!
     private var screenSensor: ScreenMemorySensor!
+    private let folderSensor = FolderMemorySensor()
     private var conversations = ConversationTracker()
     private var sentMail: SentMailSensor!
     private(set) var calendar: CalendarSensor!
@@ -101,6 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         calendar.permitted = { [weak self] in self?.permitsSensor("com.apple.iCal", "Calendar") ?? false }
         calendar.onEvent = { [weak coordinator] event in coordinator?.submit(event) }
         calendar.onMemory = { [weak coordinator] frame in coordinator?.observe(frame) }
+        folderSensor.settings = { [weak state] in state?.settings ?? BobbSettings() }
+        folderSensor.onMemory = { [weak coordinator] frame in coordinator?.observe(frame) }
 
         overlayController = OverlayController(state: state, coordinator: coordinator)
         draftPanel = DraftPanelController(state: state, coordinator: coordinator)
@@ -177,6 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tasks?.stop()
         coordinator?.stop()
         screenSensor?.stop()
+        folderSensor.stop()
         supervisor?.stop()
     }
 
@@ -206,6 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func syncSensors(_ settings: BobbSettings) {
+        folderSensor.configure()
         screenSensor.readImages = settings.readImages && settings.memoryEnabled
         let policy = ScreenMemoryPolicy(extraProtected: settings.extraProtectedApps)
         let mail = settings.bobb.boundaries.app(bundleId: "com.apple.mail", name: "Mail") != nil

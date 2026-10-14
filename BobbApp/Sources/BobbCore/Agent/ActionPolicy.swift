@@ -125,7 +125,8 @@ public struct ActionPolicy: Sendable {
 
     public func evaluate(operation: ActOperation, label: String, role: String, appBundleId: String?, appName: String,
                          secure: Bool = false, submit: Bool = false, multiline: Bool = false, window: String = "",
-                         key: KeyChord? = nil, defaultButton: String = "", context: String = "", typedText: String = "", websiteURL: String? = nil) -> Verdict {
+                         key: KeyChord? = nil, defaultButton: String = "", context: String = "", typedText: String = "", websiteURL: String? = nil,
+                         actionCategories: [ActionCategory]? = nil) -> Verdict {
         if isProtected(bundleId: appBundleId, appName: appName) {
             return .deny(reason: "protected")
         }
@@ -146,7 +147,7 @@ public struct ActionPolicy: Sendable {
         if let boundaries {
             // Explicit boundaries precede historical "always allow" rules.
             var review: Verdict = .allow
-            for category in Self.categories(operation: operation, label: label, app: appBundleId, submit: submit,
+            for category in actionCategories ?? Self.categories(operation: operation, label: label, app: appBundleId, submit: submit,
                                              key: key, defaultButton: defaultButton, inWebsite: websiteURL != nil) {
                 if let websiteURL, operation != .openApp {
                     let site = boundaries.evaluateWebsite(category: category, url: websiteURL, browserBundleId: appBundleId,
@@ -171,6 +172,13 @@ public struct ActionPolicy: Sendable {
         }
         if approval == .everyStep {
             return .ask(reason: Reason.everyStep.rawValue)
+        }
+        if let actionCategories {
+            // Tool effects are described by trusted adapters, not their labels.
+            for category in actionCategories where ![.navigate, .write].contains(category) {
+                return .ask(reason: "boundary:\(category.rawValue)")
+            }
+            return .allow
         }
         let messaging = appBundleId.map { Self.messagingApps.contains($0) } ?? false
         let terminal = appBundleId.map { Self.terminals.contains($0) } ?? false

@@ -69,3 +69,11 @@ iMessage con un account reale, installazione IPSW, SSH nel guest e checkpoint lo
 ## Mac consumer e inferenza locale
 
 Il riferimento di prodotto è un MacBook Air M4 con 16 GB di RAM. Qwen3.5 4B a 4 bit e Kev 4B a 8 bit sono condivisi tra i Bobb. Kev sostituisce il vecchio classificatore NumPy nel runtime del prodotto. Il primo avvio mostra solo l’icona nella barra dei menu; i modelli si preparano in background e i permessi macOS vengono richiesti quando servono. Le raccomandazioni di modelli più grandi lasciano spazio a macOS, contesto e app dell’utente. Non ci sono endpoint di inferenza remoti, impostazioni cloud o chiavi API per il modello. Il download iniziale dei pesi richiede la rete; siti, Messaggi e connettori opzionali usano i propri servizi di rete. Le prestazioni complete sul MacBook Air di riferimento devono ancora essere misurate.
+
+
+Le integrazioni native comprendono anche file e documenti nelle cartelle scelte,
+chat di gruppo e allegati di Messaggi, MCP locale/HTTP/SSE e accesso OAuth dal
+browser. Browser e strumenti possono alternarsi nello stesso incarico. Per
+copertura, limiti e verifiche concrete vedere [APP-INTEGRATIONS](APP-INTEGRATIONS.md).
+La valutazione di AirLLM e dei modelli più grandi è in
+[AIRLLM-EVALUATION](AIRLLM-EVALUATION.md); i modelli predefiniti restano invariati.

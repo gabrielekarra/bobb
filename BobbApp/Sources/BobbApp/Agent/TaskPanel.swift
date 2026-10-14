@@ -362,7 +362,8 @@ final class TaskController {
                                   extraProtected: settings.extraProtectedApps, boundaries: settings.bobb.boundaries)
         let cua = browser == nil ? CUANativeComputer(settings: { [weak self] in self?.state.settings ?? BobbSettings() },
                                                      ownsScreen: { ScreenLease.shared.owner == id }) : nil
-        let native = NativeComputer(primary:driver, fallback:cua)
+        let native = NativeComputer(primary:driver, fallback:cua,
+            settings: { [weak self] in self?.state.settings ?? BobbSettings() }, ownsScreen: { ScreenLease.shared.owner == id })
         let taskDriver: any TaskDriver = browser ?? native
         let loop = TaskLoop(goal: trimmed, state: state, brain: brainFactory?() ?? coordinator, driver: taskDriver, policy: policy, taskId: id)
         loop.currentPolicy = { [weak self] in

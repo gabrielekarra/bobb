@@ -1,1 +1,4 @@
-"NSAppleEventsUsageDescription" = "Bobb legge Mail e usa Messaggi sul Mac, rispettando le app escluse. L’invio segue le regole da solo, chiedi o mai.";
+"NSAppleEventsUsageDescription" = "Bobb usa Mail, Messaggi e Musica sul Mac per le tue richieste, rispettando le regole da solo, chiedi o mai.";
+"NSCalendarsFullAccessUsageDescription" = "Bobb legge il calendario e modifica gli eventi che richiedi, rispettando i confini delle app.";
+"NSRemindersFullAccessUsageDescription" = "Bobb legge, crea e modifica i promemoria che richiedi, rispettando i confini delle app.";
+"NSContactsUsageDescription" = "Bobb cerca nei contatti sul Mac per identificare persone e indirizzi esatti nelle tue richieste.";

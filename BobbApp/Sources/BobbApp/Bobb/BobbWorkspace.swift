@@ -75,7 +75,7 @@ final class BobbWorkspace {
         for execution in executions where !execution.finished {
             execution.loop.stop(); execution.task?.cancel()
             ScreenLease.shared.release(execution.id)
-            (execution.driver as? MCPComputer)?.close()
+            (execution.driver as? MCPComputer)?.shutdown()
         }
     }
     func settingsChanged() {
@@ -200,7 +200,10 @@ final class BobbWorkspace {
         case "desktop":
             guard AXIsProcessTrusted(), ScreenLease.shared.acquire(run.id) else { await fail(run, "The desktop is busy or Accessibility is unavailable."); return }
             let desktop = AXDriver(); desktop.settings = { [weak self] in self?.state.settings ?? BobbSettings() }
-            desktop.stillOwnsScreen = { ScreenLease.shared.owner == run.id }; driver = desktop
+            desktop.stillOwnsScreen = { ScreenLease.shared.owner == run.id }
+            let settings = { [weak self] in self?.state.settings ?? BobbSettings() }
+            let ownsScreen = { ScreenLease.shared.owner == run.id }
+            driver = NativeComputer(primary: desktop, fallback: CUANativeComputer(settings: settings, ownsScreen: ownsScreen), settings: settings, ownsScreen: ownsScreen)
         case "mcp":
             guard let config = state.settings.bobb.connectors.first(where: { $0.id == run.url && $0.enabled }),
                   state.settings.bobb.boundaries.app(bundleId: "mcp:\(config.id)", name: "MCP \(config.id)") != nil else {
@@ -244,7 +247,7 @@ final class BobbWorkspace {
     }
     func stop(_ execution: WorkExecution) {
         execution.loop.stop(); execution.task?.cancel()
-        (execution.driver as? MCPComputer)?.close()
+        (execution.driver as? MCPComputer)?.shutdown()
     }
     func allow(_ answer: PermissionAnswer, execution: WorkExecution) {
         if answer != .deny { execution.foreground = true }

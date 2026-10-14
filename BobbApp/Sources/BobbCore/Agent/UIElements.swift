@@ -112,7 +112,7 @@ public enum ElementClassifier {
         if textRoles.contains(element.role) || element.subrole == "AXSearchField" {
             return .text
         }
-        if element.role == "AXWebArea", element.valueSettable { return .text }
+        if ["AXWebArea", "AXSlider", "AXValueIndicator"].contains(element.role), element.valueSettable { return .text }
         if scrollRoles.contains(element.role) { return .scroll }
         if pressRoles.contains(element.role) { return .press }
         if element.actions.contains("AXPress") || element.actions.contains("AXPick") || element.actions.contains("AXOpen") {
