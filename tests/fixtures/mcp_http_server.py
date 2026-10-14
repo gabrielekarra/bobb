@@ -26,9 +26,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         for key, val in (headers or {}).items(): self.send_header(key, val)
         self.end_headers()
         if body: self.wfile.write(body)
-    def sse(self):
+    def sse(self, session=False):
         self.send_response(200); self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-store"); self.end_headers()
+        self.send_header("Cache-Control", "no-store")
+        if session: self.send_header("MCP-Session-Id", "fixture-session")
+        self.end_headers()
     def event(self, value, event="message"):
         data = value if isinstance(value, str) else json.dumps(value)
         self.wfile.write(f"event: {event}\ndata: {data}\n\n".encode()); self.wfile.flush()
@@ -92,7 +94,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             streams[dict(urllib.parse.parse_qsl(url.query))["session"]].put(reply)
             return self.response(202)
         if path == "/stream":
-            self.sse(); self.event(reply); self.close_connection = True; return
+            self.sse(session=True); self.event(reply); self.close_connection = True; return
         return self.response(200, reply, {"MCP-Session-Id": "fixture-session"})
 
 class FixtureServer(http.server.ThreadingHTTPServer):

@@ -145,9 +145,16 @@ final class UserBrowserComputer: TaskDriver {
         let result = await native.perform(action)
         if result == .ok {
             mayNavigateUntil = Date().addingTimeInterval(10)
-            if let raised = native.raisedWindow, let pid = expectedPID,
-               let focused = AX.element(AX.application(pid), "AXFocusedWindow"), CFEqual(raised, focused) {
-                expectedWindow = raised; currentURL = nil
+            if let raised = native.raisedWindow, let pid = expectedPID {
+                var verified = false
+                for _ in 0..<10 {
+                    guard ownsScreen(), !Task.isCancelled, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return .stale }
+                    if let focused = AX.element(AX.application(pid), "AXFocusedWindow"), CFEqual(raised, focused) {
+                        expectedWindow = raised; currentURL = nil; verified = true; break
+                    }
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+                guard verified else { return .failed("windowActivationUnverified") }
             }
         }
         if case .openApp = action, result == .ok, !native.usingTools { bindForeground() }
