@@ -10,6 +10,7 @@ func runIntegrationSmokeCheck() {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("bobb-integrations-" + UUID().uuidString)
         let process = Process()
         var outcome: Int32 = 0
+        var stage = "native files"
         do {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
@@ -30,6 +31,7 @@ func runIntegrationSmokeCheck() {
             grants.removeAll()
             do { _ = try files.execute(tool("files.read"), ["file_id": id]); throw NativeAppTools.Failure.unavailable("revoked folder was read") }
             catch { try require(String(describing: error) != "revoked folder was read", "folder revocation") }
+            stage = "Messages fixture"
             let dbURL = root.appendingPathComponent("messages.db")
             var db: OpaquePointer?
             guard sqlite3_open(dbURL.path, &db) == SQLITE_OK, let db else { throw ConnectorError.response }
@@ -57,22 +59,24 @@ func runIntegrationSmokeCheck() {
             try require(content["items"]?.arrayValue?.first?["text"] == .string("fixture text"), "group text")
             do { _ = try messages.execute(tool("messages.send"), ["chat_id": chatID, "members": ["wrong@example.invalid"], "body": "never send"]); throw ConnectorError.response }
             catch { try require(String(describing: error).contains("complete exact"), "recipient mismatch blocked") }
+            stage = "HTTP fixture startup"
             guard let fixtureIndex = CommandLine.arguments.firstIndex(of: "--check-integrations"), CommandLine.arguments.count > fixtureIndex + 1 else { throw ConnectorError.configuration }
-            let fixture = CommandLine.arguments[fixtureIndex + 1]
+            let fixture = URL(fileURLWithPath: CommandLine.arguments[fixtureIndex + 1]).standardizedFileURL.path
             let portFile = root.appendingPathComponent("port")
             process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["BOBB_TEST_PYTHON"] ?? "/usr/bin/python3")
             process.arguments = [fixture, portFile.path]
             process.environment = ["PATH": "/usr/bin:/bin", "HOME": NSHomeDirectory()]
-            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.standardError
             try process.run(); defer { if process.isRunning { process.terminate() } }
             var port: Int?
             for _ in 0..<200 {
                 port = (try? String(contentsOf: portFile, encoding: .utf8)).flatMap { Int($0) }
                 if port != nil { break }; try await Task.sleep(for: .milliseconds(25))
             }
-            guard let port else { throw ConnectorError.response }
+            guard let port else { throw NativeAppTools.Failure.unavailable("Fixture did not publish a port; exit status \(process.isRunning ? "running" : String(process.terminationStatus))") }
             let origin = "http://127.0.0.1:\(port)"
             for (path, transport) in [("/mcp", MCPTransportKind.http), ("/stream", .http), ("/legacy", .sse), ("/fallback", .http)] {
+                stage = "transport " + path
                 let connection = MCPConnection(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, excludedTools: ["delayed"], transport: transport, endpoint: origin + path))
                 defer { connection.disconnect() }
                 try await connection.connect(); try require(connection.tools.count == 1, "pagination/exclusion " + path)
@@ -80,11 +84,13 @@ func runIntegrationSmokeCheck() {
                 try require(result["structuredContent"]?["sentinel"] == .string("local-only"), "transport " + path)
             }
             for path in ["/unauthorized", "/redirect"] {
+                stage = "transport " + path
                 let connection = MCPConnection(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, transport: .http, endpoint: origin + path))
                 do { try await connection.connect(); throw NativeAppTools.Failure.unavailable("unexpected success") }
                 catch { try require(String(describing: error) != "unexpected success", "unauthorized/redirect") }
                 connection.disconnect()
             }
+            stage = "MCP tool staging"
             let staged = MCPComputer(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, excludedTools: ["delayed"], transport: .http, endpoint: origin + "/mcp"), goal: "echo", enabled: { true })
             _ = await staged.observe()
             try require(await staged.perform(.press(key: 0)) == .ok, "MCP tool selection")
@@ -93,23 +99,26 @@ func runIntegrationSmokeCheck() {
             let stagedResult = await staged.observe()
             try require(stagedResult?.screenText.contains("prepared") == true, "MCP result observation")
             await staged.close()
+            stage = "cancellation"
             let delayed = MCPConnection(configuration: MCPConfiguration(id: "fixture", executable: "", enabled: true, transport: .http, endpoint: origin + "/mcp"))
             try await delayed.connect()
             let request = Task { try await delayed.call(name: "delayed", arguments: [:]) }
             try await Task.sleep(for: .milliseconds(100)); let start = Date(); request.cancel()
             do { _ = try await request.value; throw ConnectorError.response } catch is CancellationError {} catch { throw error }
             try require(Date().timeIntervalSince(start) < 2, "request cancellation"); delayed.disconnect()
+            stage = "OAuth login"
             let oauth = MCPConfiguration(id: "fixture-oauth", executable: "", enabled: true, transport: .http, endpoint: origin + "/oauth/mcp", oauth: MCPOAuthConfiguration())
             defer { MCPOAuth.logout(oauth) }
             try await MCPOAuth.login(oauth) { url in
                 do { _ = try await URLSession.shared.data(from: url); return true } catch { return false }
             }
+            stage = "OAuth refresh and requests"
             let authenticated = MCPConnection(configuration: oauth); defer { authenticated.disconnect() }
             try await authenticated.connect(); try require(authenticated.tools.count == 2, "OAuth PKCE and refresh")
             print("Integration checks passed: files, messages, HTTP/SSE, OAuth, cancellation.")
         } catch {
             if process.isRunning { process.terminate() }
-            print("Integration check failed: \(error)"); outcome = 1
+            print("Integration check failed at \(stage): \(error)"); outcome = 1
         }
         exit(outcome)
     }
